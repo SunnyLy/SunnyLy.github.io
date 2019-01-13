@@ -116,7 +116,7 @@
         var data = res.list[j].arr;
         var liTmpl = "";
         for (var i = 0, len = data.link.length; i < len; i++) {
-          var minSrc = 'https://github.com/SunnyLy/sunnyPhotoes/tree/master/sunnyPhotoes/min_photos/' + data.link[i] + '.min.jpg';
+          var minSrc = 'https://github.com/SunnyLy/sunnyPhotoes/tree/master/sunnyPhotoes/min_photos/' + data.link[i];
           var src = 'https://github.com/SunnyLy/sunnyPhotoes/tree/master/sunnyPhotoes/photos/' + data.link[i];
           var type = data.type[i];
           var target = src + (type === 'video' ? '.mp4' : '.jpg');
