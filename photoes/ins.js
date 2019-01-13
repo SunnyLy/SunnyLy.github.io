@@ -80,7 +80,7 @@
     }
 
     /**
-     * @name impush-client 
+     * @name impush-client
      * @description 这个项目让我发家致富…
      * @date 2016-12-1
      */
@@ -116,8 +116,8 @@
         var data = res.list[j].arr;
         var liTmpl = "";
         for (var i = 0, len = data.link.length; i < len; i++) {
-          var minSrc = 'http://litten.me/ins-min/' + data.link[i] + '.min.jpg';
-          var src = 'http://litten.me/ins/' + data.link[i];
+          var minSrc = 'https://github.com/SunnyLy/sunnyPhotoes/tree/master/sunnyPhotoes/min_photoes/' + data.link[i] + '.min.jpg';
+          var src = 'https://github.com/SunnyLy/sunnyPhotoes/tree/master/sunnyPhotoes/photoes/' + data.link[i];
           var type = data.type[i];
           var target = src + (type === 'video' ? '.mp4' : '.jpg');
           src += '.jpg';
@@ -335,7 +335,7 @@
 
     var initPhotoSwipeFromDOM = function initPhotoSwipeFromDOM(gallerySelector) {
 
-      // parse slide data (url, title, size ...) from DOM elements 
+      // parse slide data (url, title, size ...) from DOM elements
       // (children of gallerySelector)
       var parseThumbnailElements = function parseThumbnailElements(el) {
         el = el.parentNode.parentNode;
@@ -352,14 +352,14 @@
 
         for (var i = 0; i < numNodes; i++) {
 
-          figureEl = thumbElements[i]; // 
+          figureEl = thumbElements[i]; //
 
-          // include only element nodes 
+          // include only element nodes
           if (figureEl.nodeType !== 1) {
             continue;
           }
 
-          linkEl = figureEl.children[0]; // 
+          linkEl = figureEl.children[0]; //
 
           size = linkEl.getAttribute('data-size').split('x');
           type = linkEl.getAttribute('data-type');
@@ -503,7 +503,7 @@
         // PhotoSwipe opened from URL
         if (fromURL) {
           if (options.galleryPIDs) {
-            // parse real index when custom PIDs are used 
+            // parse real index when custom PIDs are used
             // http://photoswipe.com/documentation/faq.html#custom-pid-in-url
             for (var j = 0; j < items.length; j++) {
               if (items[j].pid == index) {
