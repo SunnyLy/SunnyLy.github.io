@@ -2,7 +2,7 @@
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "com.tianyu.install.demo",
+    "package_name": "com.tianyu.install",
     "sha256_cert_fingerprints":
     ["BD:9F:4B:88:5E:29:D7:3C:4C:A9:2E:4E:0A:45:6E:51:8E:EC:0A:63:84:D7:37:49:31:76:32:A4:EE:EC:8A:AE"]
   }
