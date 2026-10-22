@@ -1,0 +1,50 @@
+export interface KnowledgeSection {
+  id: string
+  title: string
+  en: string
+  description: string
+  link: string
+  items: { text: string; link: string; description?: string }[]
+}
+
+// Shared by the home page and navigation. Derive counts from this array.
+export const knowledgeSections: KnowledgeSection[] = [
+  {
+    id: 'android',
+    title: 'Android',
+    en: 'PLATFORM & INTERNALS',
+    description: '从组件协作到系统机制，理解 Android 行为背后的原因。',
+    link: '/android/',
+    items: [],
+  },
+  {
+    id: 'security',
+    title: '安全',
+    en: 'BOUNDARIES & TRUST',
+    description: '从输入、身份与权限出发，建立可验证的安全边界。',
+    link: '/security/',
+    items: [],
+  },
+  {
+    id: 'reverse',
+    title: '逆向',
+    en: 'EVIDENCE & REASONING',
+    description: '让观察、假设与证据分开记录，让结论可以复查。',
+    link: '/reverse/',
+    items: [],
+  },
+  {
+    id: 'tools',
+    title: '工具与实践',
+    en: 'WORKFLOW & FIELD NOTES',
+    description: '整理方法、阅读图示与记录过程，把经验变成可复用的笔记。',
+    link: '/tools/',
+    items: [
+      {
+        text: 'App 网络请求抓包',
+        link: '/tools/app-network-capture.html',
+        description: '使用 Clash 与 mitmweb 抓包，下载配置并理解代理链路。',
+      },
+    ],
+  },
+]

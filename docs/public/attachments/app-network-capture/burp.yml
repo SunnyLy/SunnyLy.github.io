@@ -1,0 +1,17 @@
+port: 7890
+socks-port: 7891
+redir-port: 7892
+allow-lan: false
+mode: Global
+log-level: silent
+proxies:
+  - name: "burp"
+    type: http
+    server: 192.168.20.195
+    port: 8080
+
+proxy-groups:
+  - { name: '♻️ 手动切换', type: select, proxies: [DIRECT,'burp'] }
+
+rules:
+  - MATCH,♻️ 手动切换
