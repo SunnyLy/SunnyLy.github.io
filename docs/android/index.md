@@ -24,6 +24,8 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 [Compose State 原理：从 Kotlin 委托到 Snapshot 与重组](./kotlin/compose-state.html)拆解 remember、MutableState、动态读取依赖和 Snapshot 提交通知，解释重组、布局、绘制的不同触发边界。
 
+[Compose 渲染流程：从编译改写到屏幕呈现](./kotlin/compose-rendering.html)串联 Compiler、Runtime、LayoutNode 与 AndroidComposeView，区分组合记录、布局树、绘制入口与显示呈现。
+
 ## 工具与实践
 
 网络观察相关的工具记录见 [App 网络请求抓包](/tools/app-network-capture.html)。

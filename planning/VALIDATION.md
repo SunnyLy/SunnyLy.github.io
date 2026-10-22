@@ -120,3 +120,17 @@
 - 浏览器确认 3 张 Mermaid 图均生成 SVG、无渲染错误，4 处 Kotlin 代码高亮；查看器由 100% 放大到 130%，复位到 100% 并关闭；中文搜索“读取链”命中新文章并跳转第 4 节。
 - 手机窄屏实际 DOM 宽度 416px，分类目录和查看器打开时 433px，均无整页横向溢出；Framework / Kotlin 分组各一个，新文章分类入口可点击。此为 DOM 和交互验证，不等同于截图视觉验收或物理触控测试。
 - 未修改已有 `AGENTS.md`，未执行提交、推送或线上发布。
+
+## GitHub Pages 发布：ServiceManager 与 Compose State
+
+- 按用户发布指令提交并推送 `796bd3680660ec56e1b31a18ca9e0090ae0f8541`；GitHub Actions [39750659574](https://github.com/SunnyLy/SunnyLy.github.io/actions/runs/39750659574) 的 build、deploy 均成功。
+- 线上 ServiceManager 与 Compose State 页面均返回 HTTP 200，各有 3 张 Mermaid SVG、无图表渲染错误；Framework / Kotlin 分类入口正常。
+
+## Compose 渲染流程笔记
+
+- 读取钉钉原文文字与内嵌主流程图，新建 `docs/android/kotlin/compose-rendering.md`，接入 Android / Kotlin 分类和概览入口。原截图涉及的实现说明改用核验后的源码解释与重绘流程图，未归档原截图。
+- 固定 AndroidX 提交 `a7537bce15de1ae43654cfcfdbb115211977a632`，17 个源码链接全部固定到该提交。文章共 10 节、3 张 Mermaid 图，修正编译期创建布局节点、SlotTable 直接绘制等表述，补充 `dispatchDraw` 到节点绘制及屏幕呈现的边界。
+- 最终构建通过：15 个知识库 HTML 页面、54 个旧站文件哈希一致；6 项自动测试通过。保留既有大分块提示。
+- 浏览器确认 3 张流程图生成 SVG、无图表渲染错误；手机分类中 Kotlin 分组及文章入口可点击，中文搜索“绘图清单”命中并跳转第 2 节；图表查看器由 100% 放大至 130%，复位至 100% 后关闭。
+- 手机窄屏实际 DOM 宽度 416px，分类目录和查看器打开时 433px，均无整页横向溢出。以上为 DOM 和交互验证，未进行截图视觉验收、Android 示例编译或真机运行验证。
+- 本篇为本地待发布内容，未提交或推送；未修改已有 `AGENTS.md`。

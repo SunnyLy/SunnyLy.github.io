@@ -52,6 +52,12 @@ export const knowledgeSections: KnowledgeSection[] = [
         link: '/android/kotlin/compose-state.html',
         description: '从属性委托到 Snapshot 读写，追踪动态依赖、作用域失效和重组调度。',
       },
+      {
+        text: 'Compose 渲染流程',
+        group: 'Kotlin',
+        link: '/android/kotlin/compose-rendering.html',
+        description: '串联编译改写、运行时节点、测量布局、Android 绘制与显示边界。',
+      },
     ],
   },
   {
