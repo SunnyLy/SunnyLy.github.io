@@ -1,6 +1,26 @@
-import { defineConfig } from 'vitepress'
+import { defineConfig, type DefaultTheme } from 'vitepress'
 import { knowledgeSections } from './navigation'
 import { tokenize } from './search.mjs'
+
+function sectionSidebar(section: (typeof knowledgeSections)[number]): DefaultTheme.SidebarItem[] {
+  const items: DefaultTheme.SidebarItem[] = []
+  const groups = new Map<string, DefaultTheme.SidebarItem>()
+  for (const { text, link, group } of section.items) {
+    const article = { text, link }
+    if (!group) {
+      items.push(article)
+      continue
+    }
+    let parent = groups.get(group)
+    if (!parent) {
+      parent = { text: group, collapsed: false, items: [] }
+      groups.set(group, parent)
+      items.push(parent)
+    }
+    parent.items!.push(article)
+  }
+  return items
+}
 
 export default defineConfig({
   lang: 'zh-CN',
@@ -34,7 +54,7 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: `${section.title}概览`, link: section.link },
-          ...section.items.map(({ text, link }) => ({ text, link }))
+          ...sectionSidebar(section)
         ]
       }))
     ],

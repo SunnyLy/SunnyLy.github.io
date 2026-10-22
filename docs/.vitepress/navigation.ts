@@ -4,7 +4,7 @@ export interface KnowledgeSection {
   en: string
   description: string
   link: string
-  items: { text: string; link: string; description?: string }[]
+  items: { text: string; link: string; description?: string; group?: string }[]
 }
 
 // Shared by the home page and navigation. Derive counts from this array.
@@ -15,7 +15,14 @@ export const knowledgeSections: KnowledgeSection[] = [
     en: 'PLATFORM & INTERNALS',
     description: '从组件协作到系统机制，理解 Android 行为背后的原因。',
     link: '/android/',
-    items: [],
+    items: [
+      {
+        text: 'Binder 机制',
+        group: 'Framework',
+        link: '/android/framework/binder-mechanism.html',
+        description: '从 AIDL 到内核事务，理解服务发现、线程、内存与调用身份。',
+      },
+    ],
   },
   {
     id: 'security',

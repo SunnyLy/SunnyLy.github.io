@@ -53,3 +53,23 @@
 - 首页阅读入口改为从全部分类中查找首篇正式笔记，当前指向 App 网络请求抓包；空分类明确显示整理状态。
 - 再次通过构建、6 项测试与附件逐字节校验；生产首页不存在已删除示例的链接。
 - 已通过 GitHub API 核对仓库推送权限、Actions 启用状态与发布源，当前 Pages 为 legacy 模式，无自定义域名；待切换 workflow 并发布。
+
+## GitHub Pages 首次发布
+
+- 上述发布前状态已完成切换：Pages 使用 workflow，无自定义域名。提交 `a153bf89f1da1ef931acb2f084f3f89b4dfa2873` 的 [Actions 39719221432](https://github.com/SunnyLy/SunnyLy.github.io/actions/runs/39719221432) 成功。
+- 线上首页与抓包笔记返回 200，已删除的图文示例返回 404；线上 `burp.yml` 为 304 字节，SHA-256 与仓库原件一致。
+
+## Framework Binder 笔记
+
+- 新增正式文章 `docs/android/framework/binder-mechanism.md`，接入 Android 分类与侧栏；以 `android-16.0.0_r1` 和独立内核标签 `android16-6.12-2025-06_r1` 为源码基线，不宣称二者是实测设备组合。
+- AOSP 调用链与独立并发/身份审校均通过；复核修正事务码是 `transact()` 独立参数的表述，并明确 `getCallingPid()` 返回 0 的条件。
+- 构建通过：9 个知识库 HTML 页面、54 个旧站文件哈希一致；6 项自动测试通过。
+- 浏览器确认三张 Mermaid 图均生成 SVG，查看器可打开与关闭，缩放由 100% 调至 130% 后可复位至 100%；手机窄屏实际 DOM 宽度 416px，无整页横向溢出。中文“同步重入”命中该文章及正文小节。
+- 本次为源码与文档核对，未执行文章中的设备命令；浏览器截图能力受限，不将 DOM 检查表述为截图视觉验收。
+
+## Framework 分类发布检查
+
+- 按用户要求将侧栏组织为 Android → Framework → Binder 机制；文章保存在 `docs/android/framework/binder-mechanism.md`，URL 保持 `/android/framework/binder-mechanism.html`。
+- 分组从导航的共享文章数据生成，同一分组内的新文章会合并到同一目录；首页文章入口仍从该数据派生。
+- 构建和 6 项测试通过，9 个知识库页面及 54 个旧站文件校验通过；浏览器确认 Framework 可折叠、展开并显示 Binder 入口。
+- 用户已明确授权此次发布，使用现有 GitHub Pages Actions 流程。

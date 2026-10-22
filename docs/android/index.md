@@ -6,9 +6,11 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 理解平台行为，比记住某个调用方式更重要。这里从可解释、可验证的小问题出发，整理组件协作、进程通信和系统机制。
 
-## 内容整理中
+## Framework
 
-本分类暂未收录正式笔记。现有的 [App 网络请求抓包](/tools/app-network-capture.html)整理了手机 Clash 配置、抓包证书和 mitmweb 的使用方法，可从实际工具操作开始阅读。
+[Binder 机制：从 AIDL 到内核事务](./framework/binder-mechanism.html)以固定 AOSP 与内核源码串联服务发现、Java/JNI 调用链、Parcel、线程模型和调用身份，区分源码结论与设备验证。
+
+网络观察相关的工具记录见 [App 网络请求抓包](/tools/app-network-capture.html)。
 
 ## 笔记的组织方式
 
