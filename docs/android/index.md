@@ -12,6 +12,8 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 [SurfaceFlinger 与 VSYNC：从硬件节拍到一帧呈现](./framework/surfaceflinger-vsync.html)连接显示驱动、Composer HAL、VSYNC 预测、应用 Choreographer、BLAST 与合成管线，说明提交、呈现和缓冲区复用的时间边界。
 
+[Android Token 原理：从 Activity 启动到窗口归属](./framework/activity-token.html)区分活动、窗口和输入通道身份，沿启动事务、窗口校验、生命周期回报与重建追踪同一份 Binder 引用。
+
 网络观察相关的工具记录见 [App 网络请求抓包](/tools/app-network-capture.html)。
 
 ## 笔记的组织方式

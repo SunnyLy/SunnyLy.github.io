@@ -28,6 +28,12 @@ export const knowledgeSections: KnowledgeSection[] = [
         link: '/android/framework/surfaceflinger-vsync.html',
         description: '从硬件节拍到应用帧调度、缓冲区提交与显示呈现。',
       },
+      {
+        text: 'Android Token 原理',
+        group: 'Framework',
+        link: '/android/framework/activity-token.html',
+        description: '跟踪 Activity 身份、启动事务、窗口归属与实例重建的边界。',
+      },
     ],
   },
   {
