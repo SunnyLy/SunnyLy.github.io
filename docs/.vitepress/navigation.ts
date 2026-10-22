@@ -74,7 +74,14 @@ export const knowledgeSections: KnowledgeSection[] = [
     en: 'EVIDENCE & REASONING',
     description: '让观察、假设与证据分开记录，让结论可以复查。',
     link: '/reverse/',
-    items: [],
+    items: [
+      {
+        text: 'Web JS 逆向',
+        group: 'Web',
+        link: '/reverse/web-js-reverse.html',
+        description: '从 WebView 调试、断点与 Hook 到请求链路、数据变换及证据验证。',
+      },
+    ],
   },
   {
     id: 'tools',
