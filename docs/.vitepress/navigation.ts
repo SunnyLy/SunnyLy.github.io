@@ -34,6 +34,12 @@ export const knowledgeSections: KnowledgeSection[] = [
         link: '/android/framework/activity-token.html',
         description: '跟踪 Activity 身份、启动事务、窗口归属与实例重建的边界。',
       },
+      {
+        text: 'ClientTransaction 机制',
+        group: 'Framework',
+        link: '/android/framework/client-transaction.html',
+        description: '理解事务归并、线程切换、逐项执行与生命周期状态迁移。',
+      },
     ],
   },
   {

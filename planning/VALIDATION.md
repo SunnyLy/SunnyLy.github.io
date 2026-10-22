@@ -91,3 +91,12 @@
 - 最终构建通过：11 个知识库页面、54 个旧站文件哈希一致；6 项自动测试通过，`git diff --check` 无空白错误。
 - 浏览器确认三张 Mermaid 图生成 SVG 且无错误，身份往返图查看器由 100% 放大至 130% 后成功复位并关闭；正文“层级有效性”可命中新文章并跳转第 9 节锚点。
 - 窄屏实际 DOM 宽度 416px 与分类导航展开后的 433px 均无整页横向溢出，Framework 分组只有一个，新文章入口可点击；DOM 检查不等同于截图视觉验收。
+
+## ClientTransaction 机制笔记
+
+- 已完整读取钉钉原文至第 21 节及参考索引，新增 `docs/android/framework/client-transaction.md`，接入 Android → Framework 与分类概览，并交叉链接 Token、Binder 和 SurfaceFlinger 文章。
+- 固定 `android-16.0.0_r1` 核对统一 item 列表、跨 Activity 归并、独立立即发送、布局派发、preExecute 线程边界、生命周期补齐与缺失记录分支；三张图分别展示继承、线程时序和 Resume 路径示例。
+- 明确 Pause 同步回报、其他三类回报 oneway、StopInfo 延后上报和 finishing 条件下的销毁回报；未执行设备查询或虚构日志与耗时。
+- 最终构建通过：12 个知识库页面、54 个旧站文件哈希一致；6 项自动测试通过，`git diff --check` 无空白错误。
+- 浏览器确认 3 张 Mermaid 图生成 SVG 且无错误，类图查看器由 100% 放大至 130% 后复位并关闭；中文正文“待发队列”命中新文章并跳转第 4 节。
+- 窄屏实际 DOM 宽度 416px 与分类导航展开后的 433px 均无整页横向溢出，Framework 分组唯一，新文章入口可点击；DOM 检查不等同于截图视觉验收。

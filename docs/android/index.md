@@ -14,6 +14,8 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 [Android Token 原理：从 Activity 启动到窗口归属](./framework/activity-token.html)区分活动、窗口和输入通道身份，沿启动事务、窗口校验、生命周期回报与重建追踪同一份 Binder 引用。
 
+[ClientTransaction 机制：从跨进程调度到生命周期状态机](./framework/client-transaction.html)串联服务端批量派发、Binder 接收与主线程执行，解释生命周期补齐、状态回报及异常处理边界。
+
 网络观察相关的工具记录见 [App 网络请求抓包](/tools/app-network-capture.html)。
 
 ## 笔记的组织方式
