@@ -40,6 +40,18 @@ export const knowledgeSections: KnowledgeSection[] = [
         link: '/android/framework/client-transaction.html',
         description: '理解事务归并、线程切换、逐项执行与生命周期状态迁移。',
       },
+      {
+        text: 'ServiceManager 与 AIDL',
+        group: 'Framework',
+        link: '/android/framework/service-manager-aidl.html',
+        description: '区分系统服务发现与应用绑定，理解接口、缓存、权限和连接生命周期。',
+      },
+      {
+        text: 'Compose State 原理',
+        group: 'Kotlin',
+        link: '/android/kotlin/compose-state.html',
+        description: '从属性委托到 Snapshot 读写，追踪动态依赖、作用域失效和重组调度。',
+      },
     ],
   },
   {

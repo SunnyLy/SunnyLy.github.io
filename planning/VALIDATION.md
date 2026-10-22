@@ -100,3 +100,23 @@
 - 最终构建通过：12 个知识库页面、54 个旧站文件哈希一致；6 项自动测试通过，`git diff --check` 无空白错误。
 - 浏览器确认 3 张 Mermaid 图生成 SVG 且无错误，类图查看器由 100% 放大至 130% 后复位并关闭；中文正文“待发队列”命中新文章并跳转第 4 节。
 - 窄屏实际 DOM 宽度 416px 与分类导航展开后的 433px 均无整页横向溢出，Framework 分组唯一，新文章入口可点击；DOM 检查不等同于截图视觉验收。
+
+## ServiceManager 与 AIDL 笔记
+
+- 已完整读取钉钉原文至第 21 节及参考索引，新增 `docs/android/framework/service-manager-aidl.md`，接入 Android → Framework 与分类概览，交叉链接 Binder 与 Token 文章；未改动已有 `AGENTS.md`。
+- 固定 `android-16.0.0_r1` 核对 Java / native backend 适配、get/check/wait、两层缓存、Power 发布、LocalServices、AIDL 生成器和应用绑定链，校正 AIDL 必须依赖 Service 组件等过度概括。
+- 两轮只读源码审校通过；修正绑定时序图中 oneway 调度与主线程执行的关系，明确记录 Token / 业务 Binder、连接清理、业务权限和调用身份边界。未执行设备查询或宣称设备实测。
+- 最终构建通过：13 个知识库页面、54 个旧站文件哈希一致；6 项自动测试通过，`git diff --check` 无空白错误。AIDL 示例采用 Java 高亮，不再产生不支持语言的回退提示；构建仍有既有大分块提示。
+- 浏览器确认 3 张 Mermaid 图生成 SVG 且无渲染错误；时序图查看器由 100% 放大至 130%，复位至 100% 并关闭；中文搜索“两层缓存”命中新文章并跳转对应章节。
+- 窄屏实际 DOM 宽度 416px、分类导航展开及查看器打开时 433px 均无整页横向溢出；Framework 分组唯一，新文章入口可点击。以上为 DOM 与交互检查，不等同于截图视觉验收或物理触控验证。
+- 按本轮最新安全规则保留本地变更，未执行 git commit、git push 或线上发布。
+
+## Kotlin 分类与 Compose State 笔记
+
+- 完整读取钉钉原文至第 24 节与结尾，新建 `docs/android/kotlin/compose-state.md`；Android 导航新增与 Framework 同级的 Kotlin 分组，分类概览增加入口，保留上一轮 ServiceManager 本地变更。
+- 固定 AndroidX 提交 `a7537bce15de1ae43654cfcfdbb115211977a632` 核对状态工厂、委托、缓存、Snapshot 读写、策略、动态依赖、提交与 Recomposer；21 个源码链接均指向该提交。明确其为源码快照，未声称稳定库版本或 Android 设备版本。
+- 整理为 11 节，补充 3 张图与 Kotlin 示例；修正参数读取的作用域、SnapshotStateObserver 与组合观察的分工，以及状态变化不一定先重组等表述。未在 Android 工程编译示例或进行真机运行验证。
+- 最终构建通过：14 个知识库 HTML 页面、54 个旧站文件哈希一致；6 项自动测试通过，`git diff --check` 无空白错误。构建仍有既有大分块提示。
+- 浏览器确认 3 张 Mermaid 图均生成 SVG、无渲染错误，4 处 Kotlin 代码高亮；查看器由 100% 放大到 130%，复位到 100% 并关闭；中文搜索“读取链”命中新文章并跳转第 4 节。
+- 手机窄屏实际 DOM 宽度 416px，分类目录和查看器打开时 433px，均无整页横向溢出；Framework / Kotlin 分组各一个，新文章分类入口可点击。此为 DOM 和交互验证，不等同于截图视觉验收或物理触控测试。
+- 未修改已有 `AGENTS.md`，未执行提交、推送或线上发布。

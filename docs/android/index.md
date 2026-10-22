@@ -16,6 +16,16 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 [ClientTransaction 机制：从跨进程调度到生命周期状态机](./framework/client-transaction.html)串联服务端批量派发、Binder 接收与主线程执行，解释生命周期补齐、状态回报及异常处理边界。
 
+[ServiceManager 与 AIDL：系统服务和应用绑定的两条路径](./framework/service-manager-aidl.html)对照系统服务注册、目录查找与应用绑定，解释 Stub / Proxy、本地优化、线程、权限和断连处理。
+
+## Kotlin
+
+从 Kotlin 语法与 Android 开发中的实际机制出发，区分语言能力、状态模型和库运行时。
+
+[Compose State 原理：从 Kotlin 委托到 Snapshot 与重组](./kotlin/compose-state.html)拆解 remember、MutableState、动态读取依赖和 Snapshot 提交通知，解释重组、布局、绘制的不同触发边界。
+
+## 工具与实践
+
 网络观察相关的工具记录见 [App 网络请求抓包](/tools/app-network-capture.html)。
 
 ## 笔记的组织方式
