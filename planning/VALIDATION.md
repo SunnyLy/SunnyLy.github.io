@@ -73,3 +73,12 @@
 - 分组从导航的共享文章数据生成，同一分组内的新文章会合并到同一目录；首页文章入口仍从该数据派生。
 - 构建和 6 项测试通过，9 个知识库页面及 54 个旧站文件校验通过；浏览器确认 Framework 可折叠、展开并显示 Binder 入口。
 - 用户已明确授权此次发布，使用现有 GitHub Pages Actions 流程。
+
+## SurfaceFlinger 与 VSYNC 笔记
+
+- 已读取钉钉原文至源码索引，新增 `docs/android/framework/surfaceflinger-vsync.md`，并接入同一 Framework 分组及 Android 概览。
+- AOSP 调用链与独立应用/缓冲区审校均通过；统一采用 `android-16.0.0_r1`，明确 DRM 参考实现、合成时间戳回退和厂商边界。
+- 补充 Composer 会话与反向回调、BitTube/Looper、BLAST、composer3 命令批处理和 fence 契约；deadline 使用绝对时刻表述，区分预算与实际完成。
+- 构建通过：10 个知识库页面、54 个旧站文件哈希一致；6 项自动测试通过，`git diff --check` 无空白错误。
+- 浏览器确认 3 张 Mermaid 图均生成 SVG；反向回调时序图可从 100% 放大至 130% 并复位。窄屏实际 DOM 宽度 416px，无整页横向溢出；中文“反向回调”可命中正文并跳到对应锚点。
+- 未执行文章中的设备查询或采集命令；DOM 检查不等同于截图视觉验收。使用现有 Pages 工作流继续发布。

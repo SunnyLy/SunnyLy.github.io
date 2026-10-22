@@ -22,6 +22,12 @@ export const knowledgeSections: KnowledgeSection[] = [
         link: '/android/framework/binder-mechanism.html',
         description: '从 AIDL 到内核事务，理解服务发现、线程、内存与调用身份。',
       },
+      {
+        text: 'SurfaceFlinger 与 VSYNC',
+        group: 'Framework',
+        link: '/android/framework/surfaceflinger-vsync.html',
+        description: '从硬件节拍到应用帧调度、缓冲区提交与显示呈现。',
+      },
     ],
   },
   {

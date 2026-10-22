@@ -10,6 +10,8 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 [Binder 机制：从 AIDL 到内核事务](./framework/binder-mechanism.html)以固定 AOSP 与内核源码串联服务发现、Java/JNI 调用链、Parcel、线程模型和调用身份，区分源码结论与设备验证。
 
+[SurfaceFlinger 与 VSYNC：从硬件节拍到一帧呈现](./framework/surfaceflinger-vsync.html)连接显示驱动、Composer HAL、VSYNC 预测、应用 Choreographer、BLAST 与合成管线，说明提交、呈现和缓冲区复用的时间边界。
+
 网络观察相关的工具记录见 [App 网络请求抓包](/tools/app-network-capture.html)。
 
 ## 笔记的组织方式
