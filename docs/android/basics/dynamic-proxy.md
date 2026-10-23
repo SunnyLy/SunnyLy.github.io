@@ -31,6 +31,66 @@ sequenceDiagram
 
 代理类只实现指定接口，不能凭此覆盖任意具体类的 final 方法，也不会经过目标对象内部对自身方法的直接调用。接口默认方法是否委派给目标、是否执行额外策略，需要处理器明确决定，不能假定运行时替业务作出选择。
 
+## 最小可运行示例：代理调用真实对象
+
+保存为 `ProxyDemo.java`。示例只使用 Java 标准 API，可以先在桌面 JDK 中运行；在 Android 中，将 `main()` 内的创建和调用代码放进业务方法，`main()` 本身不是 Android 组件入口。
+
+```java
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+
+public final class ProxyDemo {
+    public interface Greeter {
+        String hello(String name);
+    }
+
+    public static final class RealGreeter implements Greeter {
+        @Override public String hello(String name) {
+            System.out.println("target.hello");
+            return "Hello, " + name;
+        }
+    }
+
+    public static void main(String[] args) {
+        Greeter target = new RealGreeter();
+        Greeter proxy = (Greeter) Proxy.newProxyInstance(
+                Greeter.class.getClassLoader(),
+                new Class<?>[] { Greeter.class },
+                (proxyObject, method, methodArgs) -> {
+                    System.out.println("handler.before " + method.getName());
+                    try {
+                        Object result = method.invoke(target, methodArgs);
+                        System.out.println("handler.after " + method.getName());
+                        return result;
+                    } catch (InvocationTargetException e) {
+                        throw e.getCause();
+                    }
+                });
+        System.out.println(proxy.hello("Android"));
+    }
+}
+```
+
+在文件所在目录执行：
+
+```sh
+javac -encoding UTF-8 ProxyDemo.java
+java ProxyDemo
+```
+
+输出顺序：
+
+```text
+handler.before hello
+target.hello
+handler.after hello
+Hello, Android
+```
+
+核心调用链是 `proxy.hello("Android")` → `InvocationHandler.invoke()` → `method.invoke(target, methodArgs)` → `target.hello("Android")`，结果再沿原路返回。Lambda 就是 `InvocationHandler` 的实现：本次 `method` 对应 `Greeter.hello(String)`，`methodArgs` 包含字符串 `"Android"`，`proxyObject` 则是生成的代理对象。
+
+转发时应将真实对象 `target` 传给 `method.invoke()`；若传入 `proxyObject`，会再次进入处理器，形成递归。本例的 `handler.after` 只在成功返回时打印，若需无论成功失败都执行清理，应使用 `finally`。[InvocationHandler API](https://developer.android.com/reference/java/lang/reflect/InvocationHandler)
+
 ## 一个保留身份和异常契约的例子
 
 下面示例使用 Java 公开反射 API；`Notes` 与 `LocalNotes` 可以放在同一外部类中作为静态嵌套类型。示例用于解释代理边界，未在 Android 项目中编译。
