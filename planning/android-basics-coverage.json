@@ -1,0 +1,486 @@
+{
+  "source": "https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE",
+  "rows": [
+    {
+      "sourceId": "3",
+      "kind": "knowledge",
+      "label": "Binder通信机制",
+      "target": "/android/basics/binder-basics.html"
+    },
+    {
+      "sourceId": "6",
+      "kind": "knowledge",
+      "label": "Java层",
+      "target": "/android/basics/binder-basics.html#java-层"
+    },
+    {
+      "sourceId": "9",
+      "kind": "knowledge",
+      "label": "IBinder接口",
+      "target": "/android/basics/binder-basics.html#ibinder-接口"
+    },
+    {
+      "sourceId": "12",
+      "kind": "knowledge",
+      "label": "Binder类",
+      "target": "/android/basics/binder-basics.html#binder-类"
+    },
+    {
+      "sourceId": "15",
+      "kind": "knowledge",
+      "label": "BinderProxy类-----------对应在Native中的BpBinder(为客户端), 是系统各服务的IBinder的代理类，如果是自定AIDL来实现服务的话，系统中BinderProxy就等同于生成的接口类中的Proxy内部类的mRemote，而生成的Stub则是对应Native中的BBinder（为服务端），表示Java层的Binder对象，主要是服务端的onTrsact方法",
+      "target": "/android/basics/binder-basics.html#binderproxy-类"
+    },
+    {
+      "sourceId": "18",
+      "kind": "knowledge",
+      "label": "IInterface接口",
+      "target": "/android/basics/binder-basics.html#iinterface-接口"
+    },
+    {
+      "sourceId": "21",
+      "kind": "knowledge",
+      "label": "Native层",
+      "target": "/android/basics/binder-basics.html#native-层"
+    },
+    {
+      "sourceId": "24",
+      "kind": "knowledge",
+      "label": "IBinder.h接口",
+      "target": "/android/basics/binder-basics.html#ibinder-h-接口"
+    },
+    {
+      "sourceId": "27",
+      "kind": "knowledge",
+      "label": "BpBinder",
+      "target": "/android/basics/binder-basics.html#bpbinder"
+    },
+    {
+      "sourceId": "30",
+      "kind": "knowledge",
+      "label": "BBinder",
+      "target": "/android/basics/binder-basics.html#bbinder"
+    },
+    {
+      "sourceId": "33",
+      "kind": "knowledge",
+      "label": "Handler原理",
+      "target": "/android/basics/handler.html"
+    },
+    {
+      "sourceId": "36",
+      "kind": "knowledge",
+      "label": "Messenger机制",
+      "target": "/android/basics/messenger.html"
+    },
+    {
+      "sourceId": "39",
+      "kind": "knowledge",
+      "label": "轻量级的跨进程通信，内部使用Handler来收发数据",
+      "target": "/android/basics/messenger.html#轻量级跨进程通信"
+    },
+    {
+      "sourceId": "42",
+      "kind": "knowledge",
+      "label": "两个关键构造方法：",
+      "target": "/android/basics/messenger.html#两个关键构造方法"
+    },
+    {
+      "sourceId": "47",
+      "kind": "knowledge",
+      "label": "Messenger通信使用流程：",
+      "target": "/android/basics/messenger.html#通信四步"
+    },
+    {
+      "sourceId": "50",
+      "kind": "knowledge",
+      "label": "1、在服务端(创建Service)创建Messenger, 与处理消息的Handler;",
+      "target": "/android/basics/messenger.html#_1-服务端创建-handler-与-messenger"
+    },
+    {
+      "sourceId": "53",
+      "kind": "knowledge",
+      "label": "2、在服务端Service被绑定成功时(onBind)，返回步骤1创建的Messenger",
+      "target": "/android/basics/messenger.html#_2-onbind-返回底层-ibinder"
+    },
+    {
+      "sourceId": "56",
+      "kind": "knowledge",
+      "label": "3、客户端进行对服务端Service的绑定，在onServiceConnected方法中将服务端返回的Messenger用于创建客户端Messenger实例对象。",
+      "target": "/android/basics/messenger.html#_3-客户端绑定并构造-messenger"
+    },
+    {
+      "sourceId": "59",
+      "kind": "knowledge",
+      "label": "4、利用创建的客户端Messenger实例，调用send(Message msg)方法往服务端发送消息。",
+      "target": "/android/basics/messenger.html#_4-send-发送请求"
+    },
+    {
+      "sourceId": "62",
+      "kind": "knowledge",
+      "label": "四大组件",
+      "target": "/android/basics/#components"
+    },
+    {
+      "sourceId": "65",
+      "kind": "knowledge",
+      "label": "Activity启动原理",
+      "target": "/android/basics/activity-startup.html"
+    },
+    {
+      "sourceId": "68",
+      "kind": "knowledge",
+      "label": "ActivityThread",
+      "target": "/android/basics/activity-startup.html#s68"
+    },
+    {
+      "sourceId": "71",
+      "kind": "knowledge",
+      "label": "Instrumentation",
+      "target": "/android/basics/activity-startup.html#s71"
+    },
+    {
+      "sourceId": "74",
+      "kind": "knowledge",
+      "label": "ActivityStarter",
+      "target": "/android/basics/activity-startup.html#s74"
+    },
+    {
+      "sourceId": "77",
+      "kind": "knowledge",
+      "label": "Task",
+      "target": "/android/basics/activity-startup.html#s77"
+    },
+    {
+      "sourceId": "80",
+      "kind": "knowledge",
+      "label": "ActivityTaskSupervisor",
+      "target": "/android/basics/activity-startup.html#s80"
+    },
+    {
+      "sourceId": "83",
+      "kind": "knowledge",
+      "label": "ClientTrasaction",
+      "target": "/android/basics/activity-startup.html#s83"
+    },
+    {
+      "sourceId": "86",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "89",
+      "kind": "knowledge",
+      "label": "Broacast发送接收原理",
+      "target": "/android/basics/broadcast.html"
+    },
+    {
+      "sourceId": "92",
+      "kind": "reference",
+      "label": "https://www.jianshu.com/p/c5323a22f3f3"
+    },
+    {
+      "sourceId": "99",
+      "kind": "reference",
+      "label": "https://blog.csdn.net/houliang120/article/details/51607170"
+    },
+    {
+      "sourceId": "106",
+      "kind": "reference",
+      "label": "https://www.cnblogs.com/Robin132929/p/13804724.html"
+    },
+    {
+      "sourceId": "113",
+      "kind": "reference",
+      "label": "https://gityuan.com/2016/06/04/broadcast-receiver/"
+    },
+    {
+      "sourceId": "120",
+      "kind": "knowledge",
+      "label": "有序广播发送后，在LoadAPK中调用receiver.performReceive方法后，再调finishReceiver来表明当前广播接收器已经处理了此广播，此广播结束：",
+      "target": "/android/basics/broadcast.html#broadcast-finish"
+    },
+    {
+      "sourceId": "123",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "130",
+      "kind": "knowledge",
+      "label": "finish()方法为PendingResult中的方法，内部调用逻辑：",
+      "target": "/android/basics/broadcast.html#broadcast-finish"
+    },
+    {
+      "sourceId": "133",
+      "kind": "knowledge",
+      "label": "finish()--->sendFinish() --->再调用AMS的finishReceiver()--->再调用BroadcastQueue中finishReceiverLocked():",
+      "target": "/android/basics/broadcast.html#broadcast-finish"
+    },
+    {
+      "sourceId": "136",
+      "kind": "knowledge",
+      "label": "最终表明当前广播处理完毕的逻辑都在finishReceiverLocked()中，",
+      "target": "/android/basics/broadcast.html#broadcast-finish"
+    },
+    {
+      "sourceId": "139",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "142",
+      "kind": "knowledge",
+      "label": "Service启动，绑定，销毁原理",
+      "target": "/android/basics/service-lifecycle.html"
+    },
+    {
+      "sourceId": "145",
+      "kind": "knowledge",
+      "label": "Provider原理",
+      "target": "/android/basics/content-provider.html"
+    },
+    {
+      "sourceId": "148",
+      "kind": "knowledge",
+      "label": "分静态注册，动态注册，对应ContentService服务",
+      "target": "/android/basics/content-provider.html#provider-registration"
+    },
+    {
+      "sourceId": "151",
+      "kind": "knowledge",
+      "label": "动态注册",
+      "target": "/android/basics/content-provider.html#content-observer"
+    },
+    {
+      "sourceId": "154",
+      "kind": "knowledge",
+      "label": "ContentResolver$registerContentObserver ----》ContentService$registerContentObserver",
+      "target": "/android/basics/content-provider.html#content-observer"
+    },
+    {
+      "sourceId": "157",
+      "kind": "knowledge",
+      "label": "核心服务",
+      "target": "/android/basics/system-services.html"
+    },
+    {
+      "sourceId": "160",
+      "kind": "knowledge",
+      "label": "AMS/ATMS (ActivityManagerService/ActivityTaskManagerService)",
+      "target": "/android/basics/system-services.html#s160"
+    },
+    {
+      "sourceId": "163",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "166",
+      "kind": "knowledge",
+      "label": "PMS (PackageManagerService)",
+      "target": "/android/basics/system-services.html#s166"
+    },
+    {
+      "sourceId": "169",
+      "kind": "knowledge",
+      "label": "queryIntentActivities （查询匹配Intent的Activities）",
+      "target": "/android/basics/system-services.html#s169"
+    },
+    {
+      "sourceId": "172",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "179",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "182",
+      "kind": "knowledge",
+      "label": "getSharedLibraries (获取共享依赖库)",
+      "target": "/android/basics/system-services.html#s182"
+    },
+    {
+      "sourceId": "185",
+      "kind": "knowledge",
+      "label": "deletePackageAsUser（卸载应用）",
+      "target": "/android/basics/system-services.html#s185"
+    },
+    {
+      "sourceId": "188",
+      "kind": "knowledge",
+      "label": "clearApplicationUserData （删除应用数据）",
+      "target": "/android/basics/system-services.html#s188"
+    },
+    {
+      "sourceId": "191",
+      "kind": "knowledge",
+      "label": "getPackageInstaller (获取应用安装器)",
+      "target": "/android/basics/system-services.html#s191"
+    },
+    {
+      "sourceId": "194",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "197",
+      "kind": "knowledge",
+      "label": "WMS (WindowManagerService)",
+      "target": "/android/basics/system-services.html#s197"
+    },
+    {
+      "sourceId": "200",
+      "kind": "knowledge",
+      "label": "ContentService",
+      "target": "/android/basics/system-services.html#s200"
+    },
+    {
+      "sourceId": "203",
+      "kind": "knowledge",
+      "label": "PackageInstallerService (Apk包安装器服务)",
+      "target": "/android/basics/system-services.html#s203"
+    },
+    {
+      "sourceId": "206",
+      "kind": "context",
+      "label": "重要类：",
+      "target": "/android/basics/system-services.html#s203"
+    },
+    {
+      "sourceId": "209",
+      "kind": "knowledge",
+      "label": "PackageInstallerSession",
+      "target": "/android/basics/system-services.html#s209"
+    },
+    {
+      "sourceId": "212",
+      "kind": "knowledge",
+      "label": "PackageInstaller",
+      "target": "/android/basics/system-services.html#s212"
+    },
+    {
+      "sourceId": "215",
+      "kind": "knowledge",
+      "label": "PackageInstaller$SessionParams",
+      "target": "/android/basics/system-services.html#s215"
+    },
+    {
+      "sourceId": "218",
+      "kind": "context",
+      "label": "重点步骤：",
+      "target": "/android/basics/system-services.html#s203"
+    },
+    {
+      "sourceId": "221",
+      "kind": "knowledge",
+      "label": "getPackageInstaller():PackageInstaller ----> createSession():Int ---- >openSession(sessionId:Int):PackageInstallerSession ---->commit()",
+      "target": "/android/basics/system-services.html#installer-flow"
+    },
+    {
+      "sourceId": "224",
+      "kind": "knowledge",
+      "label": "PendingIntent原理",
+      "target": "/android/basics/pending-intent.html"
+    },
+    {
+      "sourceId": "227",
+      "kind": "knowledge",
+      "label": "关键点：IntentSender,",
+      "target": "/android/basics/pending-intent.html#s227"
+    },
+    {
+      "sourceId": "230",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "233",
+      "kind": "knowledge",
+      "label": "LoadedAPK原理",
+      "target": "/android/basics/loaded-apk.html"
+    },
+    {
+      "sourceId": "236",
+      "kind": "reference",
+      "label": "https://gityuan.com/2017/04/02/android-application/ (理解Application创建过程)"
+    },
+    {
+      "sourceId": "243",
+      "kind": "reference",
+      "label": "https://blog.csdn.net/fei20121106/article/details/106444872（Android LoadedApk详解）"
+    },
+    {
+      "sourceId": "250",
+      "kind": "knowledge",
+      "label": "由ActivityThread中getPackageinfo方法中创建实例。",
+      "target": "/android/basics/loaded-apk.html#s250"
+    },
+    {
+      "sourceId": "253",
+      "kind": "knowledge",
+      "label": "application创建：",
+      "target": "/android/basics/loaded-apk.html#s253"
+    },
+    {
+      "sourceId": "256",
+      "kind": "knowledge",
+      "label": "LoadedApk.makeApplication ---> Instrumentation.newApplication()",
+      "target": "/android/basics/loaded-apk.html#s256"
+    },
+    {
+      "sourceId": "259",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "262",
+      "kind": "knowledge",
+      "label": "Apk的各种资源路径，文件路径等都会被LoadedApk对象持有：",
+      "target": "/android/basics/loaded-apk.html#s262"
+    },
+    {
+      "sourceId": "265",
+      "kind": "knowledge",
+      "label": "appDir",
+      "target": "/android/basics/loaded-apk.html#s265"
+    },
+    {
+      "sourceId": "268",
+      "kind": "knowledge",
+      "label": "libDir",
+      "target": "/android/basics/loaded-apk.html#s268"
+    },
+    {
+      "sourceId": "271",
+      "kind": "knowledge",
+      "label": "LoadedApk也会创建各种类加载器，比如用于加载共享库的ClassLoader",
+      "target": "/android/basics/loaded-apk.html#s271"
+    },
+    {
+      "sourceId": "274",
+      "kind": "blank"
+    },
+    {
+      "sourceId": "277",
+      "kind": "knowledge",
+      "label": "类加载机制ClassLoader",
+      "target": "/android/basics/class-loading.html"
+    },
+    {
+      "sourceId": "280",
+      "kind": "knowledge",
+      "label": "动态代理",
+      "target": "/android/basics/dynamic-proxy.html"
+    },
+    {
+      "sourceId": "283",
+      "kind": "excluded",
+      "reason": "User explicitly excluded Frida Hook and strace for this batch."
+    },
+    {
+      "sourceId": "286",
+      "kind": "excluded",
+      "reason": "User explicitly excluded Frida Hook and strace for this batch."
+    },
+    {
+      "sourceId": "289",
+      "kind": "excluded",
+      "reason": "User explicitly excluded Frida Hook and strace for this batch."
+    }
+  ]
+}

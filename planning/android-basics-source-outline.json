@@ -1,0 +1,534 @@
+{
+  "source": "https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE",
+  "readDate": "2026-10-22",
+  "captureMethod": "DOM paragraphs accumulated while scrolling to the document end; the displayed word counter was stale.",
+  "excludedAtUserRequest": [
+    "283",
+    "286",
+    "289"
+  ],
+  "rows": [
+    {
+      "key": "3",
+      "level": "0",
+      "text": "Binder通信机制",
+      "type": "paragraph"
+    },
+    {
+      "key": "6",
+      "level": "1",
+      "text": "Java层",
+      "type": "paragraph"
+    },
+    {
+      "key": "9",
+      "level": "2",
+      "text": "IBinder接口",
+      "type": "paragraph"
+    },
+    {
+      "key": "12",
+      "level": "2",
+      "text": "Binder类",
+      "type": "paragraph"
+    },
+    {
+      "key": "15",
+      "level": "2",
+      "text": "BinderProxy类-----------对应在Native中的BpBinder(为客户端), 是系统各服务的IBinder的代理类，如果是自定AIDL来实现服务的话，系统中BinderProxy就等同于生成的接口类中的Proxy内部类的mRemote，而生成的Stub则是对应Native中的BBinder（为服务端），表示Java层的Binder对象，主要是服务端的onTrsact方法",
+      "type": "paragraph"
+    },
+    {
+      "key": "18",
+      "level": "2",
+      "text": "IInterface接口",
+      "type": "paragraph"
+    },
+    {
+      "key": "21",
+      "level": "1",
+      "text": "Native层",
+      "type": "paragraph"
+    },
+    {
+      "key": "24",
+      "level": "2",
+      "text": "IBinder.h接口",
+      "type": "paragraph"
+    },
+    {
+      "key": "27",
+      "level": "2",
+      "text": "BpBinder",
+      "type": "paragraph"
+    },
+    {
+      "key": "30",
+      "level": "2",
+      "text": "BBinder",
+      "type": "paragraph"
+    },
+    {
+      "key": "33",
+      "level": "0",
+      "text": "Handler原理",
+      "type": "paragraph"
+    },
+    {
+      "key": "36",
+      "level": "0",
+      "text": "Messenger机制",
+      "type": "paragraph"
+    },
+    {
+      "key": "39",
+      "level": "1",
+      "text": "轻量级的跨进程通信，内部使用Handler来收发数据",
+      "type": "paragraph"
+    },
+    {
+      "key": "42",
+      "level": "1",
+      "text": "两个关键构造方法：",
+      "type": "paragraph"
+    },
+    {
+      "key": "47",
+      "level": "2",
+      "text": "Messenger通信使用流程：",
+      "type": "paragraph"
+    },
+    {
+      "key": "50",
+      "level": "3",
+      "text": "1、在服务端(创建Service)创建Messenger, 与处理消息的Handler; ",
+      "type": "paragraph"
+    },
+    {
+      "key": "53",
+      "level": "3",
+      "text": "2、在服务端Service被绑定成功时(onBind)，返回步骤1创建的Messenger",
+      "type": "paragraph"
+    },
+    {
+      "key": "56",
+      "level": "3",
+      "text": "3、客户端进行对服务端Service的绑定，在onServiceConnected方法中将服务端返回的Messenger用于创建客户端Messenger实例对象。",
+      "type": "paragraph"
+    },
+    {
+      "key": "59",
+      "level": "3",
+      "text": "4、利用创建的客户端Messenger实例，调用send(Message msg)方法往服务端发送消息。",
+      "type": "paragraph"
+    },
+    {
+      "key": "62",
+      "level": "0",
+      "text": "四大组件",
+      "type": "paragraph"
+    },
+    {
+      "key": "65",
+      "level": "1",
+      "text": "Activity启动原理",
+      "type": "paragraph"
+    },
+    {
+      "key": "68",
+      "level": "2",
+      "text": "ActivityThread",
+      "type": "paragraph"
+    },
+    {
+      "key": "71",
+      "level": "2",
+      "text": "Instrumentation",
+      "type": "paragraph"
+    },
+    {
+      "key": "74",
+      "level": "2",
+      "text": "ActivityStarter",
+      "type": "paragraph"
+    },
+    {
+      "key": "77",
+      "level": "2",
+      "text": "Task",
+      "type": "paragraph"
+    },
+    {
+      "key": "80",
+      "level": "2",
+      "text": "ActivityTaskSupervisor",
+      "type": "paragraph"
+    },
+    {
+      "key": "83",
+      "level": "2",
+      "text": "ClientTrasaction",
+      "type": "paragraph"
+    },
+    {
+      "key": "86",
+      "level": "2",
+      "text": "﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "89",
+      "level": "1",
+      "text": "Broacast发送接收原理",
+      "type": "paragraph"
+    },
+    {
+      "key": "92",
+      "level": "2",
+      "text": "﻿https://www.jianshu.com/p/c5323a22f3f3﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "99",
+      "level": "2",
+      "text": "﻿https://blog.csdn.net/houliang120/article/details/51607170﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "106",
+      "level": "2",
+      "text": "﻿https://www.cnblogs.com/Robin132929/p/13804724.html﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "113",
+      "level": "2",
+      "text": "﻿https://gityuan.com/2016/06/04/broadcast-receiver/﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "120",
+      "level": "2",
+      "text": "有序广播发送后，在LoadAPK中调用receiver.performReceive方法后，再调finishReceiver来表明当前广播接收器已经处理了此广播，此广播结束：",
+      "type": "paragraph"
+    },
+    {
+      "key": "123",
+      "level": null,
+      "text": "                  ﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "130",
+      "level": null,
+      "text": "finish()方法为PendingResult中的方法，内部调用逻辑：",
+      "type": "paragraph"
+    },
+    {
+      "key": "133",
+      "level": null,
+      "text": "finish()--->sendFinish() --->再调用AMS的finishReceiver()--->再调用BroadcastQueue中finishReceiverLocked():",
+      "type": "paragraph"
+    },
+    {
+      "key": "136",
+      "level": null,
+      "text": "最终表明当前广播处理完毕的逻辑都在finishReceiverLocked()中，",
+      "type": "paragraph"
+    },
+    {
+      "key": "139",
+      "level": null,
+      "text": "﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "142",
+      "level": "1",
+      "text": "Service启动，绑定，销毁原理",
+      "type": "paragraph"
+    },
+    {
+      "key": "145",
+      "level": "1",
+      "text": "Provider原理",
+      "type": "paragraph"
+    },
+    {
+      "key": "148",
+      "level": "2",
+      "text": "分静态注册，动态注册，对应ContentService服务",
+      "type": "paragraph"
+    },
+    {
+      "key": "151",
+      "level": "2",
+      "text": "动态注册",
+      "type": "paragraph"
+    },
+    {
+      "key": "154",
+      "level": "3",
+      "text": "ContentResolver$registerContentObserver ----》ContentService$registerContentObserver",
+      "type": "paragraph"
+    },
+    {
+      "key": "157",
+      "level": "0",
+      "text": "核心服务",
+      "type": "paragraph"
+    },
+    {
+      "key": "160",
+      "level": "1",
+      "text": "AMS/ATMS (ActivityManagerService/ActivityTaskManagerService)",
+      "type": "paragraph"
+    },
+    {
+      "key": "163",
+      "level": "2",
+      "text": "﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "166",
+      "level": "1",
+      "text": "PMS (PackageManagerService)",
+      "type": "paragraph"
+    },
+    {
+      "key": "169",
+      "level": "2",
+      "text": "queryIntentActivities （查询匹配Intent的Activities）",
+      "type": "paragraph"
+    },
+    {
+      "key": "172",
+      "level": null,
+      "text": "                     ﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "179",
+      "level": null,
+      "text": "﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "182",
+      "level": "2",
+      "text": "getSharedLibraries (获取共享依赖库)",
+      "type": "paragraph"
+    },
+    {
+      "key": "185",
+      "level": "2",
+      "text": "deletePackageAsUser（卸载应用）",
+      "type": "paragraph"
+    },
+    {
+      "key": "188",
+      "level": "2",
+      "text": "clearApplicationUserData （删除应用数据）",
+      "type": "paragraph"
+    },
+    {
+      "key": "191",
+      "level": "2",
+      "text": "getPackageInstaller (获取应用安装器)",
+      "type": "paragraph"
+    },
+    {
+      "key": "194",
+      "level": null,
+      "text": "﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "197",
+      "level": "1",
+      "text": "WMS (WindowManagerService)",
+      "type": "paragraph"
+    },
+    {
+      "key": "200",
+      "level": "1",
+      "text": "ContentService",
+      "type": "paragraph"
+    },
+    {
+      "key": "203",
+      "level": "1",
+      "text": "PackageInstallerService (Apk包安装器服务)",
+      "type": "paragraph"
+    },
+    {
+      "key": "206",
+      "level": null,
+      "text": "             重要类：",
+      "type": "paragraph"
+    },
+    {
+      "key": "209",
+      "level": "3",
+      "text": "PackageInstallerSession",
+      "type": "paragraph"
+    },
+    {
+      "key": "212",
+      "level": "3",
+      "text": "PackageInstaller",
+      "type": "paragraph"
+    },
+    {
+      "key": "215",
+      "level": "3",
+      "text": "PackageInstaller$SessionParams",
+      "type": "paragraph"
+    },
+    {
+      "key": "218",
+      "level": null,
+      "text": "              重点步骤：",
+      "type": "paragraph"
+    },
+    {
+      "key": "221",
+      "level": null,
+      "text": "               getPackageInstaller():PackageInstaller ----> createSession():Int ---- >openSession(sessionId:Int):PackageInstallerSession ---->commit()",
+      "type": "paragraph"
+    },
+    {
+      "key": "224",
+      "level": "0",
+      "text": "PendingIntent原理",
+      "type": "paragraph"
+    },
+    {
+      "key": "227",
+      "level": "1",
+      "text": "关键点：IntentSender,",
+      "type": "paragraph"
+    },
+    {
+      "key": "230",
+      "level": "1",
+      "text": "﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "233",
+      "level": "0",
+      "text": "LoadedAPK原理",
+      "type": "paragraph"
+    },
+    {
+      "key": "236",
+      "level": "1",
+      "text": "﻿https://gityuan.com/2017/04/02/android-application/ (理解Application创建过程)",
+      "type": "paragraph"
+    },
+    {
+      "key": "243",
+      "level": "1",
+      "text": "﻿https://blog.csdn.net/fei20121106/article/details/106444872（Android LoadedApk详解）",
+      "type": "paragraph"
+    },
+    {
+      "key": "250",
+      "level": null,
+      "text": "由ActivityThread中getPackageinfo方法中创建实例。",
+      "type": "paragraph"
+    },
+    {
+      "key": "253",
+      "level": null,
+      "text": "application创建：",
+      "type": "paragraph"
+    },
+    {
+      "key": "256",
+      "level": null,
+      "text": "LoadedApk.makeApplication ---> Instrumentation.newApplication()",
+      "type": "paragraph"
+    },
+    {
+      "key": "259",
+      "level": null,
+      "text": "﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "262",
+      "level": null,
+      "text": "Apk的各种资源路径，文件路径等都会被LoadedApk对象持有：",
+      "type": "paragraph"
+    },
+    {
+      "key": "265",
+      "level": "3",
+      "text": "appDir",
+      "type": "paragraph"
+    },
+    {
+      "key": "268",
+      "level": "3",
+      "text": "libDir",
+      "type": "paragraph"
+    },
+    {
+      "key": "271",
+      "level": null,
+      "text": "       LoadedApk也会创建各种类加载器，比如用于加载共享库的ClassLoader",
+      "type": "paragraph"
+    },
+    {
+      "key": "274",
+      "level": null,
+      "text": "﻿",
+      "type": "paragraph"
+    },
+    {
+      "key": "277",
+      "level": "0",
+      "text": "类加载机制ClassLoader",
+      "type": "paragraph"
+    },
+    {
+      "key": "280",
+      "level": "0",
+      "text": "动态代理",
+      "type": "paragraph"
+    },
+    {
+      "key": "283",
+      "level": "0",
+      "text": "Frida Hook",
+      "type": "paragraph"
+    },
+    {
+      "key": "286",
+      "level": "0",
+      "text": "strace使用",
+      "type": "paragraph"
+    },
+    {
+      "key": "289",
+      "level": "1",
+      "text": "﻿https://bbs.kanxue.com/thread-280754.htm﻿",
+      "type": "paragraph"
+    }
+  ],
+  "images": [
+    {
+      "alt": "",
+      "context": "125",
+      "src": "https://alidocs.oss-cn-zhangjiakou.aliyuncs.com/res/4jKqmV97eKkvOw19/img/b7284dc1-353b-48a6-8fd4-99f276a06779.png?x-oss-process=image/format,webp/ignore-error,1"
+    },
+    {
+      "alt": "",
+      "context": "174",
+      "src": "https://alidocs.oss-cn-zhangjiakou.aliyuncs.com/res/4jKqmV97eKkvOw19/img/c363f4b6-e5df-4c4b-8842-8ae014a707a8.png?x-oss-process=image/format,webp/ignore-error,1"
+    }
+  ]
+}

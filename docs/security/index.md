@@ -1,21 +1,119 @@
 ---
-description: 按输入、身份、权限和结果理解安全边界，把检查项落到具体数据流。
+description: 按原提纲组织 Android 安全笔记：通用组件安全、配置安全、文件操作、特殊函数、Dos攻击。
 ---
 
 # 安全
 
-安全笔记从“谁能提供输入，它会触发什么能力”开始。先画清输入和权限的流向，再判断验证是否充分，比孤立地记住某个危险 API 更有效。
+## Android 安全提纲
 
-## 内容整理中
+以下分类、子项及顺序对应原始提纲。每个分类对应一章完整正文，子项直达本章同名标题，原理、条件与防护说明在同一章展开。
 
-本分类暂未收录正式笔记。网络分析相关操作可先阅读 [App 网络请求抓包](/tools/app-network-capture.html)，其中包含抓包证书信任与代理连接的说明。
+## [通用组件安全](/security/android/component-security.html) {#component-security}
 
-阅读时沿着一条数据流检查来源、处理和最终动作。结论必须带上适用条件，不能仅凭方法名判断整条链路是否安全。
+按原提纲依次查看 Activity、BroadcastReceiver、Service 和 ContentProvider。先阅读[组件身份与权限边界](./android/foundation/security-model.html#uid-permissions)，再核对各入口的暴露与授权。
 
-## 记录应保留什么
+- [Activity](/security/android/component-security.html#s6)
+  - [权限与属性设置](/security/android/component-security.html#s9)
+  - [组件暴露](/security/android/component-security.html#s12)
+  - [Intent 接收/发送安全](/security/android/component-security.html#s15)
+  - [Scheme URL / intent-based URI 启动组件](/security/android/component-security.html#s18)
+  - [安全键盘配置漏洞](/security/android/component-security.html#s21)
+- [BroadcastReceiver](/security/android/component-security.html#s24)
+  - [动态广播组件暴露](/security/android/component-security.html#s27)
+  - [静态广播组件暴露](/security/android/component-security.html#s30)
+  - [Receiver 嗅探](/security/android/component-security.html#s33)
+  - [粘性广播与敏感数据](/security/android/component-security.html#s36)
+- [Service](/security/android/component-security.html#s39)
+  - [Service 组件暴露安全](/security/android/component-security.html#s42)
+  - [Service 劫持](/security/android/component-security.html#s45)
+  - [AIDL 接口安全](/security/android/component-security.html#s48)
+  - [Messenger 服务安全](/security/android/component-security.html#s51)
+  - [前台服务安全](/security/android/component-security.html#s54)
+- [ContentProvider](/security/android/component-security.html#s57)
+  - [组件暴露安全](/security/android/component-security.html#s60)
+  - [Provider 文件目录遍历漏洞](/security/android/component-security.html#s63)
+  - [Provider uriPath 权限控制](/security/android/component-security.html#s66)
+  - [SQL 注入](/security/android/component-security.html#s69)
+  - [隐式 Intent 的 URI 操作权限](/security/android/component-security.html#s72)
+  - [getType() 方法安全](/security/android/component-security.html#s75)
+    - [MIME 查询原理与权限边界](/security/android/component-security.html#s78)
+    - [空 URI 与未定义 URI](/security/android/component-security.html#s81)
+  - [authority 劫持](/security/android/component-security.html#s84)
+    - [authority 唯一性与抢先安装](/security/android/component-security.html#s87)
+  - [FileProvider 共享目录范围](/security/android/component-security.html#s90)
+    - [共享范围过大的风险](/security/android/component-security.html#s93)
+    - [共享路径最小化防护](/security/android/component-security.html#s96)
 
-- 入口如何暴露，谁能调用，需要哪些前提。
-- 输入由谁控制，经过哪些校验，最后影响什么资源或动作。
-- 验证覆盖正常情况、异常情况和边界条件后的实际结果。
+## [配置安全](/security/android/configuration-security.html) {#configuration-security}
 
-新增笔记的方法见[阅读与写作指南](/guide.html)。
+逐项检查应用权限、发布属性、数据、包体、位置与插件配置。参照[配置审查方法](./android/foundation/security-model.html#review-workflow)，将检查项落实到最终构建产物和实际数据流。
+
+- [应用程序只申请必要的权限](/security/android/configuration-security.html#s102)
+- [应用的 UID 权限](/security/android/configuration-security.html#s105)
+- [sharedUserId 与 UID 共享](/security/android/configuration-security.html#s108)
+- [reboot 权限](/security/android/configuration-security.html#s111)
+- [release 配置：debuggable 与 allowBackup](/security/android/configuration-security.html#s114)
+- [自定义权限保护等级](/security/android/configuration-security.html#s117)
+- [私有组件的 taskAffinity 与 launchMode](/security/android/configuration-security.html#s120)
+- [自定义权限的系统命名空间](/security/android/configuration-security.html#s123)
+- [对外导出组件的访问权限](/security/android/configuration-security.html#s126)
+- [APK 暗码与隐藏入口](/security/android/configuration-security.html#s129)
+- [meta-data 中的敏感数据](/security/android/configuration-security.html#s132)
+- [应用状态与设备或账号关联](/security/android/configuration-security.html#s135)
+- [软件卸载后的残留信息检查](/security/android/configuration-security.html#s138)
+- [头像本地缓存的大小和有效性](/security/android/configuration-security.html#s141)
+- [META-INF 中的 APK、ODEX、SO](/security/android/configuration-security.html#s144)
+- [剪贴板安全使用](/security/android/configuration-security.html#s147)
+- [应用混淆规则增强](/security/android/configuration-security.html#s150)
+- [模拟位置检查](/security/android/configuration-security.html#s153)
+- [开发者选项与模拟位置应用检测](/security/android/configuration-security.html#s156)
+- [插件动态加载](/security/android/configuration-security.html#s159)
+
+## [文件操作](/security/android/file-operations.html) {#file-operations}
+
+按上传、下载、读写、图片解析的顺序检查文件处理链路。先确认[文件来源、访问身份和资源预算](./android/engineering/file-sharing.html#file-boundaries)。
+
+- [文件上传](/security/android/file-operations.html#s165)
+- [文件下载](/security/android/file-operations.html#s168)
+- [文件读写](/security/android/file-operations.html#s171)
+- [BitmapFactory 图片解析与 OOM](/security/android/file-operations.html#s174)
+
+## [特殊函数](/security/android/special-functions.html) {#special-functions}
+
+按原提纲检查命令执行、解压、路径解析、序列化、表达式和 TA 文件。[危险能力边界](./android/engineering/injection-serialization.html#capability-model)说明这些接口何时会形成风险。
+
+- [命令执行安全](/security/android/special-functions.html#s180)
+- [解压安全](/security/android/special-functions.html#s183)
+- [getPathSegments 函数](/security/android/special-functions.html#s186)
+- [序列化安全](/security/android/special-functions.html#s189)
+- [JEXL 表达式注入](/security/android/special-functions.html#s192)
+- [TA 文件安全](/security/android/special-functions.html#s195)
+
+## [Dos攻击](/security/android/dos-attacks.html) {#dos-attacks}
+
+保留原提纲中的接口与异常输入检查顺序。先区分[可用性风险与资源预算](./android/audit/availability-binder.html#dos-model)；其中 URI 授权、注入等问题也可能影响保密性或完整性，应按实际后果判断。
+
+- [Intent.setPackage 安全](/security/android/dos-attacks.html#s201)
+- [uri.getQueryParameter](/security/android/dos-attacks.html#s204)
+- [Fragment 框架注入（PreferenceActivity）](/security/android/dos-attacks.html#s207)
+- [Base64.decode 解码安全](/security/android/dos-attacks.html#s210)
+- [带 Flags 的 Intent 启动组件](/security/android/dos-attacks.html#s213)
+  - [URI 读写授权与 addFlags / setFlags](/security/android/dos-attacks.html#s216)
+  - [URI 外部可控条件](/security/android/dos-attacks.html#s219)
+- [getContentResolver() 安全](/security/android/dos-attacks.html#s222)
+  - [不可信 URI 的访问边界](/security/android/dos-attacks.html#s225)
+- [EditText.setSelection() 光标定位](/security/android/dos-attacks.html#s228)
+  - [外部文本与 maxLength 条件](/security/android/dos-attacks.html#s231)
+- [getPackageInfo 安全](/security/android/dos-attacks.html#s234)
+  - [Binder 事务预算、flags 与异常处理](/security/android/dos-attacks.html#s237)
+- [URLDecoder.decode 解码安全](/security/android/dos-attacks.html#s240)
+
+## 阅读说明
+
+每个知识点按机制、风险前提、防护、验证与限制展开，适用条件以正文的运行 OS、target SDK 和依赖版本为准。提纲中的历史说法及强断言已结合官方资料核对，分类名称不代表漏洞严重程度。
+
+文章中的代码为教学片段，尚未经过 Android 工程编译或真机执行。测试建议用于自有或获授权环境。
+
+[提纲覆盖与勘误](./android/coverage.html)逐项对应原始 80 个段落，包含标题、原理和条件说明，并提供正文定位与资料依据。
+
+相关实践：[App 网络请求抓包](/tools/app-network-capture.html)、[Binder 机制](/android/framework/binder-mechanism.html)、[Web JS 分析](/reverse/web-js-reverse.html)。

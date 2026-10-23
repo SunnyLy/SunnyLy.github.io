@@ -1,0 +1,87 @@
+# Android 安全提纲：来源与覆盖基线
+
+来源：[Android基础安全提纲](https://alidocs.dingtalk.com/i/nodes/X6GRezwJlARdZ9n3IX4XGmwr8dqbropQ?utm_scene=person_space)。读取日期：2026-10-22。
+
+以下保留原文顺序、术语及待纠正表述；编号来自正文段落标识，供覆盖核对，不代表全部结论已认可。原文没有图片或附件。
+
+- **S3**：通用组件安全
+- **S6**：Activity
+- **S9**：权限与属性设置
+- **S12**：组件暴露
+- **S15**：Intent接收/发送安全
+- **S18**：SchemeURL\intent-basedURI启动组件
+- **S21**：安全键盘配置漏洞
+- **S24**：BroadcastReceiver
+- **S27**：动态广播组件暴露
+- **S30**：静态广播组件暴露
+- **S33**：Receiver嗅探
+- **S36**：禁止使用粘性广播发送敏感数据
+- **S39**：Service
+- **S42**：Service组件暴露安全
+- **S45**：Service劫持
+- **S48**：AIDL接口安全
+- **S51**：Messenger服务安全
+- **S54**：前台服务安全
+- **S57**：ContenetProvider
+- **S60**：组件暴露安全
+- **S63**：Provider文件目录遍历漏洞
+- **S66**：Provider uriPath权限控制
+- **S69**：SQL注入
+- **S72**：禁止在隐式的Intent中授予URI操作权限
+- **S75**：getType()方法安全：
+- **S78**：原理：getType()返回传入的uri对象对应资源的MIME类型。而操作此uri的ContentProvider 不论是否暴露，有无设置访问权限，都 可以操作，正常返回mime类型
+- **S81**：攻击手法：传入空的uri或构造其他未定义的uri
+- **S84**：authority劫持：
+- **S87**：原理：content uri格式为：content://authority/path.其中authority由对应的ContentProvider在AdroidManifest.xml中定义。且authority是系统唯一性。即当已经定义此authority的应用被安装到手机上后，后面再定义同样authority的应用再安装时，系统会报错。反之，当此定义的authority的应用被恶意应用定义且抢先安装，则会造成authority劫持。
+- **S90**：FileProvider 共享目录范围：
+- **S93**：原理：当共享目录范围过大，比如共享程序私有目录等，就可以被攻击者结合其他漏洞进一步扩大攻击面。
+- **S96**：防护手段：要求禁止配置root-path，files-path、cache-path等。而其余的path建议到具体目录 ，做到路径最小化。不要配置成“."。
+- **S99**：配置安全
+- **S102**：应用程序只申请必要的权限
+- **S105**：应用的uid权限
+- **S108**：不同越塔不要设置相同的UID，即不要设置sharedUserId
+- **S111**：非特殊应用，禁止使用reboot权限
+- **S114**：release应用禁止开放debuggable=”true",以及allowBackup="true"
+- **S117**：自定义权限时保护等级(protectLevel)要设置为signature或signatureOrSystem
+- **S120**：私有组件禁止设置taskAffinity与launchMode。以防钓鱼攻击
+- **S123**：禁止自定义权限以系统命名空间开头
+- **S126**：必须对外导出的组件，需要设置访问权限
+- **S129**：非特殊应用，apk不能存在暗码，以防被质疑后门
+- **S132**：meta-data中元数据不能存在敏感数据
+- **S135**：应用状态相关数据要有与设备或账号建立关系，以防将数据转移到另外一台手机上时，照样可以查看。
+- **S138**：软件卸载后的残留信息检查
+- **S141**：检查头像本地加载时的大小和有效性判断。以防本地缓存攻击
+- **S144**：META-INF目录中不能包含apk,odex,so等敏感文件
+- **S147**：剪切板安全使用
+- **S150**：应用混淆规则增强
+- **S153**：模拟位置检查
+- **S156**：对于存在基于位置信息的敏感场景，应用需要检测系统是否开启"开发人员选项“或者“选择模拟位置信息应用”功能。如果开启，则需要提示。
+- **S159**：插件动态加载
+- **S162**：文件操作
+- **S165**：文件上传
+- **S168**：文件下载
+- **S171**：文件读写 
+- **S174**：BitmapFactory不安全解析图片引起OOM导致应用Crash
+- **S177**：特殊函数
+- **S180**：命令执行安全
+- **S183**：解压安全
+- **S186**：getPathSegments函数
+- **S189**：序列化安全
+- **S192**：JEXL表达式注入
+- **S195**：TA文件安全
+- **S198**：Dos攻击
+- **S201**：Intent\.setPackage安全
+- **S204**：uri.getQueryParameter
+- **S207**：Fragment框架注入（PreferenceAcitivty)
+- **S210**：Base64.decode解码安全
+- **S213**：添加Flags标志位的Intent，再调用startActivity启动组件时安全
+- **S216**：条件1：只有flag为Intent.FLAG_GRANT_READ_URI_PERMISSION或Intent.FLAG_GRANT_WRITE_URI_PERMISSION，对应传入的方法为addFlags或setFlags
+- **S219**：条件2：有传入uri，且uri外部可控
+- **S222**：getContentResolver()安全
+- **S225**：与上面差不多，也是uri安全
+- **S228**：EditText.setSelection()光标定位问题
+- **S231**：攻击条件：edittext控件中的内容是外部可控，且在xml中有设置maxlen
+- **S234**：getPackegeInfo安全
+- **S237**：原理：getPackageInfo方法第二个参数为flag，系统会根据此flag来返回相关指定应用包名对应的应用数据 。因此有些flag对应的数据会很大，而Intent传输的最大数据 受Binder机制影响，Binder限制最大为1M, 因此如果getPackageInfo如果返回超过1M时，就会报RuntimeExcption，因此需要手动进行catch, 不然会Crash。如果flag为0,只会返回对应包名应用的版本名称或版本号。其他所有非0的flag都 需要手动进行try...catch.
+- **S240**：URLDecoder.decode解码安全
+

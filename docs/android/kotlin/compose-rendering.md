@@ -55,7 +55,7 @@ flowchart TB
   Code -->|应用运行后| Runtime --> UI --> Layout --> Draw --> Android
 ```
 
-图中后半段是首次构建界面的概念主线；后续更新可能复用节点、跳过组合或只执行必要阶段，不是每一帧都完整重跑。
+图中后半段是首次构建普通布局的概念主线；后续更新可能复用节点、跳过组合或只执行必要阶段。子组合布局还有例外：`BoxWithConstraints`、`LazyColumn` 等可以在父布局的测量阶段组合所需子项，因此不能据此推断所有子项都必须在整棵树开始测量前完成组合。[阶段顺序与子组合例外](https://developer.android.com/develop/ui/compose/phases#the-three-phases-of-a-frame)
 
 ## 3. 从 Activity.setContent 到 AndroidComposeView
 

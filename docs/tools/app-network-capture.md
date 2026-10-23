@@ -37,13 +37,14 @@ flowchart TD
 
 1. 在 Clash 客户端通过“添加文件”或本地配置导入入口，选择 `burp.yml`。
 2. 将 `proxies` 中 `name: "burp"` 对应的 `server` 改为运行 mitmproxy 的电脑局域网 IP，保留或调整 `port: 8080`，使其与监听端口一致。
-3. 原附件使用 `mode: Global`，代理组同时包含 `DIRECT` 和 `burp`。导入后应主动选择 `burp`，不要停留在直连选项，再开启代理并启动待观察的 App。
+3. 原附件使用 `mode: Global`。在客户端的全局策略组 `GLOBAL` 中选择 `burp`；若选择的是附件中的手动策略组，还须将该组的出口选为 `burp`。全局模式不依靠附件末尾的 `MATCH` 规则分流，不能只改手动组就认定全局出口已改变。[Mihomo 对 Global 模式的说明](https://wiki.metacubex.one/en/config/general/#operation-mode)可用于理解兼容内核的选择语义，具体入口仍以实际客户端为准。
+4. 开启客户端用于接管目标 App 流量的 VPN / TUN 模式，并确认目标 App 未被排除。仅启动手机本地 HTTP / SOCKS 监听端口，不会自动让其他 App 使用它；启动待观察的 App 后，仍需按第四节验证请求确实经过电脑。[Android VPN 的按应用路由边界](https://developer.android.com/develop/connectivity/vpn#per-app)
 
 手机上的 `127.0.0.1` 指向手机自身，不能用它代替电脑的局域网 IP。不同 Clash 客户端的入口名称可能不同，以所用客户端界面为准。
 
 ## 二、安装并信任抓包证书
 
-查看 HTTPS 明文前，需要在测试环境安装 mitmproxy 的 CA 证书，并确认目标 App 信任它。仅安装用户证书并不保证所有 Android App 都能抓到 HTTPS 内容。
+查看 HTTPS 明文前，需要在测试环境安装 mitmproxy 的 CA 证书，并确认目标 App 信任它。在支持 Network Security Configuration 的 Android 7.0 及以后平台，面向 API 24 及以上的应用默认仅信任系统 CA；面向 API 23 及以下的应用默认还信任用户 CA。应用显式配置、自定义 TLS 实现或证书固定仍可能改变结果。自有测试应用可按官方文档配置 `debug-overrides`，不能把安装用户 CA 当作所有 App 都能解密的充分条件。[Android 证书信任默认值与调试配置](https://developer.android.com/privacy-and-security/security-config)
 
 原笔记提供了 [mitmproxy Android 系统证书文档](https://docs.mitmproxy.org/stable/howto/install-system-trusted-ca-android/)与[证书安装参考文章](https://www.cnblogs.com/xyztank/articles/12362470.html)。当前官方文档面向 Android 模拟器，操作前应核对自身环境，不能直接当作所有实体手机的通用步骤。
 
@@ -57,7 +58,7 @@ flowchart TD
 mitmweb --set http2=true --listen-port 8080 --web-host 127.0.0.1 --web-port 8081
 ```
 
-在电脑浏览器打开 `http://127.0.0.1:8081`，再从手机发起请求。
+优先使用 mitmweb 启动后自动打开或在终端显示的完整 Web 界面地址。当前 stable 文档描述的版本未配置 `web_password` 时会生成随机访问令牌，仅打开裸地址 `http://127.0.0.1:8081` 可能仍需认证；旧版行为可能不同，应以实际版本的启动输出为准，不要将令牌复制到公开笔记。`--web-host` 只控制 Web 界面绑定，不控制手机连接的代理监听地址；代理监听由 `listen_host` 等选项控制。[Web 界面认证与监听选项](https://docs.mitmproxy.org/stable/concepts/options/)
 
 ::: info 原笔记中的脚本依赖
 原命令还包含 `-s .\mitmproxy.py`，用于加载本地脚本，但原笔记没有提供该脚本附件。上面的命令省略了脚本参数；如果确有自定义处理需求，需先取得并检查实际脚本，再添加该参数。

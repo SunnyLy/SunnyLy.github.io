@@ -3,9 +3,11 @@ import { knowledgeSections } from './navigation'
 import { tokenize } from './search.mjs'
 
 function sectionSidebar(section: (typeof knowledgeSections)[number]): DefaultTheme.SidebarItem[] {
+  if (section.outline) return section.outline
   const items: DefaultTheme.SidebarItem[] = []
   const groups = new Map<string, DefaultTheme.SidebarItem>()
-  for (const { text, link, group } of section.items) {
+  const subgroups = new Map<string, DefaultTheme.SidebarItem>()
+  for (const { text, link, group, subgroup } of section.items) {
     const article = { text, link }
     if (!group) {
       items.push(article)
@@ -17,7 +19,18 @@ function sectionSidebar(section: (typeof knowledgeSections)[number]): DefaultThe
       groups.set(group, parent)
       items.push(parent)
     }
-    parent.items!.push(article)
+    if (subgroup) {
+      const key = `${group}/${subgroup}`
+      let child = subgroups.get(key)
+      if (!child) {
+        child = { text: subgroup, collapsed: false, items: [] }
+        subgroups.set(key, child)
+        parent.items!.push(child)
+      }
+      child.items!.push(article)
+    } else {
+      parent.items!.push(article)
+    }
   }
   return items
 }

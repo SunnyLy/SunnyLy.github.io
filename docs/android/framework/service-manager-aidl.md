@@ -208,7 +208,9 @@ sequenceDiagram
 - **`onNullBinding()`，API 28 起**：服务返回空 Binder，本次绑定不可用，但仍须释放绑定资源。
 - **主动 `unbindService()`**：由调用方结束绑定，不应依赖它触发 `onServiceDisconnected()` 才清理本地状态。
 
-SDK 契约还要求处理正常返回 `false` 的连接释放，不能只在 `true` 时安排清理。异常路径应区分是否已登记 ServiceDispatcher，避免对从未登记的连接盲目解绑；统一跟踪绑定尝试、清理状态和重入，比仅保存一个“已连接”布尔值可靠。[Context 的返回与清理契约](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/Context.java#3979)、[连接回调契约](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/ServiceConnection.java#34)
+SDK 契约要求正常返回 `false` 或抛出 `SecurityException` 时调用 `unbindService()` 释放连接，不能只在 `true` 时安排清理。[Context 的返回与清理契约](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/Context.java#3979)、[连接回调契约](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/ServiceConnection.java#34)
+
+不要把上述安全异常与登记前的参数错误合并：`ContextImpl.bindServiceCommon()` 在 `conn == null` 或同时传入 Handler/Executor 时，尚未取得 ServiceDispatcher 就抛出 `IllegalArgumentException`，不应对这种未登记对象盲目解绑；而隐式 Intent 等校验发生在取得 ServiceDispatcher 之后，同样可能抛出 `IllegalArgumentException`。应结合具体失败位置跟踪绑定尝试、登记及清理状态，不能仅凭异常类型或“已连接”布尔值决定是否释放。[固定版本登记与参数检查顺序](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ContextImpl.java#L2201)
 
 服务死亡后，旧 Proxy 不会自动指向重启后的新对象。应使用有效连接或重新绑定取得新接口；处理 `RemoteException` / 死亡通知时，也不能无条件重试非幂等操作。最后一个绑定解除后，服务是否销毁还取决于它是否同时处于 started 状态等生命周期条件。[绑定服务生命周期](https://developer.android.com/develop/background-work/services/bound-services)
 

@@ -1,10 +1,13 @@
+import { androidSecurityOutline } from './android-security-outline.ts'
+
 export interface KnowledgeSection {
   id: string
   title: string
   en: string
   description: string
   link: string
-  items: { text: string; link: string; description?: string; group?: string }[]
+  items: { text: string; link: string; description?: string; group?: string; subgroup?: string }[]
+  outline?: typeof androidSecurityOutline
 }
 
 // Shared by the home page and navigation. Derive counts from this array.
@@ -16,6 +19,75 @@ export const knowledgeSections: KnowledgeSection[] = [
     description: '从组件协作到系统机制，理解 Android 行为背后的原因。',
     link: '/android/',
     items: [
+      {
+        text: '基础提纲与阅读索引',
+        group: '基础',
+        link: '/android/basics/',
+        description: '按原提纲串联通信、四大组件、核心服务与运行时。',
+      },
+      {
+        text: 'Binder 通信机制',
+        group: '基础',
+        link: '/android/basics/binder-basics.html',
+        description: '辨明 Java 与 Native 层接口、代理、实体的关系。',
+      },
+      {
+        text: 'Handler 原理',
+        group: '基础',
+        link: '/android/basics/handler.html',
+        description: '理解消息入队、Looper 分发、延迟调度与生命周期。',
+      },
+      {
+        text: 'Messenger 机制',
+        group: '基础',
+        link: '/android/basics/messenger.html',
+        description: '串联服务绑定、Binder 传输与 Handler 请求响应。',
+      },
+      {
+        text: 'Activity 启动原理', group: '基础', subgroup: '四大组件',
+        link: '/android/basics/activity-startup.html',
+        description: '厘清启动六个关键类型、任务复用与生命周期。',
+      },
+      {
+        text: 'Broadcast 发送与接收', group: '基础', subgroup: '四大组件',
+        link: '/android/basics/broadcast.html',
+        description: '从注册、发送、接收到 PendingResult 完成回报。',
+      },
+      {
+        text: 'Service 启动、绑定与销毁', group: '基础', subgroup: '四大组件',
+        link: '/android/basics/service-lifecycle.html',
+        description: '区分 started 与 bound 状态、Binder 发布和停止竞态。',
+      },
+      {
+        text: 'Provider 与内容观察', group: '基础', subgroup: '四大组件',
+        link: '/android/basics/content-provider.html',
+        description: '区分 Provider 声明与 ContentObserver 动态注册。',
+      },
+      {
+        text: '系统核心服务', group: '基础',
+        link: '/android/basics/system-services.html',
+        description: 'AMS/ATMS 完整启动时序及 PMS、WMS、ContentService、安装会话。',
+      },
+      {
+        text: 'PendingIntent 原理', group: '基础',
+        link: '/android/basics/pending-intent.html',
+        description: 'IntentSender、身份、复用规则与可变性。',
+      },
+      {
+        text: 'LoadedApk 原理', group: '基础',
+        link: '/android/basics/loaded-apk.html',
+        description: '包缓存、Application 初始化、资源路径与类加载。',
+      },
+      {
+        text: '类加载机制', group: '基础',
+        link: '/android/basics/class-loading.html',
+        description: '父委派、DEX 搜索、共享库与类型身份。',
+      },
+      {
+        text: '动态代理原理', group: '基础',
+        link: '/android/basics/dynamic-proxy.html',
+        description: '接口分发、InvocationHandler 与返回值和异常契约。',
+      },
       {
         text: 'Binder 机制',
         group: 'Framework',
@@ -64,9 +136,16 @@ export const knowledgeSections: KnowledgeSection[] = [
     id: 'security',
     title: '安全',
     en: 'BOUNDARIES & TRUST',
-    description: '从输入、身份与权限出发，建立可验证的安全边界。',
+    description: '按提纲学习通用组件、配置、文件操作、特殊函数与 Dos 攻击。',
     link: '/security/',
-    items: [],
+    outline: androidSecurityOutline,
+    items: [
+      { text: '通用组件安全', link: '/security/android/component-security.html', description: '按原提纲逐项学习。' },
+      { text: '配置安全', link: '/security/android/configuration-security.html', description: '按原提纲逐项学习。' },
+      { text: '文件操作', link: '/security/android/file-operations.html', description: '按原提纲逐项学习。' },
+      { text: '特殊函数', link: '/security/android/special-functions.html', description: '按原提纲逐项学习。' },
+      { text: 'Dos攻击', link: '/security/android/dos-attacks.html', description: '按原提纲逐项学习。' },
+    ],
   },
   {
     id: 'reverse',

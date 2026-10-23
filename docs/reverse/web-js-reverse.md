@@ -157,7 +157,7 @@ function observeMethod(owner, key, onCall) {
 }
 ```
 
-`Reflect.apply()` 指定原函数调用的 `this` 与参数列表。[调用语义](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect/apply) 这里不把 wrapper 声明为 `async`，也不额外挂 `.then()`，以避免包装 Promise 或改变未处理拒绝的观察方式；原方法抛出的异常仍向外传播。
+`Reflect.apply()` 指定原函数调用的 `this` 与参数列表。[ECMAScript 调用语义](https://tc39.es/ecma262/2022/multipage/reflection.html#sec-reflect.apply) 这里不把 wrapper 声明为 `async`，也不额外挂 `.then()`，以避免包装 Promise 或改变未处理拒绝的观察方式；原方法抛出的异常仍向外传播。
 
 用自造对象验证，不依赖第三方页面里恰好存在名为 `a` 的变量：
 
@@ -204,7 +204,7 @@ HMAC 在部分业务里被叫作“签名”，但它与非对称数字签名的
 
 ### 7.1 “对象一样”不代表字节一样
 
-核对字段顺序、空值处理、数字格式、重复查询参数、百分号编码、空格、换行与时间单位。`JSON.stringify()` 有规定的属性遍历顺序，但它不会自动执行某个服务所要求的通用规范化；把所有字段排序同样不是通用解法。[JSON 序列化](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify)
+核对字段顺序、空值处理、数字格式、重复查询参数、百分号编码、空格、换行与时间单位。`JSON.stringify()` 有规定的属性遍历顺序，但它不会自动执行某个服务所要求的通用规范化；把所有字段排序同样不是通用解法。[ECMAScript JSON 序列化](https://tc39.es/ecma262/2022/multipage/structured-data.html#sec-serializejsonobject)
 
 ```javascript
 const left = JSON.stringify({ a: 1, b: 2 });
@@ -217,7 +217,7 @@ console.assert(query.toString() === 'q=a+b');
 console.assert(encodeURIComponent('a b') === 'a%20b');
 ```
 
-`URLSearchParams` 以表单规则序列化，空格写成 `+`；不要不经核对就拿它替换原站的编码方式，重复编码也会造成差异。[查询参数编码](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams#percent_encoding)
+`URLSearchParams` 以表单规则序列化，空格写成 `+`；不要不经核对就拿它替换原站的编码方式，重复编码也会造成差异。[WHATWG 查询参数编码](https://url.spec.whatwg.org/#urlsearchparams-stringification-behavior)
 
 ### 7.2 用公开向量检查字节处理
 
@@ -266,7 +266,7 @@ flowchart TD
 
 **Worker / Service Worker**：它们有独立执行上下文；在页面 `window` 上覆写 `fetch` 不能自动覆盖 Worker 内调用。Service Worker 还可能拦截请求并返回缓存，出现“页面拿到数据但没有相应远端请求”时应核对这条路径。[Service Worker 原理](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)
 
-**WebAssembly**：先检查 JS 与 Wasm 的 imports / exports、输入长度、指针指向的内存区间及返回约定，再缩小到相关函数。WAT 是二进制的文本表示，不能等同于恢复原 C / C++ 源码。[Wasm 文本格式](https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Understanding_the_text_format)
+**WebAssembly**：先检查 JS 与 Wasm 的 imports / exports、输入长度、指针指向的内存区间及返回约定，再缩小到相关函数。WAT 是 WebAssembly 模块抽象语法的文本表示，与二进制格式表达同一层次的模块结构，不能等同于恢复原 C / C++ 源码。[Wasm 官方文本格式规范](https://webassembly.github.io/spec/core/text/conventions.html)
 
 **迁移到 Node.js**：先列出 DOM、Web API、存储、时间、随机数、原生桥等依赖，区分纯函数与环境初始化。不要用一串空对象“补环境”后就认定语义一致；`node:vm` 也不是运行不可信代码的安全边界。[Node VM 文档](https://nodejs.org/api/vm.html)
 

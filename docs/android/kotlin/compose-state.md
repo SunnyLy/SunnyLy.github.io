@@ -75,13 +75,13 @@ getter 选择当前 Snapshot 可见的状态记录，并参与读取观察；set
 flowchart TB
   Run[在可观察的组合执行环境中运行]
   Argument[求值 Text 的 name 参数]
-  Getter[委托 getter 读取 state.value]
-  Record[readable 选择当前可见 StateRecord]
+  Getter[委托 getter 进入 readable]
+  Record[选择当前可见 StateRecord 并返回其值]
   Observer[Snapshot readObserver]
   Track[Composition.recordReadOf]
   Scope[状态关联到当前有效 RecomposeScope]
-  Run --> Argument --> Getter --> Record
-  Record --> Observer --> Track --> Scope
+  Run --> Argument --> Getter --> Observer
+  Observer --> Track --> Scope --> Record
   Track -. 派生状态等存在额外处理分支 .-> Extra[并非所有读取都直接记录到同一张简单表]
 ```
 
@@ -188,7 +188,7 @@ flowchart TB
 
 `remember { mutableListOf<String>() }` 只保存普通列表，调用 `add()` 不会自动产生 Snapshot 状态变化。`mutableStateOf(mutableListOf<String>())` 也不意味着列表内部所有修改都经过 `value` setter；即使再把同一列表赋回，等价策略也可能认为没有变化。
 
-可按模型使用新的不可变列表替换 `State<List<T>>` 的值，或使用 `mutableStateListOf()` 等快照集合。后者观察集合操作，不自动观察元素中任意普通 `var` 字段；元素更新仍需不可变替换或显式状态建模。[可变对象与状态容器](https://developer.android.com/develop/ui/compose/state)
+可按模型使用新的不可变列表替换 `MutableState<List<T>>.value`，或使用 `mutableStateListOf()` 等快照集合。`State<T>` 只暴露只读 `value`，赋值应通过可写状态持有者进行。快照集合观察集合操作，不自动观察元素中任意普通 `var` 字段；元素更新仍需不可变替换或显式状态建模。[State 与 MutableState 接口](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/SnapshotState.kt#75)、[可变对象与状态容器](https://developer.android.com/develop/ui/compose/state)
 
 ### remember 计算结果不能替代持续派生状态
 

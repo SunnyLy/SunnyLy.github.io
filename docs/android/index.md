@@ -6,6 +6,17 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 理解平台行为，比记住某个调用方式更重要。这里从可解释、可验证的小问题出发，整理组件协作、进程通信和系统机制。
 
+## 基础
+
+按[原始 Android 基础提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)的顺序，从进程通信延伸到四大组件、核心服务与运行时。[基础阅读索引](./basics/)提供原提纲与笔记的逐项对应。
+
+- [Binder 通信机制](./basics/binder-basics.html)：Java 层四个核心类型与 Native 层接口、代理、实体，厘清 AIDL Proxy 与 BinderProxy 的组合关系。
+- [Handler 原理](./basics/handler.html)：消息如何进入队列、在哪个线程执行，以及延迟、取消和退出的边界。
+- [Messenger 机制](./basics/messenger.html)：两种构造方式、绑定通信四步、双向回复、调用身份与断连处理。
+- 四大组件：[Activity 启动](./basics/activity-startup.html)、[Broadcast 发送接收](./basics/broadcast.html)、[Service 生命周期](./basics/service-lifecycle.html)、[Provider 与内容观察](./basics/content-provider.html)。
+- [系统核心服务](./basics/system-services.html)：AMS/ATMS、PMS、WMS、ContentService 和 PackageInstallerService；包含 [Launcher 点击到首帧的完整时序](./basics/system-services.html#ams-atms-launch-sequence)。
+- 运行时：[PendingIntent](./basics/pending-intent.html)、[LoadedApk](./basics/loaded-apk.html)、[类加载机制](./basics/class-loading.html)、[动态代理](./basics/dynamic-proxy.html)。
+
 ## Framework
 
 [Binder 机制：从 AIDL 到内核事务](./framework/binder-mechanism.html)以固定 AOSP 与内核源码串联服务发现、Java/JNI 调用链、Parcel、线程模型和调用身份，区分源码结论与设备验证。
