@@ -1,100 +1,213 @@
 ---
-description: 解释 Handler 消息调度、HandlerThread 的工作原理与替代选择，以及 WorkManager 的持久调度、取消和调用示例。
+description: 用消息传送带理解 Handler、Looper、MessageQueue、Message，再看线程切换、源码、等待唤醒与任务选型。
 outline: [2, 3]
 ---
 
-# Handler 原理
+# Handler 原理：一条消息怎样到达指定线程
 
-Handler 把消息或 Runnable 交给某个 Looper 的队列，由该 Looper 所在线程执行。**它负责调度，不会因为创建 Handler 自动创建线程。** 同一个 Looper 可以关联多个 Handler，它们共享队列和执行线程。
+**发送线程把工作交进队列，目标线程的 Looper 取出消息，再交回消息指定的 Handler 执行。** Handler 不创建线程，执行位置由它绑定的 Looper 决定。
 
+## 1. 先看图：消息的一次旅行 {#message-flow}
 
-## 四个核心对象
+![Handler、Looper、MessageQueue、Message 的传送带数据流向图](/assets/android/basics/handler/message-flow-conveyor-controller.png)
 
-- **Message**：一次待处理工作的载体，包含 `what`、参数、目标 Handler 或 Runnable 回调。消息送入队列后，发送方应放弃对其内容的修改，也不要重复发送同一实例。
-- **MessageQueue**：保存并选择待分发消息，同时参与等待与唤醒。应用通常通过 Handler 入队，不直接操作内部结构。
-- **Looper**：管理当前线程的消息循环，取出可处理消息并调用目标 Handler。
-- **Handler**：关联确定的 Looper，负责发送、取消和分发自己的消息。
+图中只有**一个 Handler H1**，绑定主 Looper；左侧发送方只是持有它的引用。**入队在发送线程执行，取消息与分发在目标线程执行。**
 
-对象职责与线程准备方式见 [Looper 官方参考](https://developer.android.com/reference/android/os/Looper)、[MessageQueue 官方参考](https://developer.android.com/reference/android/os/MessageQueue) 与 [Message 官方参考](https://developer.android.com/reference/android/os/Message)。Message 被复用时不能继续持有并修改；跨线程传递的业务对象也不因放进消息就自动变成不可变对象。
+- **Message 是包裹**：携带数据、时间和目标 Handler，也可携带 Runnable。
+- **MessageQueue 是传送带上的等待区**：保存消息，按时间与屏障规则提供可处理的消息。
+- **Looper 是传送带的循环控制器**：调用 `MessageQueue.next()` 取消息，再调用 `msg.target.dispatchMessage(msg)` 分发。
+- **Handler 是投递入口与处理台**：发送时入队，分发时决定执行哪种回调。
 
-## 线程与 Looper 如何关联
+**实线表示消息流向，虚线表示循环控制。** 控制面板只是 Looper 的类比；取消息、分发与回调都在同一目标线程串行执行。正常返回后，Looper 回收 Message，再进入下一轮。
 
-普通线程默认没有消息循环。手工创建时，需要在线程内执行 `Looper.prepare()`，建立与该线程的关联，再调用 `Looper.loop()` 消费消息；同一线程不能重复准备 Looper。Android 应用主 Looper 由运行环境创建，不应自行再准备或退出。
+**记住一条主线：`Handler → MessageQueue → Looper → Message.target（原 Handler）`。** Message 是在线路中传递的载体。
 
-这种关联由 `ThreadLocal<Looper>` 保存：`Looper.myLooper()` 读取**当前调用线程**的值，而 `Looper.getMainLooper()` 返回应用主线程的全局引用。Looper 自身还保存创建它的 Thread 与 MessageQueue；把这个 Looper 引用传给另一个线程构造 Handler，并不会转移消息循环的所有权。[Looper.prepare / myLooper 实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/Looper.java)
+## 2. 最小示例：后台发送，主线程接收 {#example}
 
-构造 Handler 时显式传入 `Looper.getMainLooper()` 或专用线程的 Looper，可以清楚表达执行位置。依赖当前线程隐式选择 Looper 的构造方式已弃用，可能因没有准备循环、绑定错误线程或循环退出造成问题。[Handler 构造说明](https://developer.android.com/reference/android/os/Handler)
+下面只输出日志，不访问页面对象。普通 App 主 Looper 已由系统准备，不需自行调用 prepare。
 
-`HandlerThread` 则把线程与 Looper 初始化封装起来；它仍是一个串行工作线程。通用并行任务通常更适合 Executor 或 Kotlin 协程，是否选择 HandlerThread 应由既有消息 API 和线程亲和需求决定。[HandlerThread 官方参考](https://developer.android.com/reference/android/os/HandlerThread)
+```java
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.util.Log;
 
-## 从发送到回调
+public final class HandlerFlowExample {
+    private static final int DONE = 1;
+
+    public static void runDemo() {
+        Handler ui = new Handler(Looper.getMainLooper(), msg -> {
+            if (msg.what != DONE) return false;
+            Log.d("HandlerFlow", msg.obj + " @ " + Thread.currentThread().getName());
+            return true; // Handler.Callback 已消费这条 Message
+        });
+
+        new Thread(() -> {
+            Message msg = ui.obtainMessage(DONE, "后台计算结果");
+            ui.sendMessage(msg); // 送入主线程队列；之后不再修改或重发 msg
+            ui.post(() -> Log.d("HandlerFlow", "Runnable @ "
+                    + Thread.currentThread().getName()));
+        }, "notes-worker").start();
+    }
+}
+```
+
+`sendMessage()` 用字段传递数据；`post()` 将 Runnable 放进 Message 的 `callback`。两者进入同一个队列，回调都在主 Looper 线程执行。这个一次性线程仅用于观察流程，实际并发任务可由线程池或协程管理。
+
+### Message 中最重要的字段
+
+| 字段 | 用途 | 谁填写 |
+| --- | --- | --- |
+| `what / arg1 / arg2 / obj` | 业务类型、参数、对象 | 发送方；obj 是引用，不会自动深拷贝 |
+| `target` | 到期后交给哪个 Handler | Handler 入队时设置为自己 |
+| `callback` | 要执行的 Runnable | post() 包装时设置 |
+| `when` | 最早可调度时间 | 入队调度逻辑，基于 uptimeMillis |
+
+Message 可通过 `obtain()` 复用。发送后交由队列管理，不应继续修改、手动回收或重复发送同一实例。[Message API](https://developer.android.com/reference/android/os/Message)
+
+## 3. 源码只抓三处：入队、取出、分发 {#source-flow}
+
+### 发送：写入 target，再放进队列
+
+```java
+// Handler.java，enqueueMessage()，L782–790 核心节选。
+// 省略 WorkSource 与异步标记处理。
+msg.target = this;                            // 记录回到哪个 Handler
+return queue.enqueueMessage(msg, uptimeMillis);
+```
+
+**target 是消息的回送地址。** 同一队列中可以有多个 Handler 的消息，Looper 不会靠 what 猜测接收者。[Handler.enqueueMessage](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Handler.java#782)
+
+### 取出：Looper 在自己的线程调用目标 Handler
+
+```java
+// Looper.java，loopOnce() 正常路径节选：L196、248、302。
+// 省略日志、监控、异常处理等分支。
+Message msg = me.mQueue.next(); // 没有可处理消息时，可能阻塞等待
+if (msg == null) return false;  // 队列退出，消息循环结束
+msg.target.dispatchMessage(msg);
+msg.recycleUnchecked();        // 正常分发完成后回收复用
+return true;
+```
+
+发送方只负责入队，`dispatchMessage()` 由 Looper 所在线程调用，这就是执行位置发生变化的原因。同线程发送通常也会排队，不等于立即调用。[Looper.loopOnce](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Looper.java#194)
+
+### 分发：不是三种回调都执行
 
 ```mermaid
 flowchart TB
-  A[任意发送线程] --> B[Handler.sendMessage 或 post]
-  B --> C[关联的 MessageQueue]
-  C --> D{目标 Looper 取到可处理消息}
-  D --> E[目标 Handler.dispatchMessage]
-  E --> F{Message 有 Runnable callback?}
-  F -->|有| G[执行 Runnable.run]
-  F -->|无| H{Handler.Callback 处理并返回 true?}
-  H -->|是| I[本次分发结束]
-  H -->|否或未设置| J[Handler.handleMessage]
-  G --> I
-  J --> I
-  I --> D
+  Dispatch["Handler.dispatchMessage(msg)"] --> Runnable{"msg.callback 有 Runnable？"}
+  Runnable -->|有| Run["Runnable.run()"]
+  Runnable -->|无| Callback{"构造时的 Handler.Callback<br/>处理后返回 true？"}
+  Callback -->|是| End["本次分发结束"]
+  Callback -->|否 / 未设置| Handle["Handler.handleMessage(msg)"]
+  Run --> End
+  Handle --> End
 ```
 
-图中入队可以发生在其他线程，**分发与业务回调在目标 Looper 线程**。这就是消息调度能用于线程切换的原因；若发送方与目标本来就是同一线程，仍然是排队执行。
+对应 `Handler.java`，L101–113：
 
-### sendMessage 与 post
+```java
+public void dispatchMessage(Message msg) {
+    if (msg.callback != null) {
+        handleCallback(msg); // 内部调用 msg.callback.run()
+    } else {
+        if (mCallback != null) {
+            if (mCallback.handleMessage(msg)) return;
+        }
+        handleMessage(msg);
+    }
+}
+```
 
-`sendMessage()` 使用 Message 的字段传递工作；`post()` 把 Runnable 包装为带回调的 Message。二者都进入 Handler 关联的消息队列，`post()` 不会额外启动线程。
+优先级是 **Message 的 Runnable → Handler.Callback → handleMessage**。所以 Handler.Callback 不能拦截所有 post()；示例中的 post 会直接执行 Runnable。[Handler.dispatchMessage](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Handler.java#101)
 
-发送返回 `true` 表示成功入队，不保证一定执行，更不代表任务已完成。如果队列退出、进程结束，已入队工作仍可能丢失。需要业务确认时，必须另设完成通知或持久化状态。[Handler 发送与调度契约](https://developer.android.com/reference/android/os/Handler)
+## 4. 线程绑定：一个 Looper，一条执行线 {#thread-binding}
 
-### dispatchMessage 的优先级
+```mermaid
+flowchart TB
+  Thread["目标线程的 ThreadLocal"] --> Looper["Looper<br/>记录所属 Thread"]
+  A["Handler A"] -->|绑定| Looper
+  B["Handler B"] -->|绑定同一个| Looper
+  Looper --> Queue["同一个 MessageQueue"]
+  Looper --> Serial["回调在目标线程串行执行"]
+```
 
-分发首先处理 Message 自带的 Runnable；没有它时才调用构造时传入的 `Handler.Callback`。Callback 返回 `true` 表示已经消费，否则继续到可覆写的 `handleMessage()`。因此，给 Handler 设置 Callback 不等于可以拦截所有 `post()` 的 Runnable。[Handler 分发实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/Handler.java)
+- `Looper.prepare()` 在当前线程创建 Looper/Queue，存入 ThreadLocal；同线程不能重复 prepare。
+- `Looper.loop()` 在当前线程运行消息循环；主 Looper 已由系统准备。
+- `myLooper()` 查当前调用线程；`getMainLooper()` 取得主 Looper。
+- 构造时显式传入 Looper；把引用传给另一个线程，不会改变 Looper 的所属线程。
 
-## 延迟、顺序与等待
+`Handler()`、`Handler(Callback)` 的隐式选择 Looper 构造方式已弃用。多个 Handler 绑定同一 Looper，仍共享同一条执行线；一个回调卡住，后面的工作都要等待。[Looper API](https://developer.android.com/reference/android/os/Looper)、[Handler 构造说明](https://developer.android.com/reference/android/os/Handler)
 
-### 延迟不是准点执行
+## 5. 延迟、屏障与等待 {#timing-and-wait}
 
-`postDelayed()` 的时间基准是 `SystemClock.uptimeMillis()`。消息到期只意味着具备分发条件；前一任务阻塞、线程调度和设备深度休眠都可能使实际执行更晚。它不适合承诺跨进程死亡、重启或休眠的可靠定时。[Handler 时间说明](https://developer.android.com/reference/android/os/Handler)
+### 延迟到期，只是可以执行
 
-同一个 Looper 逐个执行回调，但不应把所有消息看成无条件 FIFO。延迟时间、队首插入以及同步屏障都会影响可分发顺序；多个生产线程竞争时，业务需要序号或状态机表达顺序。异步 Message 可越过同步屏障，“异步”在此不表示换到另一个线程。
+```mermaid
+flowchart LR
+  Send["t0：postDelayed(r, 1000)"] --> Eligible["uptime 到 t0 + 1000<br/>具备调度条件"]
+  Eligible --> Run["线程空闲并被调度后<br/>才实际执行"]
+```
 
-### 没有消息时如何等待
+时间基准是 `SystemClock.uptimeMillis()`，深度休眠不计入这段时间；前一个回调阻塞、系统调度和休眠，都可能让实际执行更晚。它不能提供跨进程死亡或重启的可靠定时。[Handler 时间契约](https://developer.android.com/reference/android/os/Handler)
 
-队列暂无可处理工作时，消息循环可以进入 Native 等待，后续由新消息或相关事件唤醒；`Looper.loop()` 的持续循环不等于持续忙轮询。具体等待细节与队列实现有关。
+### 队列不是无条件 FIFO
 
-JNI 的 `nativePollOnce()` 进入 `NativeMessageQueue::pollOnce()`，后者交给 Native Looper；`nativeWake()` 则走对应的唤醒入口。消息队列还可监听文件描述符事件，所以线程停在 `nativePollOnce` 只表明该时刻处于等待/事件处理入口，不能单凭这一帧认定发生死锁。应继续看它等待之前的业务、其他线程的依赖和采样时序。[MessageQueue JNI 的 pollOnce / wake](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/jni/android_os_MessageQueue.cpp)
+通常按调度时间选择消息，但队首插入、同步屏障等会改变可分发顺序。**异步消息能越过同步屏障，仍在同一个 Looper 线程执行**；这里的异步不代表另开线程，也不能跳过正在运行的长回调。
 
-::: info 源码版本差异
-`android-16.0.0_r1` 的 `core/java/android/os/` 下包含 `LegacyMessageQueue`、`ConcurrentMessageQueue` 与 `CombinedMessageQueue` 实现目录，消息存储、并发入队与唤醒细节需按实际构建选择和运行时分支阅读。
-:::
+### 没消息时会空转吗
 
-实现入口见 [Looper.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/Looper.java) 与 [CombinedMessageQueue/MessageQueue.java](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/CombinedMessageQueue/MessageQueue.java)。
+```mermaid
+flowchart TB
+  Check{"有可分发消息？"} -->|有| Dispatch["返回消息，执行回调"]
+  Dispatch --> Check
+  Check -->|暂无| Poll["nativePollOnce<br/>进入 Native Looper 等待 / 处理事件"]
+  Poll -->|新消息到期 / 唤醒 / 文件描述符事件等| Check
+```
 
-## HandlerThread 是否弃用，应该换成什么
+Java 队列经 JNI 的 `NativeMessageQueue::pollOnce()` 进入 Native Looper；需要时通过 `nativeWake()` 唤醒。它不是一直占用 CPU 忙轮询。单独一帧 `nativePollOnce` 也不能证明死锁。[JNI pollOnce / wake，L123、137](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/jni/android_os_MessageQueue.cpp#123)
 
-**`HandlerThread` 没有被标记为弃用。** 官方建议仅在必须使用 Handler API、且需要一个专用 Looper 线程时使用它，其余情况优先选择 Executor、ExecutorService 或 Kotlin 协程。弃用的是 `Handler()`、`Handler(Callback)` 这类隐式选择 Looper 的构造方法。[HandlerThread 官方建议](https://developer.android.com/reference/android/os/HandlerThread)、[Handler 构造方法](https://developer.android.com/reference/android/os/Handler)
+<details>
+<summary>源码深一层：Android 16 的队列实现差异</summary>
 
-| 关注点 | HandlerThread | ExecutorService / 协程 | WorkManager |
+AOSP `android-16.0.0_r1` 包含 Legacy、Concurrent、Combined 队列实现。Combined 的 `next()`（L1021）、`enqueueMessage()`（L1392）按 `mUseConcurrent` 选择分支。不能把某一版的单链表、锁与唤醒细节当成所有版本的固定实现；上面的消息去向与线程模型仍成立。
+
+[CombinedMessageQueue 源码](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/CombinedMessageQueue/MessageQueue.java#1021)
+
+</details>
+
+## 6. HandlerThread、线程池、WorkManager 怎么选 {#handlerthread-是否弃用-应该换成什么}
+
+**HandlerThread 本身没有被标记为弃用。** 官方建议只有必须使用 Handler API、且需要专用 Looper 线程时才使用它；一般异步工作优先 Executor 或协程。[HandlerThread 官方建议](https://developer.android.com/reference/android/os/HandlerThread)
+
+| 工具 | 执行方式 | 进程退出后 | 适合的需求 |
 | --- | --- | --- | --- |
-| 解决的问题 | 给 Handler 提供专用消息循环 | 管理进程内异步工作、并发与取消 | 持久保存任务并在条件满足时调度 |
-| 执行模型 | 一个线程上的 Looper，回调逐个执行 | 线程池或协程调度器；顺序由具体配置决定 | 系统调度与进程内执行器协作，运行 Worker |
-| 进程退出之后 | 内存消息丢失 | 内存任务不会自动恢复 | 可根据持久记录恢复调度，业务仍需幂等 |
-| 常见用途 | 旧 SDK 的 Handler 回调、必须绑定 Looper 的对象 | 页面数据加载、计算、普通文件 I/O | 可延后的同步、上传、维护任务 |
+| HandlerThread | 一个专用 Looper 线程，串行回调 | 内存消息丢失 | 必须绑定 Handler/Looper 的 API |
+| Executor / 协程 | 线程池或调度器，按配置组织并发 | 内存任务不自动恢复 | 页面加载、计算、普通 I/O |
+| WorkManager | 持久记录任务，条件满足时执行 Worker | 可以恢复调度，业务需幂等 | 可延后的同步、上传、维护 |
 
-**WorkManager 不是 HandlerThread 的直接替代品。** 只需把页面中的耗时操作移出主线程，通常用 Executor 或受生命周期约束的协程；需要在应用进程退出、设备重启后仍保留执行意图，才考虑 WorkManager。已有 API 如果新增 Executor 重载，应优先采用它；若对象明确要求固定的 Looper 线程，不能随意改成可能切换线程的协程调度器。[后台任务选型](https://developer.android.com/develop/background-work/background-tasks/persistent)、[AOSP API 设计指南](https://source.android.com/docs/setup/contribute/api-guidelines#use-executor-instead-of-handler)
+WorkManager 不是把 HandlerThread 换个名字；它解决任务持久调度。需要直接管理平台 Job 时，另见 [JobScheduler](./job-scheduler.html)。
 
-## HandlerThread 的工作原理与调用示例
+## 7. HandlerThread：启动、使用、退出 {#handler-thread}
 
-### 从 start 到消息循环
+```mermaid
+sequenceDiagram
+  participant Owner as 拥有者线程
+  participant Worker as HandlerThread
+  Owner->>Worker: start()
+  Worker->>Worker: Looper.prepare()
+  Worker-->>Owner: 发布 Looper，唤醒 getLooper() 等待者
+  Worker->>Worker: onLooperPrepared() → Looper.loop()
+  Owner->>Worker: Handler(looper).post(task)
+  Worker->>Worker: 在专用线程执行 task
+  Owner->>Worker: quitSafely()
+```
 
-HandlerThread **继承 Thread，并在 `run()` 中准备 Looper**。调用顺序为：拥有者调用 `start()`；新线程执行 `Looper.prepare()`；保存 Looper 并通知等待者；设置线程优先级；执行 `onLooperPrepared()`；最后进入 `Looper.loop()`。以下是 AOSP `android-16.0.0_r1` 的方法节选，注释为本文补充。
+先 start，再 getLooper；后者可能等待 Looper 创建。**拿到 Looper 不代表 onLooperPrepared 中的业务初始化已经完成**，需要就绪信号时另设协议。
+
+<details>
+<summary>展开核心源码：HandlerThread.run()</summary>
 
 ```java
 @Override
@@ -112,13 +225,14 @@ public void run() {
 }
 ```
 
-`getLooper()` 不会创建线程：线程尚未启动或已经死亡时返回 `null`；线程存活但 Looper 尚未建立时，调用者会等待。因此先 `start()`，再构造 `Handler(thread.getLooper())`。**Looper 已发布不代表 `onLooperPrepared()` 中的业务初始化已经完成**；需要完成信号时应另设协议，不能只依赖 `getLooper()` 返回。[HandlerThread.java 源码](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/HandlerThread.java)
+[HandlerThread.java，run()，L76](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/HandlerThread.java#76)
 
-所有绑定这个 Looper 的 Handler 共享一个串行执行位置。一个回调阻塞就会拖住后续消息；它没有线程池的自动扩容，也没有持久化、失败重试或进程保活能力。不要为每个短任务各建一个 HandlerThread，应由明确的拥有者管理线程生命周期。
+</details>
 
-### 一个具有明确生命周期的示例
+<details>
+<summary>展开完整 Java 示例：由主线程拥有者管理专用工作线程</summary>
 
-下面的 Java 片段使用一个专用串行线程，`quitSafely()` 需要 API 18+。方法由拥有者在主线程顺序调用，示例省略包名。
+API 18+；拥有者在主线程依次创建、提交和关闭，工作回调不得直接操作 View。
 
 ```java
 import android.os.Handler;
@@ -157,12 +271,6 @@ final class SerialNoteWorker {
 }
 ```
 
-这里的 `close()` 是“取消待执行任务并请求线程退出”，没有承诺排空队列，也没有等待线程已经终止。`removeCallbacksAndMessages()` 不能停止正在执行的 Runnable；长任务需协作取消。构造也应由主线程拥有者执行，工作回调不得直接操作 View。确认线程终止如需 `join()`，应放在可阻塞的管理线程。
-
-`quitSafely()` 会处理仍留在队列中、已经到期的消息，舍弃未来才到期的延迟消息；它不会把未来消息全部等完。示例先移除了本 Handler 的待处理任务，两种操作的目的不同。[Looper 退出契约](https://developer.android.com/reference/android/os/Looper#quitSafely())
-
-调用方可以在页面创建时持有 `SerialNoteWorker`，提交工作；在页面销毁时关闭它。下面两个方法分别从主线程的创建、销毁回调调用；日志中的线程名可用于观察实际执行位置。
-
 ```java
 private SerialNoteWorker noteWorker;
 
@@ -178,33 +286,39 @@ void onOwnerDestroyed() {
 }
 ```
 
-不要把 `post()` 的返回值当成任务成功结果；关闭拥有者时，上例中尚未执行的日志任务可能被取消。确实需要脱离页面继续完成的业务，应重新确定拥有者和持久化需求，而不是简单去掉 `close()`。
+</details>
 
-## WorkManager 的工作原理
+`removeCallbacksAndMessages()` 取消尚未执行的本 Handler 工作，不能停止正在运行的 Runnable；长任务需要协作取消。`quitSafely()` 执行队列中已到期的剩余工作，舍弃未来才到期的延迟消息。示例先移除待处理消息，再请求退出，不承诺排空，也不等待线程已经终止。
 
-### 持久任务如何被执行
+## 8. WorkManager：持久任务的另一条链 {#workmanager-的工作原理}
 
-WorkManager 是 Jetpack 的任务调度库，**Worker 仍在应用进程中执行**，并非把业务代码放到系统服务中运行。以一次性任务为例：
+```mermaid
+flowchart TB
+  Request["WorkRequest：Worker / 输入 / 约束"] --> DB["WorkDatabase<br/>持久保存 WorkSpec 与依赖"]
+  DB --> System["SystemJobScheduler<br/>对接系统 JobScheduler"]
+  DB --> Local["GreedyScheduler<br/>进程运行时跟踪条件"]
+  System --> Run["条件允许：在应用进程运行 Worker"]
+  Local --> Run
+  Run --> Result["success / failure / retry"]
+  Result -->|更新状态 / 重新调度| DB
+```
 
-1. 应用创建 `WorkRequest`，指定 Worker 类型、输入、约束及重试策略，再调用 `enqueue()` 或 `enqueueUniqueWork()`。
-2. WorkManager 将 `WorkSpec`、依赖关系等保存到基于 Room / SQLite 的 `WorkDatabase`。入队接口返回不代表业务已经运行或成功。
-3. 调度器协调执行机会：系统侧使用 `SystemJobScheduler` 对接 JobScheduler；进程运行时也可通过 `GreedyScheduler` 跟踪条件并触发符合条件的工作。两者并非固定的先后步骤。
-4. 执行层检查任务状态等条件，通过 `WorkerFactory` 创建 Worker，再由 `WorkerWrapper` 启动工作。不要自行 `new Worker` 后调用 `doWork()` 来替代正常调度。
-5. 任务返回 `Result.success()`、`failure()` 或 `retry()`，状态写回数据库；重试结合退避策略再次等待调度。依赖任务还需等待前置任务成功。
+两个调度器协作争取执行机会，不是固定先后运行。普通 Worker 在配置的后台 Executor 执行；CoroutineWorker 运行挂起工作，阻塞 I/O 应切到适合的调度器。**不要启动脱离管理的工作后，马上返回 success。**
 
-WorkManager 2.12.0 实现：[`WorkDatabase.kt`](https://android.googlesource.com/platform/frameworks/support/+/cbf5ea2a1e5a7e5999144c2cb7f170802046e1c9/work/work-runtime/src/main/java/androidx/work/impl/WorkDatabase.kt)、[`Schedulers.java`](https://android.googlesource.com/platform/frameworks/support/+/cbf5ea2a1e5a7e5999144c2cb7f170802046e1c9/work/work-runtime/src/main/java/androidx/work/impl/Schedulers.java)、[`WorkerWrapper.kt`](https://android.googlesource.com/platform/frameworks/support/+/cbf5ea2a1e5a7e5999144c2cb7f170802046e1c9/work/work-runtime/src/main/java/androidx/work/impl/WorkerWrapper.kt)。
+- `enqueue` 完成只代表入队操作，不代表 Worker 成功。
+- `retry` 结合退避再次调度；约束、Doze、配额等影响实际开始时间。
+- 持久化不保证副作用恰好一次，也不保证强行停止后继续执行；业务需要幂等与恢复设计。
 
-### 执行线程、状态与可靠性的边界
+[Worker 线程模型](https://developer.android.com/develop/background-work/background-tasks/persistent/threading/worker)、[任务状态](https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/states)
 
-普通 `Worker.doWork()` 在 WorkManager 配置的后台 Executor 上同步执行，返回时应已完成工作。`CoroutineWorker.doWork()` 是挂起函数，在默认配置下使用 `Dispatchers.Default`；阻塞文件 I/O 可显式放入 `withContext(Dispatchers.IO)`。不要启动一个脱离管理的线程或 `GlobalScope` 协程后立即返回成功。[Worker 线程模型](https://developer.android.com/develop/background-work/background-tasks/persistent/threading/worker)、[CoroutineWorker API](https://developer.android.com/reference/androidx/work/CoroutineWorker)
+### 示例：清理过期预览缓存
 
-一次性任务通常是 `ENQUEUED → RUNNING → SUCCEEDED / FAILED`，返回 `retry()` 会重新进入 `ENQUEUED`；取消进入 `CANCELLED`。持久调度不等于每次尝试都执行完，更不保证业务副作用只发生一次：进程可能在写入远端成功、记录本地成功之前死亡，所以上传、支付等操作必须由业务设计幂等键及恢复机制。[任务状态](https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/states)
+完整示例保留依赖、取消响应、退避、唯一任务去重和页面状态观察，只清理可重新生成的私有预览缓存。
 
-WorkManager 不保证准确的开始时间，也不是常驻线程或保活方案。约束、Doze、系统配额和用户强行停止应用等会影响调度；强行停止后不能承诺继续运行。普通 Worker 有执行时限，长时间工作需另行评估官方长任务方案及前台服务限制；周期任务也不等于精确闹钟。[持久任务概览](https://developer.android.com/develop/background-work/background-tasks/persistent)
+<details>
+<summary>展开完整 Kotlin 示例：PreviewCleanupWorker 与任务管理</summary>
 
-## WorkManager 调用示例：清理过期预览缓存
-
-### 依赖与 Worker
+**依赖与 Worker**
 
 示例只清理应用私有的 `cacheDir/note-previews/` 下过期的普通文件，不需要存储权限。目录只保存可重新生成的预览，不能放原始笔记；生产者应使用独立的临时文件和原子重命名发布预览，避免清理器与正在写入的同名文件竞争。重复清理已删除文件不会产生重复副作用，适合演示可恢复任务。
 
@@ -262,7 +376,7 @@ class PreviewCleanupWorker(
 
 取消是协作式的，不能撤回已经删除的文件；`ensureActive()` 让循环在下一次检查时及时停止。目录中的数据本来就可能被系统回收，所以“目录已不存在”应视为成功，而不是无休止重试。真实缓存业务还应考虑文件数量、清理配额及访问中的资源。
 
-### 创建请求、去重与取消
+**创建请求、去重与取消**
 
 下面的 `PreviewCleanup` 可以从页面或应用层调用，内部只把 applicationContext 交给 WorkManager。充电约束适合这个允许延后的维护任务，不适合照搬到必须立即响应的交互操作。
 
@@ -302,7 +416,7 @@ object PreviewCleanup {
 
 `KEEP` 表示存在同名未完成任务时保留原任务、忽略新请求，不是“永远只执行一次”；原任务结束后可以再次提交。退避时间是重试的调度下限，实际运行仍取决于约束及系统。页面退出通常不应自动取消这种持久任务，否则会失去选择 WorkManager 的意义。[唯一任务与冲突策略](https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/manage-work)、[约束与退避](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work)
 
-### 页面观察任务状态
+**页面观察任务状态**
 
 在使用 AndroidX Fragment 的页面中，于 `onViewCreated()` 注册观察，使用 `viewLifecycleOwner` 避免销毁 View 后继续更新页面。按唯一名称查询能在页面重建后重新找到任务；结果可能包含历史记录，示例展示各任务 ID，不把列表顺序当成时间顺序。
 
@@ -318,16 +432,32 @@ manager.getWorkInfosForUniqueWorkLiveData(PreviewCleanup.UNIQUE_NAME)
 
 业务可以根据 `WorkInfo.State` 显示等待、运行或完成状态；`enqueueUniqueWork()` 返回的入队操作完成，不能替代任务的 `SUCCEEDED` 状态。需要传文件或大批数据时，将其保存在可恢复的位置并传递标识，避免把内容塞入 WorkManager 的输入 Data。[状态观察 API](https://developer.android.com/reference/androidx/work/WorkManager#getWorkInfosForUniqueWorkLiveData(java.lang.String))
 
-## 生命周期与性能检查
 
-- **主线程阻塞**：不要在回调中执行网络、大量磁盘 I/O 或长计算。队列仍在运行并不能阻止卡顿与 ANR。
-- **引用保留**：待执行 Message/Runnable 可能间接持有 Activity、Fragment 或 View；在相应生命周期取消工作，并避免执行已失效的 UI 更新。改成静态 Handler 也不能自动解除所有业务引用。
-- **积压控制**：频繁进度更新应合并、去重或限流。消息循环没有替业务自动设置一个合理容量上限。
-- **取消成本**：遍历队列删除消息有成本，不宜在高频路径反复扫描；必要时结合任务代次或取消标记，同时释放不再需要的引用。
-- **异常边界**：未处理的业务异常可能使 Looper 线程退出或导致进程崩溃，不能假设下一条消息仍会继续执行。
+</details>
 
-## 从 Handler 到跨进程消息
+## 9. 最容易踩的五个坑 {#pitfalls}
 
-Handler 的消息队列属于本进程，不能仅靠把 Handler 对象交给另一个进程实现 IPC。[Messenger 机制](./messenger.html)用 Binder 接收远端 Message，再交给本地 Handler，把跨进程传输和指定线程执行连接起来。
+- **成功入队 ≠ 已执行**：send/post 返回 true 不是业务完成确认；队列退出或进程死亡仍可能丢任务。
+- **耗时回调阻塞后续消息**：主线程会卡顿，专用 Looper 也一样串行等待。
+- **消息持有页面**：Message/Runnable 可间接保留 Activity、Fragment 或 View；按拥有者生命周期取消失效工作，静态 Handler 也不自动解决所有引用。
+- **高频进度堆积**：合并、去重或限流；取消操作也有成本，不宜高频反复扫描队列。
+- **异常与取消有边界**：未处理异常可能结束 Looper 线程或导致进程崩溃；移除消息无法撤回正在执行的业务副作用。
 
-原始笔记：[Android 基础知识提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。
+```mermaid
+flowchart LR
+  Queue["MessageQueue"] --> Msg["待执行 Message"]
+  Msg --> Handler["target：Handler"]
+  Msg --> Run["callback：Runnable"]
+  Handler -->|回调 / 子类间接引用| Page["Activity / View"]
+  Run -->|捕获页面对象| Page
+```
+
+Handler 调度的是本进程内的工作。跨进程传消息见 [Messenger 机制](./messenger.html)：由 Binder 接收远端 Message，再交给本地 Handler。
+
+## 10. 源码索引 {#sources}
+
+AOSP 摘录对应 `android-16.0.0_r1`：
+
+- [Handler.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Handler.java)：L101 分发优先级，L705 延迟时间，L782 写 target 入队，L980 包装 Runnable。
+- [Looper.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Looper.java)：L118 prepare，L194 loopOnce，L314 loop。
+- [Message.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Message.java)、[MessageQueue API](https://developer.android.com/reference/android/os/MessageQueue)：消息与队列契约。
