@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="650" viewBox="0 0 1280 650" role="img" aria-labelledby="title desc">
+  <title id="title">Android 类加载在编译打包与运行时的位置</title>
+  <desc id="desc">上层从左向右：Java 或 Kotlin 源码编译成 class 字节码，经 DEX 转换并打包进 APK。安装后启动应用，下层从右向左：代码需要某个类，ClassLoader 按加载策略查找，ART 完成类定义及相关运行时处理，得到 Class 后按需初始化与使用。加密解密是可选的自定义阶段，不属于普通类加载必经步骤。</desc>
+  <defs>
+    <marker id="build" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#2563eb"/></marker>
+    <marker id="run" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#b45309"/></marker>
+  </defs>
+  <rect x="1" y="1" width="1278" height="648" rx="20" fill="#f8fafc" stroke="#cbd5e1"/>
+  <g font-family="system-ui, sans-serif" text-anchor="middle" fill="#0f172a">
+    <text x="640" y="42" font-size="27" font-weight="700">从源码到运行：先产生代码，再按需加载类</text>
+    <rect x="22" y="84" width="1236" height="198" rx="15" fill="#eff6ff" stroke="#bfdbfe"/>
+    <rect x="22" y="374" width="1236" height="198" rx="15" fill="#fff7ed" stroke="#fed7aa"/>
+    <text x="640" y="118" font-size="22" font-weight="700" fill="#1d4ed8">编译与打包　从左向右</text>
+    <text x="640" y="408" font-size="22" font-weight="700" fill="#92400e">设备上运行　从右向左</text>
+    <g fill="#fff" stroke="#93c5fd" stroke-width="2">
+      <rect x="45" y="150" width="220" height="108" rx="12"/>
+      <rect x="365" y="150" width="220" height="108" rx="12"/>
+      <rect x="685" y="150" width="220" height="108" rx="12"/>
+      <rect x="1005" y="150" width="220" height="108" rx="12"/>
+    </g>
+    <g fill="#fff" stroke="#fdba74" stroke-width="2">
+      <rect x="45" y="440" width="220" height="108" rx="12"/>
+      <rect x="365" y="440" width="220" height="108" rx="12"/>
+      <rect x="685" y="440" width="220" height="108" rx="12"/>
+      <rect x="1005" y="440" width="220" height="108" rx="12"/>
+    </g>
+    <g font-size="24" font-weight="600">
+      <text x="155" y="188">Java / Kotlin</text>
+      <text x="475" y="188">.class 字节码</text>
+      <text x="795" y="188">DEX 转换</text>
+      <text x="1115" y="188">打包 APK</text>
+      <text x="1115" y="478">代码需要某个类</text>
+      <text x="795" y="478">ClassLoader</text>
+      <text x="475" y="478">ART 处理</text>
+      <text x="155" y="478">得到 Class</text>
+    </g>
+    <g font-size="18" fill="#475569">
+      <text x="155" y="225">应用源码</text>
+      <text x="475" y="225">编译结果</text>
+      <text x="795" y="220">D8；启用优化时</text>
+      <text x="795" y="244">由 R8 处理</text>
+      <text x="1115" y="225">classes.dex 等</text>
+      <text x="1115" y="515">显式请求 / 类引用</text>
+      <text x="795" y="515">按委派策略查找</text>
+      <text x="475" y="515">类定义、验证与链接</text>
+      <text x="155" y="510">需要时初始化</text>
+      <text x="155" y="535">创建对象 / 调用方法</text>
+    </g>
+    <g fill="none" stroke="#2563eb" stroke-width="3.5" marker-end="url(#build)">
+      <path d="M265 204H363"/>
+      <path d="M585 204H683"/>
+      <path d="M905 204H1003"/>
+    </g>
+    <g fill="none" stroke="#b45309" stroke-width="3.5" marker-end="url(#run)">
+      <path d="M1115 258V438"/>
+      <path d="M1005 494H907"/>
+      <path d="M685 494H587"/>
+      <path d="M365 494H267"/>
+    </g>
+    <text x="973" y="327" font-size="19" fill="#b45309">安装后启动应用</text>
+    <text x="640" y="615" font-size="20" fill="#475569">类按需要加载；可选加密流程要先恢复有效 DEX 字节，再接入加载器。</text>
+  </g>
+</svg>

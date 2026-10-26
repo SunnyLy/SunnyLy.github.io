@@ -1,15 +1,161 @@
 ---
-description: 通过继承图、委派关系图和调用时序图，理解 Android ClassLoader、DEX 查找与 ART 定义类的完整路径。
+description: 从编译打包开始，用一张左右双向图理解向上委托、向下查找，再深入 ClassLoader 继承关系、DEX、ART 与动态加载实践。
 outline: [2, 3]
 ---
 
-# 类加载机制
+# 类加载机制：从双亲委派到 DEX 与 ART
 
-类加载解决“给定类名，由哪个加载器找到并定义这个类”。它与应用安装、组件注册、资源解析和类初始化有关联，但不是同一件事。
+**类加载器接收类名，找到对应代码，让运行时得到一个 `Class` 对象。** 先看代码从哪里来，再看谁先查、到哪里查，最后动手加载一个独立 DEX。
 
-## ClassLoader 继承关系
+## 1. 从源码到运行：类加载发生在哪一步 {#first-look}
 
-下图的空心三角指向父类，表达 Java 的 `extends` 关系。`DexPathList`、`Element` 和 `DexFile` 是协作对象，不是 ClassLoader 子类。
+### 编译打包与运行时加载
+
+![Android 从编译打包到运行时类加载的两层流程](/assets/android/basics/class-loading/code-to-runtime.svg)
+
+编译打包产生代码文件，类加载发生在运行时。系统可能预加载部分基础类；应用运行时再按需要加载其他类，**不是启动时一次性加载整个 APK 的全部类**。Android 的普通 Java/Kotlin 代码最终以 DEX 为主，普通 `.class` 需要转换；仅修改文件扩展名不会得到有效 DEX。[d8 官方说明](https://developer.android.com/tools/d8)
+
+### 类名进来，Class 对象出去
+
+下面的 `context` 是 Activity 或 Application 的 Context：
+
+```java
+ClassLoader appLoader = context.getClassLoader();
+Class<?> type = appLoader.loadClass("java.lang.String");
+android.util.Log.d("ClassLoading", "请求入口：" + appLoader);
+android.util.Log.d("ClassLoading", "类名：" + type.getName());
+android.util.Log.d("ClassLoading", "定义加载器：" + type.getClassLoader());
+```
+
+这段代码返回 String 的类描述，没有创建 String 实例。**接收加载请求的对象，可能不是最终定义该类的加载器**，委派机制解释了其中的顺序。
+
+### 可选场景：加密代码如何接入加载
+
+自定义加密打包需要在运行时先恢复有效字节，再进入加载流程：
+
+```mermaid
+flowchart LR
+  Plain["已构建的 DEX 字节"] --> Encrypt["可选：自定义加密打包"]
+  Encrypt --> Payload["加密载荷"]
+  Payload --> Restore["自定义读取与解密"]
+  Restore --> Dex["恢复有效 DEX 字节"]
+  Dex --> Load["DEX 加载器 → ART"]
+```
+
+普通加载没有强制的加密、解密阶段。Android 的 `InMemoryDexClassLoader` 接收原始 DEX 字节，不能直接接收普通 `.class`。解密完成仍需要类查找和运行时处理。
+
+## 2. 双亲委派：向上委托，向下查找 {#parent-delegation}
+
+**先查已加载，再问 parent；parent 找不到，才查自己。** 每个加载器对象的 `parent` 引用至多指向一个父加载器，“双亲”不是同时有两个父级。
+
+![双亲委派：左侧向上委托，右侧向下查找](/assets/android/basics/class-loading/parent-delegation.svg)
+
+**从左下角出发，沿蓝线向上，再沿右侧橙线向下。任一绿色出口命中，就返回 Class，不再继续向下查找。**
+
+图中假设每层 `findLoadedClass()` 都未命中，未配置共享库与隔离 split；附加加载器以应用加载器为 parent，应用加载器采用默认父级。
+
+- **向上委托**：附加加载器请求应用加载器，应用加载器继续请求引导加载器。
+- **向下查找**：引导类未找到，结果返回应用加载器的原调用点，应用加载器才执行自己的 `findClass()`；仍未找到，再返回附加加载器查附加 DEX。
+- **找到即返回**：任一层成功，都把同一个 Class 结果逐层返回请求方；全部未找到，最初请求抛出 `ClassNotFoundException`。
+
+::: tip “向下”表示调用返回后的回退顺序
+父加载器不会遍历自己的子加载器，也不会主动向下调用子加载器。每层只是从 `parent.loadClass()` 返回后，继续执行自身尚未完成的查找逻辑。
+:::
+
+### 用三种类名走一遍
+
+假设 HostEntry 只在宿主 APK，Greeting 只在附加 DEX，均从附加加载器请求：
+
+| 请求的类 | 自身代码查找到哪层 | 定义加载器 |
+| --- | --- | --- |
+| `java.lang.String` | 引导类查找命中，停止 | 引导加载器 |
+| `com.example.host.HostEntry` | 引导类未命中，宿主 DEX 命中 | 应用加载器 |
+| `com.example.plugin.Greeting` | 引导类、宿主均未命中，附加 DEX 命中 | 附加加载器 |
+
+父优先让可见的基础类和共享类型优先复用，减少重复定义同名类型的机会。它不保证整个进程只有一份同名类型，也不会为加载代码创建安全沙箱。
+
+## 3. 对照源码：loadClass 与 findClass 各做什么 {#load-class}
+
+### loadClass 决定顺序，findClass 执行自身查找
+
+摘自 AOSP `android-16.0.0_r1` 的 `ClassLoader.java`，`loadClass(String, boolean)`，L617–647；保留分支，删去原注释并补充说明：
+
+```java
+protected Class<?> loadClass(String name, boolean resolve)
+        throws ClassNotFoundException {
+    Class<?> c = findLoadedClass(name);        // 1. 已加载则直接复用
+    if (c == null) {
+        try {
+            if (parent != null) {
+                c = parent.loadClass(name, false); // 2. 向另一个对象委托
+            } else {
+                c = findBootstrapClassOrNull(name);
+            }
+        } catch (ClassNotFoundException e) {
+            // 父级未找到，回到本次调用，允许继续查自己。
+        }
+        if (c == null) {
+            c = findClass(name);              // 3. 当前对象执行自身查找
+        }
+    }
+    return c;                                 // 成功则返回同一结果
+}
+```
+
+**“向下查找”就在 catch 后的 `findClass(name)`。** 不是重新发起一个从父到子的请求，而是当前 `loadClass()` 恢复执行。[ClassLoader 源码](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java#617)
+
+- `loadClass(name)` 进入 `loadClass(name, false)`；实际执行的方法由虚方法分派决定。
+- `ClassLoader.findClass()` 默认只抛未找到异常；Android 的 DEX 查找由 `BaseDexClassLoader.findClass()` 实现。
+- 默认实现只捕获父级的 `ClassNotFoundException`，其他链接错误可能直接中断加载。
+- 该 Android 方法体没有桌面 JDK 常见的显式 `resolveClass()` 调用，不能照搬桌面实现绘图。
+
+### 链顶端的 BootClassLoader 如何结束委托
+
+它覆盖了 `loadClass()`，直接进行引导类查找。源码 L2753–2762：
+
+```java
+protected Class<?> loadClass(String className, boolean resolve)
+        throws ClassNotFoundException {
+    Class<?> clazz = findLoadedClass(className);
+    if (clazz == null) {
+        clazz = findClass(className);
+    }
+    return clazz;
+}
+// 同类 findClass()，L2697–2698：
+// return Class.classForName(name, false, null);
+```
+
+`BootClassLoader` 是 Android 内部的 Java 包装，引导类查找由运行时完成。它的 parent 为 null，null 不是一个额外的加载器对象。
+
+### 精确调用时序：目标只在附加 DEX
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Call as 调用方
+  participant Extra as 附加 DexClassLoader
+  participant App as 应用 PathClassLoader
+  participant Boot as BootClassLoader
+  Call->>Extra: loadClass(name)
+  Note over Extra: findLoadedClass 未命中
+  Extra->>App: parent.loadClass(name, false)
+  Note over App: findLoadedClass 未命中
+  App->>Boot: parent.loadClass(name, false)
+  Boot->>Boot: 缓存未命中 → 引导类查找
+  Boot-->>App: ClassNotFoundException
+  App->>App: 原调用继续 → findClass(name)
+  App-->>Extra: 宿主未找到，ClassNotFoundException
+  Extra->>Extra: 原调用继续 → findClass(name)
+  Note over Extra: 附加 DEX 命中，由 Extra 定义目标类
+  Extra-->>Call: 返回 Class
+```
+
+## 4. Android 的加载器：继承关系与 parent 引用 {#android-loaders}
+
+### 类继承决定谁实现哪些方法
+
+空心三角指向父类，表示 `extends`。`DexPathList`、`Element`、`DexFile` 是协作对象，不是 ClassLoader 子类。
 
 ```mermaid
 classDiagram
@@ -42,93 +188,84 @@ classDiagram
   PathClassLoader <|-- DelegateLastClassLoader
 ```
 
-- `ClassLoader` 提供默认父优先委派；基类的 `findClass()` 本身只抛出 `ClassNotFoundException`。
-- `BootClassLoader` 是 Android 的内部引导加载器 Java 包装，直接继承 `ClassLoader`，有自己的 `loadClass()` 实现，不是供应用创建的公开 API。
-- `BaseDexClassLoader` 重写 `findClass()`，将共享库和 DEX 路径接入默认委派流程。
-- `PathClassLoader`、`DexClassLoader`、`InMemoryDexClassLoader` 在此基线均沿用父类的类查找实现，主要区别在构造入口和代码来源；内存加载器接受 `ByteBuffer` 中的 DEX。
-- `DelegateLastClassLoader` 直接继承 `PathClassLoader`，重写 `loadClass()` 调整委派顺序；它与 `InMemoryDexClassLoader` 都是 `final` 类。
+| 加载器 | 常见代码来源 / 用途 | 核心行为 |
+| --- | --- | --- |
+| `BootClassLoader` | 引导类路径，内部实现 | 覆盖 loadClass，接入引导类查找 |
+| `PathClassLoader` | 应用 APK / DEX 等路径 | 默认父优先入口与 DEX 查找 |
+| `DexClassLoader` | 指定 DEX 或含 DEX 的 JAR / APK | 提供公开的路径加载构造入口 |
+| `InMemoryDexClassLoader` | ByteBuffer 中的 DEX；API 26+ | 不必先写成代码文件 |
+| `DelegateLastClassLoader` | 调整代码查找优先级；API 27+ | 引导类 → 自身查找 → parent |
 
-源码：[ClassLoader / BootClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java)、[PathClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/PathClassLoader.java)、[DexClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DexClassLoader.java)、[InMemoryDexClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/InMemoryDexClassLoader.java)。
+`PathClassLoader` 与 `DexClassLoader` 是兄弟类，不是父子类。`DexClassLoader.optimizedDirectory` 从 API 26 起已弃用、不再生效。[PathClassLoader](https://developer.android.com/reference/dalvik/system/PathClassLoader)、[DexClassLoader](https://developer.android.com/reference/dalvik/system/DexClassLoader)、[内存加载器](https://developer.android.com/reference/dalvik/system/InMemoryDexClassLoader)
 
-### 继承关系与 parent 委派关系
+### parent 是对象引用，不是 extends
 
-`extends` 决定对象继承哪些方法；`parent` 是构造加载器时传入的另一个加载器对象，决定向谁委派。**向 parent 请求不等于调用 `super.loadClass()`**：前者调用另一个对象，后者仍在当前对象上执行父类方法。
+```java
+// API 26+；dexBytes 是有效 DEX，context 是宿主 Context。
+ClassLoader appLoader = context.getClassLoader();
+ClassLoader extraLoader = new dalvik.system.InMemoryDexClassLoader(
+        java.nio.ByteBuffer.wrap(dexBytes), appLoader);
+boolean sameParent = extraLoader.getParent() == appLoader; // true
+```
 
-下面是普通应用加载器采用默认父级、且手动创建附加 DEX 加载器并将应用加载器传为 parent 的示例。箭头只表示对象间的 `parent` 引用。
+`parent.loadClass()` 调用另一个对象；`super.loadClass()` 在当前对象上执行父类实现。普通应用的默认 parent 通常是引导加载器，不必经过桌面 JDK 8 教程中的扩展加载器。
+
+AOSP `ApplicationLoaders` 在未指定 parent 时，使用 `ClassLoader.getSystemClassLoader().getParent()`，系统加载器本身也不等于每个应用的加载器。自定义 parent、共享库与隔离 split 会改变实际查找关系。[ApplicationLoaders，L106–110](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ApplicationLoaders.java#106)
+
+### DelegateLast 为什么没有完全反转优先级
 
 ```mermaid
 flowchart TB
-  Extra["附加 DEX 加载器实例<br/>DexClassLoader"] -->|"parent = appLoader"| App["应用加载器实例<br/>PathClassLoader"]
-  App -->|"默认场景的 parent"| Boot["引导加载器包装实例<br/>BootClassLoader"]
-  Boot -->|"parent"| Empty["null"]
+  Loaded{"已经加载？"} -->|是| Result["返回 Class"]
+  Loaded -->|否| Boot["先查引导类"]
+  Boot -->|找到| Result
+  Boot -->|ClassNotFoundException| Own["自身 findClass<br/>前置共享库 → 本地 DEX → 后置共享库"]
+  Own -->|找到| Result
+  Own -->|ClassNotFoundException| Parent["最后请求 parent.loadClass"]
+  Parent -->|找到| Result
+  Parent -->|ClassNotFoundException| Error["抛出此前自身查找的异常"]
 ```
 
-`DexClassLoader` 不继承 `PathClassLoader`，图中只是两个实例建立了委派关系。基线 `ApplicationLoaders` 在未指定父级时，使用 `ClassLoader.getSystemClassLoader().getParent()` 作为默认父级；系统加载器本身是以 `BootClassLoader` 为 parent 的 `PathClassLoader`。因此普通应用的父级不必经过系统 `PathClassLoader`。自定义父级、隔离 split 和共享库会改变实际查找图，应以运行时对象与创建参数为准。[ApplicationLoaders 默认父级](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ApplicationLoaders.java#94)
+它仍先查引导类，不能用附加 DEX 覆盖 String。这个顺序来自被覆盖的 `loadClass()`；改变优先级也不自动解决接口隔离和资源冲突。[DelegateLastClassLoader，L181–211](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DelegateLastClassLoader.java#181)
 
-## 类身份：名字之外还有定义加载器
+## 5. 深入 DEX：findClass 如何走到 ART {#dex-to-art}
 
-运行时区分类型，必须考虑类的二进制名称和**定义它的 ClassLoader**。两个加载器各自定义 `com.example.Note`，得到的类不一定可强制转换，即使类名和字节内容相同。把请求转交父加载器的发起加载器，也不一定是最终定义类的加载器。
-
-这解释了插件或多加载器环境中的 `ClassCastException`、接口不可见和代理创建失败。共享接口应由双方可见的同一加载器定义；只对比 `Class.getName()` 无法排除类型身份冲突。[ClassLoader API](https://developer.android.com/reference/java/lang/ClassLoader)
-
-## 默认委派：先查已加载，再向父级请求
-
-基线 `ClassLoader.loadClass(name, resolve)` 先调用 `findLoadedClass()`，再尝试父加载器或引导加载，未找到时才调用自身 `findClass()`。只有适用该实现或契约的加载器才可以按这个顺序分析；子类可以改变查找策略。
-
-### 调用时序：从请求到父级，再回到自身
-
-以下沿用上面的实例关系，假设各级尚未发起加载目标类，目标仅存在于附加 DEX 中，而且没有共享库命中。图中的 `BaseDexClassLoader.findClass()` 在当前接收对象上执行，**不是创建了一个 BaseDexClassLoader 对象**。
+### 当前加载器内部还有一层顺序
 
 ```mermaid
-sequenceDiagram
-  autonumber
-  participant C as 调用方
-  participant D as 附加 DexClassLoader 实例
-  participant P as 应用 PathClassLoader 实例
-  participant B as BootClassLoader 实例
-  C->>D: loadClass(name)
-  D->>D: ClassLoader.loadClass(name, false)
-  D->>D: findLoadedClass(name)：未命中
-  D->>P: parent.loadClass(name, false)
-  P->>P: findLoadedClass(name)：未命中
-  P->>B: parent.loadClass(name, false)
-  B->>B: findLoadedClass(name)：未命中
-  B->>B: findClass → Class.classForName(name, false, null)
-  B-->>P: ClassNotFoundException
-  Note over P: 默认 loadClass 捕获父级未找到异常
-  P->>P: BaseDexClassLoader.findClass(name)
-  P-->>D: 自身也未找到，抛 ClassNotFoundException
-  Note over D: 默认 loadClass 捕获父级未找到异常
-  D->>D: BaseDexClassLoader.findClass(name)
-  Note over D: 进入下文 DEX 查找时序，找到并定义目标类
-  D-->>C: 返回 Class，定义加载器为 D
+flowchart TB
+  Start["BaseDexClassLoader.findClass(name)"] --> Before["前置共享库加载器<br/>sharedLibraryLoaders"]
+  Before -->|找到| Result["返回 Class"]
+  Before -->|未找到 / 未配置| Local["自身 DexPathList<br/>按 dexElements 顺序查"]
+  Local -->|找到| Result
+  Local -->|未找到| After["后置共享库加载器<br/>sharedLibraryLoadersAfter"]
+  After -->|找到| Result
+  After -->|未找到 / 未配置| Missing["ClassNotFoundException<br/>附带收集的 suppressed 异常"]
 ```
 
-若本级 `findLoadedClass()` 命中，立即返回；若父级成功，直接返回父级结果，不再执行当前加载器的 `findClass()`。父级未找到时，查找才向请求方逐层回退；最终自身也未找到，异常继续传给调用方。默认委派只捕获父级的 `ClassNotFoundException`，不能把所有链接错误都当成“换个路径继续找”。
+这是默认父级查找失败后，本级 `findClass()` 的顺序。共享库数组来自平台配置，一般公开构造示例未配置它们。[BaseDexClassLoader.findClass，L232](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java#232)
 
-`loadClass(name)` 在此基线调用 `loadClass(name, false)`。Java 虚方法分派决定执行哪一层实现：普通 DEX 加载器沿用 `ClassLoader.loadClass()`；`BootClassLoader` 和 `DelegateLastClassLoader` 则执行各自覆盖的方法。
+### DexPathList 逐个查什么
 
-`loadClass()` 不等于执行所有静态初始化。类的加载、链接和初始化需要分别理解；`Class.forName(name, false, loader)` 可以明确请求不初始化，后续主动使用仍可能触发初始化。基线 Android 的默认 `loadClass(name, resolve)` 方法体没有桌面 JDK 常见的显式 `resolveClass()` 调用，不应直接套用桌面实现绘图。[固定版本 ClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java#572)
+`BaseDexClassLoader` 持有 `DexPathList`，后者持有 `Element[]`；有 DEX 的元素再持有 `DexFile`。核心循环如下：
 
-初始化还决定错误如何传播：首次主动使用时，非编译期常量的静态字段初始化器和静态代码块按声明顺序执行；其他线程尝试初始化同一个 Class 时需等待其初始化结果。若初始化因普通异常失败，通常首先看到 `ExceptionInInitializerError`，这个 Class 会进入错误状态，后续初始化请求可抛 `NoClassDefFoundError`。因此后者不总是“DEX 没打包”，应追查最早的初始化异常；反复调用同一个加载器的 `loadClass()` 无法把已经失败的 Class 重置。[Java 初始化规则 §12.4.2](https://docs.oracle.com/javase/specs/jls/se17/html/jls-12.html#jls-12.4.2)
+```java
+// DexPathList.java，findClass()，L530–537；省略异常汇总部分。
+public Class<?> findClass(String name, List<Throwable> suppressed) {
+    for (Element element : dexElements) {
+        Class<?> clazz = element.findClass(name, definingContext, suppressed);
+        if (clazz != null) {
+            return clazz; // 命中即结束，不继续查后面的元素
+        }
+    }
+    // 原实现这里还会合并创建路径时收集的异常。
+    return null;
+}
+```
 
-## Android 的 DEX 加载器
+`definingContext` 是当前加载器对象。一个加载器可以管理多个 DEX；`DexPathList` 和 `DexFile` 不会成为类的定义加载器。
 
-### PathClassLoader 与 DexClassLoader
-
-`PathClassLoader` 常用于应用和系统代码的路径加载；`DexClassLoader` 提供从指定路径加载 DEX 相关代码的公开构造入口。两者都涉及 `BaseDexClassLoader`，但构造参数、使用场景和历史版本约束不能混为一谈。Android 执行格式以 DEX 为核心，不是把任意桌面 JVM `.class` 文件直接放入路径就能运行。
-
-`DexClassLoader` 的 `optimizedDirectory` 参数从 API 26 起已弃用且不再生效，不应照搬旧教程要求人为管理优化输出目录的做法。[PathClassLoader](https://developer.android.com/reference/dalvik/system/PathClassLoader)、[DexClassLoader](https://developer.android.com/reference/dalvik/system/DexClassLoader)
-
-### BaseDexClassLoader 与 DexPathList
-
-基线 `BaseDexClassLoader.findClass()` 会先考虑前置共享库加载器，再查询自身 `DexPathList`，必要时再考虑后置共享库加载器。DexPathList 在其元素中寻找目标 DEX 类；这只是默认父委派失败后，自身查找内部的进一步顺序，不能取代上层 `loadClass()` 的父委派。
-
-因此“Android 永远只有父链”和“DEX 总是先于所有共享库”都过于绝对。定位来源要同时看父加载器、共享库加载器、split 和自身路径。[BaseDexClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java)、[DexPathList](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DexPathList.java)
-
-### DEX 查找时序：从 findClass 到 ART
-
-下面展开当前加载器的自身查找。为保持图的可读性，假设前置共享库未配置或均未找到，且本地某个 DEX 可以成功定义目标类；找到后即返回，不再查后续元素与后置共享库。
+### 从 Java 查找到 ART 原生层
 
 ```mermaid
 sequenceDiagram
@@ -157,48 +294,93 @@ sequenceDiagram
   Note over L: 仅本地未找到时，才查 sharedLibraryLoadersAfter
 ```
 
-`BaseDexClassLoader` 持有 `DexPathList`，后者持有 `Element[]`，其中有 DEX 的元素再持有 `DexFile`。传入原生层的 `definingContext` 是当前加载器对象；`DexPathList` 和 `DexFile` 不会成为这个类的定义加载器。
+ART 的关键位置在 `dalvik_system_DexFile.cc`：L493 查找 DEX 类定义，L501 注册 DEX，L507 进入 `ClassLinker::DefineClass`。建立运行时类之后，目标类的静态代码块仍需等到初始化时机才执行。[ART 源码](https://android.googlesource.com/platform/art/+/refs/tags/android-16.0.0_r1/runtime/native/dalvik_system_DexFile.cc#471)
 
-查找结果有三种需要区分：成功返回 `Class`；未找到返回 `null`，使上层继续搜索；抛出异常。`DexFile.defineClass()` 会将其捕获的 `ClassNotFoundException`、`NoClassDefFoundError` 加入 `suppressed` 并返回 `null`；其他未被捕获的错误仍可直接传播。所有路径均未找到时，`BaseDexClassLoader.findClass()` 才构造最终 `ClassNotFoundException` 并附加收集的异常。
+`DexFile.defineClass()` 捕获 `ClassNotFoundException`、`NoClassDefFoundError` 后，会把异常加入 suppressed 并返回 null；其他错误仍可能直接传播。ART 对已知加载器还有内部快速路径，不能断言每个类引用都完整经过这些 Java 栈帧，也不是每次请求都重新解压 APK。
 
-这张图描述 Java 显式加载入口的源码路径，ART 还可能对已知加载器使用内部快速路径，不能据此断言每次字节码解析类引用都完整经过这些 Java 栈帧。DEX 打开、验证和优化也不等于每次 `loadClass()` 都从 APK 重新解压一遍。
+## 6. 同名类为什么不能强转：类身份 {#class-identity}
 
-源码：[DexPathList.findClass / Element.findClass](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DexPathList.java#530)、[DexFile.loadClassBinaryName / defineClass](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DexFile.java#320)、[ART DexFile_defineClassNative](https://android.googlesource.com/platform/art/+/refs/tags/android-16.0.0_r1/runtime/native/dalvik_system_DexFile.cc#471)。
-
-### DelegateLastClassLoader 的边界
-
-API 27 提供的 `DelegateLastClassLoader` 采用不同策略：先复用已经加载的类；需要查找新类时，优先引导类，再执行自身 `findClass()`，之后才委派父加载器。普通公开构造场景可概括为“引导类 → DEX 路径 → 父加载器”；平台内部若配置了前置或后置共享库加载器，继承的 `BaseDexClassLoader.findClass()` 仍会按前述共享库规则查找，不能将“自身查找”限定为仅查 DEX。名称中的 delegate last 不表示可覆盖所有 Java 核心类，也不代表自动解决接口隔离和资源冲突。[DelegateLastClassLoader API](https://developer.android.com/reference/dalvik/system/DelegateLastClassLoader)、[固定版本 loadClass 实现](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DelegateLastClassLoader.java)
+**类身份由二进制类名和定义加载器共同决定。** 假设两个加载器分别亲自定义 Greeting：
 
 ```mermaid
 flowchart TB
-  Start["DelegateLastClassLoader.loadClass"] --> Loaded{"findLoadedClass 命中？"}
-  Loaded -->|是| Return["返回 Class"]
-  Loaded -->|否| Boot["引导加载：Object.class.getClassLoader().loadClass"]
-  Boot -->|找到| Return
-  Boot -->|ClassNotFoundException| Own["继承的 BaseDexClassLoader.findClass<br/>前置共享库 → 本地 DEX → 后置共享库"]
-  Own -->|找到| Return
-  Own -->|ClassNotFoundException| Parent["getParent().loadClass"]
-  Parent -->|找到| Return
-  Parent -->|ClassNotFoundException| Error["抛出此前自身 findClass 的异常"]
+  L1["加载器 A"] -->|定义| C1["com.example.plugin.Greeting @ A"]
+  L2["加载器 B"] -->|定义| C2["com.example.plugin.Greeting @ B"]
+  C1 --- Different["名字相同，Class 不同<br/>实例不能仅凭同名强转"]
+  C2 --- Different
 ```
 
-图中的向下继续只适用于标出的“未找到”异常；其他错误仍可中断加载。注意引导加载是在自身 DEX 之前执行，父级最后执行也不意味着能覆盖引导类。
+```java
+// typeA、typeB 分别由 A、B 定义，而不是都委派给同一个父级。
+boolean sameName = typeA.getName().equals(typeB.getName()); // true
+boolean sameType = typeA == typeB;                         // false
+```
 
-## 动态代码加载不等于安装应用
+插件通过接口交互时，把共享接口放在双方都能委派到的父加载器中；插件编译时引用它，避免再打包一份接口定义。[ClassLoader 官方说明](https://developer.android.com/reference/java/lang/ClassLoader)
 
-创建加载器不会自动向 PMS 注册新的 Activity、Service、Receiver 或 Provider；组件声明和系统安装状态属于另一条链。它也不会把已有对象无缝变成新版本类，或为加载代码建立独立安全沙箱。共享进程和权限的代码需要按同一信任边界评估。
+## 7. 找到 Class 之后，什么时候执行 static {#initialization}
 
-运行于 Android 14 及以上且 `targetSdkVersion >= 34` 的应用，动态加载的 DEX、JAR 或 APK 文件需要满足平台只读要求。官方要求先打开输出文件，随即设为只读，再通过已打开的文件描述符写入内容。加载前仍需验证来源与完整性；仅设置只读不能证明代码可信。动态下载执行代码还需核对分发渠道政策。[Android 14 动态代码加载变更](https://developer.android.com/about/versions/14/behavior-changes-14#safer-dynamic-code-loading)
+```mermaid
+flowchart TB
+  Load["加载<br/>建立运行时 Class"] --> Link["链接<br/>验证、准备；解析可延迟"]
+  Link -->|需要初始化时| Init["初始化<br/>静态字段初始化器与 static 代码块"]
+  Init --> Use["执行触发初始化的主动使用<br/>如创建实例、调用静态方法"]
+```
 
-## 官方示例与本地动态加载实践
+`loadClass()` 通常不触发目标类初始化。创建实例、调用类声明的静态方法、读写非编译期常量的静态字段等主动使用，才可能触发初始化；解析可以按需进行，不必在初始化前全部完成。[Java 初始化规则 §12.4](https://docs.oracle.com/javase/specs/jls/se17/html/jls-12.html#jls-12.4.1)
 
-### 官方资料分别演示什么
+宿主中的 `app/src/main/java/com/example/InitProbe.java`：
 
-- **AOSP 的直接加载测试**：[InMemoryDexClassLoaderTest.java](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/luni/src/test/java/libcore/dalvik/system/InMemoryDexClassLoaderTest.java#172) 中，`createLoaderDirect()` 将 DEX 放进 `ByteBuffer` 并创建加载器；`createLoaderDirectAndCallMethod()` 接着调用 `loadClass()`、`getMethod()` 和 `invoke()`。这是可核对的官方动态加载使用代码，其辅助文件和测试运行器依赖 AOSP 测试环境。
-- **Android Developers 的文件加载片段**：[Android 14 DCL 说明](https://developer.android.com/about/versions/14/behavior-changes-14#safer-dynamic-code-loading) 给出文件打开、只读设置和创建 `PathClassLoader` 的顺序。该片段主要说明文件权限处理，需要自行补齐写入和方法调用。
-- **Google 的动态功能模块工程**：[android-dynamic-code-loading](https://github.com/googlesamples/android-dynamic-code-loading) 演示通过反射、`ServiceLoader`、Dagger 访问动态功能模块中的实现。仓库于 2024 年 2 月 20 日归档，可用于理解模块访问模式；功能模块由应用分发机制管理，与手动创建加载器读取独立 DEX 的实验具有不同前提。
+```java
+package com.example;
 
-下面给出基于公开 API 整理的教学代码，使用**自己编译并随宿主 APK 打包的本地 DEX**。宿主示例要求 `minSdk >= 26`，不使用网络、外部存储或隐藏 API。内存方式使用 API 26 提供的单 `ByteBuffer` 构造函数；文件方式使用 `DexClassLoader`，在这一版本范围内 `optimizedDirectory` 可传 `null`。[内存加载器 API](https://developer.android.com/reference/dalvik/system/InMemoryDexClassLoader)、[文件加载器 API](https://developer.android.com/reference/dalvik/system/DexClassLoader)
+public final class InitProbe {
+    static { System.out.println("InitProbe: static 执行"); }
+    public static void hello() { System.out.println("InitProbe: hello"); }
+}
+```
+
+在该类尚未初始化的前提下调用：
+
+```java
+Class<?> type = context.getClassLoader().loadClass("com.example.InitProbe");
+System.out.println("已取得 Class");
+type.getMethod("hello").invoke(null); // 首次调用静态方法，触发初始化
+// 顺序：已取得 Class → InitProbe: static 执行 → InitProbe: hello
+```
+
+`Class.forName(name, false, loader)` 明确请求不初始化，传 true 请求初始化。初始化不是每次调用都重做；其他线程需要等待同一 Class 的初始化结果。
+
+首次初始化失败可能抛 `ExceptionInInitializerError`，之后请求可能变成 `NoClassDefFoundError`。应追查最早异常，重复 `loadClass()` 不能重置失败状态。
+
+## 8. 动态加载：先看核心，再做完整实验 {#dynamic-loading}
+
+### 核心调用四步
+
+```mermaid
+flowchart LR
+  Bytes["取得有效 DEX"] --> New["创建加载器<br/>指定 parent"]
+  New --> Load["loadClass<br/>得到 Class"]
+  Load --> Invoke["反射找到入口<br/>创建对象 / 调用方法"]
+```
+
+```java
+// API 26+；dexBytes 是原始 DEX，context 是宿主 Context。
+ClassLoader loader = new dalvik.system.InMemoryDexClassLoader(
+        java.nio.ByteBuffer.wrap(dexBytes), context.getClassLoader());
+Class<?> entry = loader.loadClass("com.example.plugin.Greeting");
+String value = (String) entry.getMethod("greet", String.class).invoke(null, "Android");
+```
+
+创建加载器不会自动调用入口。静态方法的接收对象传 null；实例方法要先通过 `getDeclaredConstructor().newInstance()` 创建对象，再将实例传入 `invoke()`。
+
+### 官方示例在哪里
+
+- [AOSP InMemoryDexClassLoaderTest，L172](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/luni/src/test/java/libcore/dalvik/system/InMemoryDexClassLoaderTest.java#172)：将 DEX 放入 ByteBuffer，创建加载器，再加载类并反射调用；辅助文件依赖 AOSP 测试环境。
+- [Android 14 文件加载片段](https://developer.android.com/about/versions/14/behavior-changes-14#safer-dynamic-code-loading)：演示打开文件、设置只读和创建加载器的顺序。
+- [Google 动态功能模块工程](https://github.com/googlesamples/android-dynamic-code-loading)：演示反射、ServiceLoader 等模块访问方式，与手动加载独立 DEX 的前提不同。
+
+下面实验使用随宿主 APK 打包的本地 DEX，要求 `minSdk >= 26`；内存和文件两种方式加载同一个 Greeting。
 
 ### 第一步：单独编译待加载类
 
@@ -240,6 +422,9 @@ Copy-Item -LiteralPath out/dex/classes.dex -Destination app/src/main/assets/gree
 ### 第二步：以内存或文件方式加载同一个 DEX
 
 将以下类保存到宿主的 `app/src/main/java/com/example/loader/DynamicLoadingExample.java`。两个公开方法相互独立，共用复制与反射调用辅助方法。
+
+<details>
+<summary>展开完整示例：DynamicLoadingExample.java</summary>
 
 ```java
 package com.example.loader;
@@ -311,6 +496,8 @@ public final class DynamicLoadingExample {
 }
 ```
 
+</details>
+
 内存示例的 `ByteBuffer.wrap()` 已将 `position` 设为 0、`limit` 设为字节数组长度；如果改成手动 `put()`，交给加载器前通常需要 `flip()`，确保剩余区间恰好覆盖 DEX。文件示例使用私有 `codeCacheDir` 中的新文件，避免覆盖已加载的文件；重复演示会产生多个缓存文件，应由应用在不再需要这些加载器与代码文件时统一管理。
 
 这两个示例的字节来源是随宿主发布的 asset。若改成其他来源，必须在创建加载器前验证可信签名或与可信预期值核对完整性，不能仅计算当前文件的哈希就声称已验证可信。[官方动态代码加载安全说明](https://developer.android.com/privacy-and-security/risks/dynamic-code-loading)
@@ -331,13 +518,35 @@ String fromFile = DynamicLoadingExample.runFromFile(context);
 
 验证时除了输出字符串，还应保留代码中对**定义加载器**的检查。分别创建的内存加载器和文件加载器即使加载同名类，也不会因此共享类身份；如果要通过接口调用插件，应将共享接口放在宿主可见的父加载器中，插件单独编译时引用它，不再打包另一份接口定义。
 
-## 常见异常如何定位
+## 9. 使用边界与异常排查 {#pitfalls}
 
-- `ClassNotFoundException`：先查请求加载器、路径、打包内容和依赖是否可见。
-- `NoClassDefFoundError`：除了依赖不可见，还可能与此前初始化失败有关；应保留首个异常及 cause。
-- `ClassCastException`：检查两端 Class 的定义加载器，不只看同名类。
-- `UnsatisfiedLinkError`：转查原生库、ABI、依赖和链接器命名空间；DEX 能找到类不代表 `.so` 能加载。
+### 文件加载：写入和只读顺序
 
-排查时可以记录应用自身类的 `getClassLoader()` 和父级信息；这只是观察入口，不应反射改写 dexElements 来替代公开契约。
+Android 14 及以上、且 `targetSdkVersion >= 34` 的应用动态加载 DEX、JAR、APK 文件时，需要满足只读要求：**先打开输出文件 → 随即设为只读 → 经已打开的描述符写入 → 关闭输出流 → 创建加载器**。完整示例已按此处理；只读属性与代码来源可信是两回事。[Android 14 官方要求](https://developer.android.com/about/versions/14/behavior-changes-14#safer-dynamic-code-loading)
 
-原始笔记：[Android 基础知识提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。
+### 加载代码不自动安装组件或替换旧类
+
+创建加载器不会自动向 PMS 注册 Activity、Service、Receiver、Provider，不会自动解决资源查找，也不会把已有对象变成新版类型。加载的代码仍运行在宿主进程和权限环境中。
+
+### 从异常反查失败位置
+
+| 异常 / 表现 | 优先判断 | 检查位置 |
+| --- | --- | --- |
+| `ClassNotFoundException` | 请求链没有找到可用类定义 | 请求加载器、parent、DEX 内容、路径与 suppressed |
+| `NoClassDefFoundError` | 依赖不可见，或之前初始化失败 | 最早异常、cause、依赖来源与加载器 |
+| 同名类型 `ClassCastException` | 独立定义加载器产生不同类型 | 两端 Class 及 getClassLoader() |
+| `UnsatisfiedLinkError` | 原生库加载失败 | ABI、.so 依赖、链接器命名空间 |
+
+不要只看类名，先记录请求入口与定义加载器。需要重现首次加载或初始化时，使用新的实验进程，避免已缓存的类让观察结果失真。
+
+## 10. 源码与阅读索引 {#sources}
+
+源码摘录与行号对应 AOSP `android-16.0.0_r1`：
+
+- [ClassLoader / BootClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java)：L572 单参数入口，L617 默认委派，L2697 引导类查找，L2753 引导加载入口。
+- [BaseDexClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java#232)：共享库和自身路径顺序。
+- [DexPathList](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DexPathList.java#530)、[DexFile](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DexFile.java#320)：元素遍历与 Java 到 native 的入口。
+- [ART DexFile_defineClassNative](https://android.googlesource.com/platform/art/+/refs/tags/android-16.0.0_r1/runtime/native/dalvik_system_DexFile.cc#471)：查 DEX 类定义、注册 DEX、接入 ClassLinker。
+- [ClassLoader 官方 API](https://developer.android.com/reference/java/lang/ClassLoader)、[Java 生命周期规范 §12](https://docs.oracle.com/javase/specs/jls/se17/html/jls-12.html)：类型与初始化契约。
+
+结构参考：[JVM（类的加载与 ClassLoader、双亲委派机制）](https://cloud.tencent.com/developer/article/2293749)。其中 JDK 8 的扩展加载器、rt.jar 等环境描述，阅读 Android 时应换成本文的 DEX / ART 与加载器实现。

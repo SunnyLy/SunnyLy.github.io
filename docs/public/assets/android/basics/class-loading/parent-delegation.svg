@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="1080" viewBox="0 0 1320 1080" role="img" aria-labelledby="title desc">
+  <title id="title">双亲委派：左侧向上委托，右侧向下查找</title>
+  <desc id="desc">请求从左下角的附加 DexClassLoader 出发，经应用 PathClassLoader 向上委托到 BootClassLoader。假设每级已加载检查均未命中。右侧从引导类查找开始，未找到则返回应用加载器原调用点，由应用加载器执行自身 findClass；仍未找到则返回附加加载器执行自身 findClass。任一层找到即把同一个 Class 沿调用栈返回；全部未找到则抛出 ClassNotFoundException。向下的橙色线表示调用返回后的回退查找顺序，并非父加载器主动查找子加载器。</desc>
+  <defs>
+    <marker id="up" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#2563eb"/></marker>
+    <marker id="down" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#b45309"/></marker>
+    <marker id="resume" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#64748b"/></marker>
+  </defs>
+  <rect x="1" y="1" width="1318" height="1078" rx="22" fill="#f8fafc" stroke="#cbd5e1"/>
+  <g font-family="system-ui, sans-serif" text-anchor="middle" fill="#0f172a">
+    <text x="660" y="45" font-size="29" font-weight="700">双亲委派：请求向上，未找到再逐层回退查找</text>
+    <text x="660" y="83" font-size="19" fill="#475569">示例 parent 链：附加 → 应用 → 引导；假设各级缓存均未命中，无共享库与隔离 split</text>
+    <text x="300" y="147" font-size="25" font-weight="700" fill="#2563eb">1. 向上委托</text>
+    <text x="990" y="147" font-size="25" font-weight="700" fill="#b45309">2. 向下查找</text>
+
+    <g fill="#fff" stroke="#e2e8f0">
+      <rect x="38" y="177" width="1244" height="153" rx="16"/>
+      <rect x="38" y="437" width="1244" height="153" rx="16"/>
+      <rect x="38" y="697" width="1244" height="153" rx="16"/>
+    </g>
+    <g fill="none" stroke="#2563eb" stroke-width="4" marker-end="url(#up)">
+      <path d="M300 710V578"/>
+      <path d="M300 450V318"/>
+      <path d="M300 920V838"/>
+    </g>
+    <g fill="none" stroke="#b45309" stroke-width="4" marker-end="url(#down)">
+      <path d="M510 253H758"/>
+      <path d="M990 316V448"/>
+      <path d="M990 576V708"/>
+      <path d="M990 836V918"/>
+    </g>
+    <g fill="none" stroke="#64748b" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#resume)">
+      <path d="M510 513H758"/>
+      <path d="M510 773H758"/>
+    </g>
+
+    <g fill="#dbeafe" stroke="#93c5fd" stroke-width="2">
+      <rect x="90" y="190" width="420" height="126" rx="13"/>
+      <rect x="90" y="450" width="420" height="126" rx="13"/>
+      <rect x="90" y="710" width="420" height="126" rx="13"/>
+    </g>
+    <g fill="#fff7ed" stroke="#fdba74" stroke-width="2">
+      <rect x="760" y="190" width="460" height="126" rx="13"/>
+      <rect x="760" y="450" width="460" height="126" rx="13"/>
+      <rect x="760" y="710" width="460" height="126" rx="13"/>
+    </g>
+    <g font-size="25" font-weight="700">
+      <text x="300" y="227">BootClassLoader</text>
+      <text x="300" y="487">PathClassLoader（应用）</text>
+      <text x="300" y="747">DexClassLoader（附加）</text>
+      <text x="990" y="224">引导类查找</text>
+      <text x="990" y="484">应用加载器自身查找</text>
+      <text x="990" y="744">附加加载器自身查找</text>
+    </g>
+    <g font-size="21">
+      <text x="300" y="260">loadClass(name)</text>
+      <text x="300" y="520">loadClass(name)</text>
+      <text x="300" y="780">loadClass(name)</text>
+    </g>
+    <g font-size="17" fill="#475569">
+      <text x="300" y="294">先查已加载；未命中则查引导类</text>
+      <text x="300" y="554">先查已加载；未命中则委托 parent</text>
+      <text x="300" y="814">先查已加载；未命中则委托 parent</text>
+    </g>
+    <g font-size="20">
+      <text x="990" y="253">findClass → classForName</text>
+      <text x="990" y="513">findClass → 宿主 APK / DEX</text>
+      <text x="990" y="773">findClass → 附加 greeting.dex</text>
+    </g>
+    <g fill="#dcfce7">
+      <rect x="825" y="271" width="330" height="31" rx="15"/>
+      <rect x="825" y="531" width="330" height="31" rx="15"/>
+      <rect x="825" y="791" width="330" height="31" rx="15"/>
+    </g>
+    <g font-size="18" fill="#166534" font-weight="600">
+      <text x="990" y="293">找到 → 返回 Class，结束</text>
+      <text x="990" y="553">找到 → 返回 Class，结束</text>
+      <text x="990" y="813">找到 → 返回 Class，结束</text>
+    </g>
+
+    <g font-size="21" fill="#2563eb">
+      <text x="460" y="374">parent.loadClass</text>
+      <text x="460" y="634">parent.loadClass</text>
+      <text x="300" y="956">请求：extra.loadClass(name)</text>
+    </g>
+    <text x="635" y="231" font-size="18" fill="#b45309">开始引导类查找</text>
+    <g fill="#b45309">
+      <text x="1125" y="374" font-size="22" font-weight="600">未找到</text>
+      <text x="1125" y="405" font-size="17">回到应用的调用点</text>
+      <text x="1125" y="634" font-size="22" font-weight="600">未找到</text>
+      <text x="1125" y="665" font-size="17">回到附加加载器调用点</text>
+      <text x="1110" y="887" font-size="20">仍未找到</text>
+    </g>
+    <g font-size="17" fill="#64748b">
+      <text x="635" y="493">父级失败后，本级继续</text>
+      <text x="635" y="753">父级失败后，本级继续</text>
+    </g>
+    <rect x="785" y="920" width="410" height="60" rx="12" fill="#fff1f2" stroke="#fda4af"/>
+    <text x="990" y="957" font-size="21" fill="#be123c">抛出 ClassNotFoundException</text>
+
+    <text x="660" y="1020" font-size="19" font-weight="600">已加载检查若命中，直接返回，无需继续委托或查找。</text>
+    <text x="660" y="1054" font-size="18" fill="#475569">橙色向下线表示调用栈回退顺序；父加载器不会主动搜索子加载器。</text>
+  </g>
+</svg>
