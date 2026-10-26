@@ -12,13 +12,23 @@ Binder 将接口调用转换为跨进程事务，同时管理远端对象引用�
 
 **AIDL 定义跨进程接口的协议，Binder 执行事务，Parcel 承载数据。** AIDL 编译器生成的代码负责参数编码、事务码分派与返回值解码；驱动不理解业务方法的 Java 名称，而是根据目标引用、事务码和数据执行传递。
 
-Java 调用栈里有三种不同的“代理”，不能混为一谈：
+先用后文的加法接口统一术语：服务端创建 `AdderImpl`，客户端通过 `IAdder` 调用它。
 
-- **生成的 `Stub.Proxy`**：对应具体 AIDL 接口，知道业务方法如何读写 Parcel。
-- **`android.os.BinderProxy`**：Java 层的远端 `IBinder`，把通用 `transact` 操作交给 JNI。
-- **原生 `BpBinder`**：在 kernel Binder 路径中持有远端 handle，并通过 `IPCThreadState` 与驱动交互。
+| 称呼 | 本例对应什么 | 所在位置 | 职责与关系 |
+| --- | --- | --- | --- |
+| 业务本体 / 实体 | `new AdderImpl()` 创建的对象 | 服务端 Java 层 | 真正执行 `add()`；继承 Stub，也就是本地 Binder 实体 |
+| 远程对象 | 客户端视角下，服务端的同一个 `AdderImpl` | 仍在服务端 | 描述被调用的目标，不是复制到客户端的一份 Java 对象 |
+| Stub / 服务端骨架 | 生成的抽象类 `IAdder.Stub` | 类定义在两端都有；服务端实体继承它 | `onTransact()` 解码、分派；具体业务由 `AdderImpl` 实现 |
+| 业务远程代理 | 生成的 `IAdder.Stub.Proxy` 实例 | 客户端 Java 层 | 实现 `IAdder`，把 `add()` 转换成 Parcel 和事务调用 |
+| Java Binder 远端代理 | `android.os.BinderProxy` 实例 | 客户端 Java 层 | 实现通用 `IBinder` 操作；由业务 Proxy 的 `mRemote` 持有 |
+| Native Binder 代理 | `BpBinder` | 客户端 Native 层 | kernel Binder 路径中持有 handle，经 `IPCThreadState` 与驱动交互 |
+| Native Binder 实体适配 | 继承 `BBinder` 的 `JavaBBinder` | 服务端 Native 层 | 持有 Java Binder 的引用，把收到的事务回调到 Java 层 |
 
-服务端则由 Java `Binder`、JNI 的 `JavaBBinder` 与生成的 `Stub.onTransact()` 衔接到业务实现。纯 C++ 服务通常使用对应的 `Bp/Bn` 接口类型，不能套用整条 Java/JNI 调用栈。
+**本体和远程对象指向同一个服务端实体，只是观察位置不同；代理是客户端的另一个对象。** Stub 是生成的抽象基类，`AdderImpl` 是它的具体实现，运行时不是先创建一个 Stub 对象、再额外创建一个业务本体对象。
+
+`IBinder` 定义通用事务等操作；`IAdder` 定义业务方法并继承 `IInterface`。`IInterface.asBinder()` 用来取出这个接口关联的 `IBinder`，`Stub.asInterface(IBinder)` 则把通用 Binder 引用包装或转换为业务接口。它们本身不表示已经发出一次业务 IPC。
+
+“本地 / 远端”相对持有引用的进程而言。服务端看到自己的实体是本地 Binder，另一个进程通过代理访问它；回调接口的调用方向反过来时，原客户端也可以提供自己的 Binder 实体。纯 C++ 服务通常使用对应的 `Bp/Bn` 接口类型，不能套用整条 Java/JNI 调用栈。
 
 ```mermaid
 flowchart TB
@@ -58,6 +68,20 @@ interface IAdder {
     int add(int a, int b);
 }
 ```
+
+### IAdder.aidl 对应的完整 Stub 与 Proxy
+
+下面是由 Android SDK 35 的 `aidl` **实际生成**的 `IAdder.java`，仅整理空白并添加学习注释，包含接口、`Default`、`Stub`、`Proxy`、事务码和接口描述。`Default` 是可选默认实现，本例不使用它；`asInterface()` 也不会自动选择它。
+
+先读 `Stub` 的构造、`asInterface()` 和 `asBinder()`，再对照 `Proxy.add()` 与 `Stub.onTransact()` 的编码、解码顺序。`Proxy` 虽然写在 `Stub` 类内部，实例是在客户端由 `asInterface()` 创建的，嵌套位置不代表运行在服务端。[官方 AIDL 接口实现说明](https://developer.android.com/develop/background-work/services/aidl#Implement)
+
+<<< @/public/attachments/android/binder-study/IAdder.java
+
+<a href="/attachments/android/binder-study/IAdder.aidl" download>下载 IAdder.aidl</a> · <a href="/attachments/android/binder-study/IAdder.java" download>下载带注释的 IAdder.java</a>
+
+生成类通常位于构建目录，具体路径由构建插件决定；`app/src/main/aidl/.../IAdder.aidl` 是输入文件的位置。应用工程应保留 AIDL 并让构建工具生成 Java，避免再把下载的同名 Java 类手动加入源码集，造成重复定义。
+
+### 服务端提供本体，客户端取得接口
 
 ```java
 // AdderImpl.java：业务实现，既能被本地直接调用，也能接收远端事务。
@@ -147,65 +171,58 @@ public void onServiceConnected(android.content.ComponentName name,
 
 ### asInterface 为什么能返回原对象
 
-生成的 Stub 构造时调用 `attachInterface(this, DESCRIPTOR)`，把实现对象和接口描述保存在本地 Binder 中。`Binder.queryLocalInterface()` 在描述匹配时返回这个对象。下面保留生成代码的核心分支，省略注解和外围类：
+**本地 Binder 是当前进程拥有的 Binder 实体。** 在这个 Java AIDL 例子里，它就是 `new AdderImpl()` 创建的对象：`AdderImpl` 继承生成的 `IAdder.Stub`，`Stub` 又继承 `android.os.Binder` 并实现 `IAdder`。因此，同一个对象既能作为 `IAdder` 调用业务方法，也能作为 `IBinder` 交给 Binder 框架。“本地”描述实体所在的位置，不要求类名叫 `LocalBinder`。
+
+对照上方完整生成代码，Stub 构造时调用 `attachInterface(this, DESCRIPTOR)`。这里的 `this` 是正在构造的 **AdderImpl 对象本身**，不会因为执行父类构造器就变成另一个 Stub 或 Binder 对象。随后 `Stub.asBinder()` 返回 `this`，`Stub.asInterface()` 查询本地接口并判断是否需要创建 Proxy。
+
+**`attachInterface()` 的实现就是保存两个字段。** 它继承自 `Binder`，没有注册 ServiceManager，也没有发送驱动事务。下面是 `frameworks/base/core/java/android/os/Binder.java` 的源码节选，省略空值注解：
 
 ```java
-// IAdder.Stub 内部，DESCRIPTOR 是接口全名。
-public Stub() {
-    attachInterface(this, "com.example.binderstudy.IAdder");
+// android.os.Binder 的实例字段，分别在 L307、L309。
+private IInterface mOwner;    // 保存接口实现对象；这里指向同一个 AdderImpl。
+private String mDescriptor;   // 保存接口描述；这里是 IAdder 的完整名称。
+
+// Binder.attachInterface()，L753–756。
+public void attachInterface(IInterface owner, String descriptor) {
+    mOwner = owner;
+    mDescriptor = descriptor;
 }
 
-public static IAdder asInterface(android.os.IBinder obj) {
-    if (obj == null) return null;
-    android.os.IInterface local =
-            obj.queryLocalInterface("com.example.binderstudy.IAdder");
-    if (local instanceof IAdder) {
-        return (IAdder) local; // 本地 Binder：返回原来的 AdderImpl。
+// Binder.queryLocalInterface()，L788–793。
+public IInterface queryLocalInterface(String descriptor) {
+    if (mDescriptor != null && mDescriptor.equals(descriptor)) {
+        return mOwner; // 取回之前保存的引用，没有 new，也没有复制对象。
     }
-    return new Proxy(obj);     // BinderProxy 的查询返回 null，走远端代理。
+    return null;
 }
 ```
+
+所以，`implementation.asBinder()` 返回原对象；随后对它调用 `queryLocalInterface()`，根据描述取回 `mOwner`，仍然是原对象；`asInterface()` 再确认它实现了 `IAdder`，就把这个引用转换为 `IAdder` 返回。前面例子的 `local == implementation` 因而为 `true`，调用 `local.add()` 就是普通 Java 方法调用。
+
+`mOwner` 是每个 Binder 实例自己的字段，不是全局服务表。接口描述也不是内存地址，更不承担调用方认证。通用的 `attachInterface(owner, descriptor)` 允许 `owner` 是另一个实现 `IInterface` 的对象；本例中它与 Binder 是同一对象，是因为生成的 Stub 传入了 `this`。
+
+**远端为什么取不回这个 `mOwner`？** 客户端持有的是本进程中的 `BinderProxy`，服务端 `AdderImpl` 的 Java 字段保存在服务端进程。`BinderProxy` 对同名方法的实现直接返回 `null`，不会通过 IPC 请求服务端把 Java 对象引用交过来：
+
+```java
+// BinderProxy.java，android.os.BinderProxy.queryLocalInterface()，L509–511。
+public IInterface queryLocalInterface(String descriptor) {
+    return null;
+}
+```
+
+于是 `asInterface()` 创建 `IAdder.Stub.Proxy`，后续业务调用经 Parcel 和 Binder 事务到达服务端。**同一个 AdderImpl，对服务端是本地实体，对其他进程则由远端引用和代理表示。** 当 Java Binder 需要交给 Native 层时，JNI 的 `ibinderForJavaObject()` 经 `JavaBBinderHolder` 获取适配对象 `JavaBBinder`；它继承 Native `BBinder`，并持有指向原 Java Binder 的全局引用，供远端事务回调。这个适配过程与仅赋值两个 Java 字段的 `attachInterface()` 是不同步骤。
+
+源码位置：[`Binder` 实例字段 L307](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java#307)、[`attachInterface()` L753](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java#753)、[`queryLocalInterface()` L788](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java#788)、[`BinderProxy` 查询 L509](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/BinderProxy.java#509)、[`JavaBBinder` L338](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/jni/android_util_Binder.cpp#338)、[`ibinderForJavaObject()` L985](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/jni/android_util_Binder.cpp#985)。
 
 这里检查的是接口描述和 Java 类型，不能只凭“同一个进程”就断言一定直调。不同 ClassLoader 导致类型不匹配、包装对象不提供本地接口等情况，也可能走 Proxy 分支。
 
 ### 远端多出来的编码、分派与回复
 
-`api.add()` 进入生成的 `Proxy.add()` 后，才开始编码参数。下面是同步事务的核心结构；事务码由生成器分配，业务代码不要手写一套与生成类并存。
+`api.add()` 进入完整生成代码中的 `Proxy.add()` 后，先写接口 token，再依次写 `a`、`b`，最后调用 `mRemote.transact(TRANSACTION_add, ..., 0)`。`mRemote` 跨进程时通常是 `BinderProxy`，它随后进入 JNI、Native 与驱动。同步回复回来后，Proxy 先 `readException()`，再 `readInt()`，所以传输标志 `_status` 与业务结果 `_result` 是两回事。
 
-```java
-// IAdder.Stub.Proxy.add() 核心节选；mRemote 是客户端持有的 IBinder。
-android.os.Parcel data = android.os.Parcel.obtain();
-android.os.Parcel reply = android.os.Parcel.obtain();
-try {
-    data.writeInterfaceToken("com.example.binderstudy.IAdder");
-    data.writeInt(a);
-    data.writeInt(b);
-    // 0 表示普通同步事务；BinderProxy 随后进入 JNI / Native / 驱动。
-    mRemote.transact(Stub.TRANSACTION_add, data, reply, 0);
-    reply.readException(); // 先读取远端异常头，再读取业务返回值。
-    return reply.readInt();
-} finally {
-    reply.recycle();
-    data.recycle();
-}
-```
+服务端收到事务，`Stub.onTransact()` 先核对接口 token，再按 `TRANSACTION_add` 分派，以相同顺序读出两个整数。`this.add()` 虚方法调用落到 `AdderImpl.add()`，服务端将异常头与返回值写入回复 Parcel，客户端才读到结果。事务码由生成器分配；不要另外手写一套协议与生成类并存。
 
-服务端接收事务后，生成的 `Stub.onTransact()` 根据事务码分派。下面节选 `add` 对应的分支，省略接口查询等其他分支：
-
-```java
-data.enforceInterface("com.example.binderstudy.IAdder");
-switch (code) {
-    case TRANSACTION_add: {
-        int a = data.readInt();
-        int b = data.readInt();
-        data.enforceNoDataAvail(); // 不接受约定参数之外的剩余数据。
-        int result = this.add(a, b); // 直到这里才进入 AdderImpl.add()。
-        reply.writeNoException();
-        reply.writeInt(result);
-        return true;
-    }
-}
-```
+`Stub.asBinder()` 返回 `this`，`Proxy.asBinder()` 返回它持有的 `mRemote`。因此，远端场景中 `api` 是业务 Proxy，而 `api.asBinder()` 才是关联的 `BinderProxy`，二者不是同一个对象，也不能把业务 Proxy 强转成 `Binder`。
 
 把两条路径记成一组调用顺序：
 
@@ -220,15 +237,15 @@ switch (code) {
 
 即使显式调用本地 `Binder.transact()`，该基线的实现也是直接进入 `onTransact()`，并非自动经过一次驱动往返。
 
-| 比较维度 | 同进程直接接口调用 | 远端同步调用 | 远端 `oneway` 调用 |
-| --- | --- | --- | --- |
-| 典型执行入口 | 本地实现方法 | 代理编码，服务端分派 | 代理编码，服务端分派 |
-| 是否进入驱动 | 通常不进入 | 进入 | 进入 |
-| 业务在哪条线程执行 | 当前调用线程 | 服务端接收事务的线程 | 服务端接收事务的线程 |
-| 调用方何时继续 | 本地方法返回后 | 收到同步结果或失败后 | 提交阶段完成或失败后，不等业务执行结束 |
-| 返回值与业务异常 | 普通语言调用语义 | 经回复 Parcel 或传输错误返回 | 没有普通业务回复，提交仍可能失败 |
+用实际调用理解三种情况：
 
-因此，AIDL 中的 `oneway` 不会把本地直接调用自动变成后台任务；将服务从同进程改成独立进程，也可能改变时序、异常与线程语义。应用服务的生命周期回调与 Binder 接口方法同样应分别分析，不能因为 `onBind()` 通常在主线程，就认为远端接口方法也在主线程。
+1. **同进程调用 `local.add(3, 4)`**：当前线程直接执行 `AdderImpl.add()`，算完后得到 `7`，然后继续下一行代码。没有参数打包和驱动传递。
+2. **跨进程同步调用 `remote.add(3, 4)`**：客户端把两个整数写进 Parcel；服务端 Binder 线程执行加法、把 `7` 写进回复，客户端读到结果后才正常返回。客户端等待期间，它自己的调用线程被这次同步调用占用。
+3. **跨进程通知 `listener.onProgress(7L, 50)`**：如果这个方法声明为 `oneway`，意思是“通知任务 7 的进度到了 50%，本次调用不取业务回复”。发送方完成提交阶段后即可继续，接收方可能尚未执行，也可能已经处理完成；单看发送方法返回，无法确认处理结果。
+
+`oneway` 是 AIDL 的方法修饰关键字，具体写法、生成代码和驱动排队过程见[后面的 oneway 专节](#oneway-是什么-什么时候会用到)。它只改变远端事务的等待与回复方式；同进程通过本地接口调用时，仍在当前调用线程直接执行。把 Service 改到独立进程后，线程和时序可能随之改变。
+
+`onBind()` 是 Service 的生命周期回调，通常在主线程执行；远端 `add()`、`onProgress()` 则由接收事务的 Binder 线程执行，不能由 `onBind()` 的线程推断它们的执行线程。
 
 依据：[`Binder.java` 的 `queryLocalInterface()` 与 `transact()`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java)、[Android 进程与线程说明](https://developer.android.com/guide/components/processes-and-threads)。
 
@@ -522,15 +539,218 @@ sequenceDiagram
 
 如果 A 在持有非递归锁时调用 B，B 又同步回调 A 并尝试获取同一把锁，就可能死锁。Java 的可重入锁在这种同线程场景下未必自锁，但回调仍可能看到尚未恢复的不完整状态。工程上应避免持锁发起 Binder 调用，缩小临界区，并在跨进程调用前建立明确、可回入的状态。依据：[官方 Binder 线程模型](https://source.android.com/docs/core/architecture/ipc/binder-threading)。
 
+### oneway 是什么，什么时候会用到
+
+**`oneway` 表示这笔远端 Binder 调用只发送请求，不等待对方的业务回复。** 接收方仍会执行对应方法；调用方少了等待业务结果的步骤，但仍需完成参数编码、驱动交互和提交错误处理。
+
+典型场景是“告诉对方一个状态”：例如服务向另一个进程的观察者通知进度、播放状态或配置变化。发送方不应因为某个观察者处理得慢，就一直等在这次回调上。通知类接口可以考虑 `oneway`；需要立即取得结果、知道校验是否通过或确认写入是否成功的接口，应保留同步结果，或另外设计明确的完成协议。
+
+AOSP 中会直接遇到的例子是 `IApplicationThread`：`frameworks/base/core/java/android/app/IApplicationThread.aidl` 在 **L71** 将整个接口声明为 `oneway interface`，**L167** 定义 `scheduleTransaction(in ClientTransaction transaction)`。阅读 App 启动流程时，要把“系统已经发出生命周期调度请求”和“应用已经执行完生命周期回调”分开看，不能把这次发送返回当作 Activity 已启动完成。[接口声明与调度方法](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/IApplicationThread.aidl#71)
+
+`IAdder.add()` 需要返回加法结果，因此不能直接加上 `oneway`。另建一个只报告进度的接口更合适：
+
+```java
+// app/src/main/aidl/com/example/binderstudy/IProgressListener.aidl
+package com.example.binderstudy;
+
+interface IProgressListener {
+    oneway void onProgress(long taskId, int percent);
+}
+```
+
+`oneway` 方法必须返回 `void`，参数不能声明为 `out` 或 `inout`。也可以把整个接口声明为 `oneway interface`，让所有方法都遵守这种约束。**单纯返回 `void` 的普通 AIDL 方法仍然是同步调用**，只是没有业务返回值，仍会等待回复中的异常状态。[AIDL 本地、远端及 oneway 语义](https://developer.android.com/develop/background-work/services/aidl)
+
+### 怎么使用：发送一条进度通知
+
+下面将接收接口放在本 App 的独立进程中，直接观察通知语义。两个 Java 类与 AIDL 都使用 `com.example.binderstudy` 包；在已有 Android 应用中添加它们，由本 App 打开示例 Activity。
+
+接收方的 `onBind()` 交出 Stub，远端 `onProgress()` 只做简短校验和日志记录：
+
+<<< @/public/attachments/android/binder-study/ProgressListenerService.java
+
+在 Manifest 的 `<application>` 中注册，使用 `:progress` 建立独立进程：
+
+```xml
+<activity android:name="com.example.binderstudy.ProgressDemoActivity"
+    android:exported="false" />
+<service android:name="com.example.binderstudy.ProgressListenerService"
+    android:exported="false" android:process=":progress" />
+```
+
+发送方绑定 Service，通过 `asInterface()` 取得 Proxy，在工作线程调用 `onProgress()`。示例在 Activity 可见期间绑定，离开时解除绑定：
+
+<<< @/public/attachments/android/binder-study/ProgressDemoActivity.java
+
+观察 `BinderStudy` 日志中的 `send returned` 与 `received`：两条日志来自不同进程，它们的观察顺序取决于调度，不能假定返回日志一定先出现。`send returned` 只说明发送方法返回；示例接收方甚至可以拒绝非法进度并直接返回，发送方也不会自动得到这个业务校验结果。去掉 Service 的 `android:process` 后，本地 `onProgress()` 会在 `progress-sender` 线程直接执行，`oneway` 不会另外创建线程。
+
+这个例子采用“App 向接收 Service 发通知”的方向；实际的跨进程进度回调通常由 App 把 `IProgressListener.Stub` 通过注册接口交给服务，服务随后调用它。谁提供 Stub，谁就拥有这次回调的接收实体，底层处理方式相同。
+
+<a href="/attachments/android/binder-study/IProgressListener.aidl" download>下载进度 AIDL</a> · <a href="/attachments/android/binder-study/IProgressListener.java" download>下载实际生成的 Stub / Proxy</a> · <a href="/attachments/android/binder-study/ProgressListenerService.java" download>下载接收 Service</a> · <a href="/attachments/android/binder-study/ProgressDemoActivity.java" download>下载发送 Activity</a>
+
+### 生成代码怎样把 oneway 传到 Binder
+
+`IProgressListener.java` 由同一 SDK 35 AIDL 编译器生成。与同步 `IAdder.Proxy.add()` 对照，`Proxy.onProgress()` 只有发送 Parcel，没有回复 Parcel，也没有 `readException()`：
+
+```java
+// IProgressListener.Stub.Proxy.onProgress()：生成代码节选，添加注释。
+android.os.Parcel _data = android.os.Parcel.obtain();
+try {
+    _data.writeInterfaceToken(DESCRIPTOR);
+    _data.writeLong(taskId);
+    _data.writeInt(percent);
+    boolean _status = mRemote.transact(
+            Stub.TRANSACTION_onProgress, _data, null, android.os.IBinder.FLAG_ONEWAY);
+    // null：不提供业务回复 Parcel；FLAG_ONEWAY：单向事务标志。
+    // 这里没有等待并读取业务结果的代码，_status 也不是处理成功回执。
+} finally {
+    _data.recycle();
+}
+```
+
+服务端 `Stub.onTransact()` 核对接口 token 后，读出参数并调用本体。生成的分支没有同步方法中的 `reply.writeNoException()` 和结果写回：
+
+```java
+// IProgressListener.Stub.onTransact() 的业务分支，接口 token 检查在分支之前。
+case TRANSACTION_onProgress: {
+    long _arg0;
+    _arg0 = data.readLong();
+    int _arg1;
+    _arg1 = data.readInt();
+    this.onProgress(_arg0, _arg1);
+    break;
+}
+```
+
+所以，传 `null` 和设置 `FLAG_ONEWAY` 是一组协议行为。只传 `null` 却不设置标志，不能把普通同步事务改成 `oneway`；应用应让 AIDL 生成配套代码。
+
+### Native 层究竟等什么，为什么没有业务异常回复
+
+`BinderProxy` 把事务交给 JNI、`BpBinder` 和 `IPCThreadState`。`frameworks/native/libs/binder/IPCThreadState.cpp` 中，`IPCThreadState::transact()` 从 **L868** 开始，先构造 `BC_TRANSACTION`，再按 `TF_ONE_WAY` 选择等待路径。以下提炼普通内核 Binder 路径，省略日志、调用约束及错误处理：
+
+```cpp
+// IPCThreadState::transact()：请求仍要编码成驱动事务命令。
+err = writeTransactionData(BC_TRANSACTION, flags, handle, code, data, nullptr);
+
+if ((flags & TF_ONE_WAY) == 0) {
+    // 同步调用：即便上层没有给 reply，也用临时 Parcel 等业务回复。
+    if (reply) {
+        err = waitForResponse(reply);
+    } else {
+        Parcel fakeReply;
+        err = waitForResponse(&fakeReply);
+    }
+} else {
+    // oneway 分支，L938–939：仍等待提交阶段的通知，不等待 BR_REPLY。
+    err = waitForResponse(nullptr, nullptr);
+}
+```
+
+`IPCThreadState::waitForResponse()` 从 **L1074** 开始。普通成功路径收到 `BR_TRANSACTION_COMPLETE` 后，没有业务回复需求的调用就可以结束等待：
+
+```cpp
+// IPCThreadState.cpp:L1100–1102，waitForResponse()。
+case BR_TRANSACTION_COMPLETE:
+    if (!reply && !acquireResult) goto finish;
+    break;
+```
+
+`BR_TRANSACTION_COMPLETE` 不是“服务端已执行成功”。等待函数还处理死亡、失败、冻结等通知；提交仍可能失败，对端被冻结时业务通知也可能留在队列，不能据发送返回认定接收方已经运行。接收端 `IPCThreadState::executeCommand()` 在 **L1503** 检查事务标志，仅非 `oneway` 路径调用 `sendReply()`。
+
+Java 本体抛异常时同样没有普通回复可用。`frameworks/base/core/java/android/os/Binder.java` 的 `Binder.execTransactInternal()`（方法起点 **L1376**）在 **L1435–1450** 区分处理：
+
+```java
+// Binder.execTransactInternal() 异常处理节选，省略日志细节和部分检查。
+if ((flags & FLAG_ONEWAY) != 0) {
+    // 记录异常，再调用异常处理钩子；不把它写成远端业务异常回复。
+    onUnhandledException(code, flags, e);
+} else {
+    reply.setDataSize(0);
+    reply.setDataPosition(0);
+    // 原方法还会检查异常是否可编码。
+    reply.writeException(e);
+}
+```
+
+因此，发送方 `catch (RemoteException)` 仍有必要，但它处理的是这次发送遇到的传输等问题，不能用来接收服务端稍后执行时抛出的普通业务异常。需要业务拒绝原因或完成确认时，设计带请求 ID 的结果回调或状态查询。
+
+源码：[`transact()` L868](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#868)、[`oneway` 等待 L938](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#938)、[`BR_TRANSACTION_COMPLETE` L1100](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1100)、[接收端回复分支 L1503](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1503)、[Java 异常分支 L1435](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java#1435)。
+
 ### oneway 的串行边界在 Binder 节点上
 
-远端 `oneway` 不等待服务端业务执行结束，仍要完成编码与提交，且提交可能失败。它没有普通业务回复，服务端后来抛出的异常也不能按同步调用方式返回给调用方。
+**发给同一个 Binder 实体的普通 `oneway` 事务，会按该节点的异步队列依次处理。** 例如，同一发送线程依次报告 10%、20%、30%，不能因为线程池有多条线程，就认为这三次接收方法会同时执行。但接收它们的线程可以不同；不同实体、同步事务和业务另开的线程不受这项串行保证约束。[`FLAG_ONEWAY` 排序契约](https://developer.android.com/reference/android/os/IBinder#FLAG_ONEWAY)
 
-同一 Binder 节点上的异步事务会依次交付处理，但先后执行的线程可以不同。这个保证不能推广成“整个服务进程串行”，也不能约束同一节点的同步事务；如果 handler 把任务转交给业务线程池，后续业务任务是否并行与是否有序，要由业务层保证。
+看驱动的 `drivers/android/binder.c`，`binder_proc_transaction()` 从 **L3029** 开始。普通未冻结路径先检查目标节点有没有进行中的异步事务；已有事务时，后续事务进入这个节点的 `async_todo`。以下提炼标志判断及两个排队分支，省略锁、hook 和冻结更新事务等处理：
 
-异步队列受缓冲区等资源约束，并非无限队列。需要业务完成确认时，应设计回调、结果查询或请求状态协议，而不是把方法改成 `oneway` 后假定任务必达。
+```c
+// binder_proc_transaction()：L3033–3048。
+struct binder_node *node = t->buffer->target_node;
+bool oneway = !!(t->flags & TF_ONE_WAY);
+bool pending_async = false;
+// ...
+if (oneway) {
+    BUG_ON(thread);
+    if (node->has_async_transaction)
+        pending_async = true;
+    else
+        node->has_async_transaction = true;
+}
 
-核对入口：[`IPCThreadState::transact()` 的异步分支](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp)、固定内核 [`binder.c` 的 `async_todo`](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder.c) 与 [`binder_alloc.c` 的异步空间管理](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder_alloc.c)。
+// 普通未冻结 oneway 路径中 thread 为 NULL；提炼 L3075–3095 的分支。
+// 实际源码还通过 hook 决定是否执行各处入队语句。
+if (!pending_async) {
+    // 当前没有进行中的同节点异步事务，送到进程待办队列。
+    binder_enqueue_work_ilocked(&t->work, &proc->todo);
+} else {
+    // 已有一笔，排到节点自己的异步队列，等前一笔释放。
+    binder_enqueue_work_ilocked(&t->work, &node->async_todo);
+}
+```
+
+前一笔接收事务处理完并释放入站缓冲后，`binder_free_buf()`（起点 **L4233**）在 **L4255–4266** 从节点异步队列取下一笔，送到进程待办队列并唤醒接收线程；如果队列已空，清掉进行中标志。以下省略 hook 条件：
+
+```c
+// binder_free_buf()：同节点下一笔的推进位置。
+w = binder_dequeue_work_head_ilocked(&buf_node->async_todo);
+if (!w) {
+    buf_node->has_async_transaction = false;
+} else {
+    binder_enqueue_work_ilocked(w, &proc->todo);
+    binder_wakeup_proc_ilocked(proc);
+}
+```
+
+这个节点对应具体 Stub 实体，**不是 AIDL 接口类，更不是整个服务进程**。不同 Stub 实例可以并行接收；多个发送线程同时提交时，也不能拿它们各自的业务时间假定一个全局发送顺序。如果 `onProgress()` 只是把工作扔给另一个 Executor 就返回，Binder 保证的是接收方法的串行分派，后续业务完成顺序由那个 Executor 决定。
+
+源码：[节点排队逻辑 L3029](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder.c#3029)、[节点异步队列入队 L3095](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder.c#3095)、[释放后推进 L4255](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder.c#4255)。
+
+```mermaid
+sequenceDiagram
+  participant C as 发送进程 Proxy
+  participant D as Binder 驱动
+  participant S as 接收进程 Binder 线程池
+  C->>D: BC_TRANSACTION + TF_ONE_WAY
+  par 发送方观察提交结果
+    D-->>C: BR_TRANSACTION_COMPLETE（普通成功路径）
+    Note over C: 可以继续执行，不等待业务回复
+  and 接收方调度与处理
+    D->>S: BR_TRANSACTION
+    S->>S: Stub.onTransact → onProgress
+    S->>D: 处理结束后释放入站缓冲 BC_FREE_BUFFER
+    D->>D: 将同节点下一笔异步事务推进到可执行队列（如有）
+  end
+```
+
+图中两条分支独立推进：发送方观察到返回与接收方法执行完成之间没有固定先后关系。
+
+### 用不好会有什么问题
+
+- **慢处理拖住后续通知。** 同一 Binder 节点上的 `oneway` 串行交付；在入口等待锁、做磁盘或网络工作，会造成队头阻塞。入口应短；需要转交工作时，使用有界队列并明确合并、拒绝和顺序策略。
+- **高频发送耗尽异步空间。** `oneway` 仍消耗目标进程的事务缓冲及异步预算，队列不是无限的。进度等“最新状态”可限频、合并或按序号取新值；每条都必须保留的事件则需要确认、背压或持久化协议，不能简单丢弃。空间约束见[第 9 节](#_9-缓冲区、延迟与常见故障)。
+- **把返回当作成功，导致状态丢失。** 接收方可能尚未处理、拒绝参数，或处理前进程退出。`oneway` 不会持久化消息，也不能代替任务调度器；重要业务按请求 ID 查询与确认，不盲目重放。
+- **误以为后面的同步调用是屏障。** 先发 `oneway setState()` 再调同步 `getState()`，不能依赖 Binder 的异步排序保证推导写入已完成。同步事务和异步事务没有这种混合顺序保证，应显式确认版本或完成状态。
+- **切进程或切线程后语义变了。** 本地调用仍是同步直调；同进程调用的异常可能直接抛给调用方，而远端单向业务异常不会这样返回。鉴权应在接收入口基于真实调用身份完成，转交工作前保存已验证的上下文，不能到工作线程再读取原调用者 UID。
+
+选择时先问业务是否需要本次处理结果：需要就保留同步接口或明确的异步结果协议；只发布一条可独立处理的通知，再考虑 `oneway`。即使它消除了等待业务回复的步骤，编码、驱动交互和错误处理仍有开销，不能把它当成主线程上任意高频、任意大小调用都安全的保证。
 
 ## 7. 调用身份与权限检查
 
