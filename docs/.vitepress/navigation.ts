@@ -132,6 +132,11 @@ export const knowledgeSections: KnowledgeSection[] = [
         description: '接口分发、InvocationHandler 与返回值和异常契约。',
       },
       {
+        text: '打包与签名原理', group: '基础',
+        link: '/android/basics/apk-signing.html',
+        description: '从构建、APK 验签到 v1～v4、密钥轮换与 Play App Signing。',
+      },
+      {
         text: 'Binder 机制',
         group: 'Framework',
         link: '/android/framework/binder-mechanism.html',

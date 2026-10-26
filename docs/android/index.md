@@ -19,6 +19,7 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 - 四大组件：[Activity 启动](./basics/activity-startup.html)、[Broadcast 发送接收](./basics/broadcast.html)、[Service 生命周期](./basics/service-lifecycle.html)、[Provider 与内容观察](./basics/content-provider.html)。
 - [系统核心服务](./basics/system-services.html)：AMS/ATMS、PMS、WMS、ContentService 和 PackageInstallerService；包含 [Launcher 点击到首帧的完整时序](./basics/system-services/ams-atms.html#ams-atms-launch-sequence)。
 - 运行时：[PendingIntent](./basics/pending-intent.html)、[LoadedApk](./basics/loaded-apk.html)、[类加载机制](./basics/class-loading.html)、[动态代理](./basics/dynamic-proxy.html)。
+- [打包与签名原理](./basics/apk-signing.html)：构建与验签流程、签名方案差异、密钥轮换、覆盖更新及 Play App Signing。
 
 ## Framework
 

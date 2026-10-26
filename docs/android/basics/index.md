@@ -58,6 +58,10 @@ outline: [2, 3]
 3. [类加载机制](./class-loading.html)：默认委派、PathClassLoader、DexClassLoader、共享库与类型身份。
 4. [动态代理原理](./dynamic-proxy.html)：Proxy、InvocationHandler、接口可见性和异常契约。
 
+## 构建与发布 {#build-and-release}
+
+[打包与签名原理](./apk-signing.html)：源码如何变成 APK、系统如何验签、v1～v4 与 v3.2 的区别，以及签名方案升级、密钥轮换和 Play 上传密钥重置。
+
 ## 来源、原图与覆盖 {#source-coverage}
 
 [原始提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。各条目与站内章节的对应关系保存在 `planning/android-basics-coverage.json`。
