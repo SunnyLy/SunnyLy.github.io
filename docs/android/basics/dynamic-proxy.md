@@ -7,7 +7,6 @@ outline: [2, 3]
 
 Java 接口动态代理可以在运行时创建一个实现指定接口的对象，将经由这个对象发生的方法调用转交给 `InvocationHandler`。它适合在明确的接口边界实现计时、鉴权、日志或适配；不会自动拦截进程中所有对象的方法。
 
-本文补全[原提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)最后的“动态代理”知识点。范围是公开 `java.lang.reflect.Proxy`，本次不加入运行时 Hook 工具内容。[Proxy API](https://developer.android.com/reference/java/lang/reflect/Proxy)
 
 ## Proxy 与 InvocationHandler 如何协作
 
@@ -30,6 +29,8 @@ sequenceDiagram
 ```
 
 代理类只实现指定接口，不能凭此覆盖任意具体类的 final 方法，也不会经过目标对象内部对自身方法的直接调用。接口默认方法是否委派给目标、是否执行额外策略，需要处理器明确决定，不能假定运行时替业务作出选择。
+
+代理调用仍在发起调用的线程同步进入 `invoke()`，除非处理器显式安排异步工作；多个线程可以同时进入同一处理器。计数、缓存和鉴权状态因此仍需正确同步，代理本身不会把调用串行化。代理类继承 `Proxy` 并实现给定接口，真正的目标对象只是处理器选择持有的委托对象。[Proxy 与处理器契约](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/reflect/Proxy.html)
 
 ## 最小可运行示例：代理调用真实对象
 
@@ -93,7 +94,7 @@ Hello, Android
 
 ## 一个保留身份和异常契约的例子
 
-下面示例使用 Java 公开反射 API；`Notes` 与 `LocalNotes` 可以放在同一外部类中作为静态嵌套类型。示例用于解释代理边界，未在 Android 项目中编译。
+`Notes` 与 `LocalNotes` 可以放在同一外部类中作为静态嵌套类型，`createNotesProxy()` 则放在该外部类中。
 
 ```java
 public interface Notes {
@@ -147,3 +148,5 @@ public static Notes createNotesProxy(Notes target) {
 `java.lang.reflect.Proxy` 是接口调用分发机制；AIDL 生成的 Proxy 是编译生成的通信包装；Android 的 BinderProxy 是远程 Binder 对象在 Java 层的表示。三者名称相近但不构成同一个继承关系，也不意味着一次动态代理调用必定跨进程。
 
 动态代理包裹本地实现时只是本地调用；包裹已有远程接口时，是否跨进程取决于它最终委派的实现。进程间的身份、序列化、线程池与死亡通知仍由 Binder 通信契约决定，见 [Binder 基础](./binder-basics.html) 和 [Messenger](./messenger.html)。
+
+原始笔记：[Android 基础知识提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。

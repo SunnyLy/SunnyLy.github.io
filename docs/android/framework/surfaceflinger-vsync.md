@@ -6,14 +6,6 @@ description: 从显示硬件与 DRM vblank 出发，串联 Composer HAL、VSYNC 
 
 VSYNC 贯穿显示系统，但它并不是一条从硬件中断直接调用到应用绘制的函数链。理解整条管线，要分别追踪**时间如何预测、线程何时工作、缓冲区何时可用、画面何时呈现**。
 
-本文根据[原始笔记《SurfaceFlinger VSYNC 全链路与源码导读》](https://alidocs.dingtalk.com/i/nodes/1zknDm0WRardABEYczQQowE38BQEx5rG)重新组织，补充应用事件通道、BLAST 缓冲区提交与现代 Composer AIDL 边界。图示可点击放大、缩放和拖动；Binder 对象与反向回调的基础见 [Binder 机制](./binder-mechanism.html)。
-
-::: info 源码基线与验证范围
-- Framework、Composer AIDL 与 `drm_hwcomposer` 参考实现均固定为 **`android-16.0.0_r1`**，避免滚动分支上的类名变化影响阅读。
-- Linux DRM 文档用于说明接口与硬件抽象；DRM 参考路径不代表所有厂商显示驱动、面板或 Composer HAL。
-- 本文讨论常见物理显示路径。多屏、虚拟显示、可变刷新率和厂商优化存在差异；结论来自源码核对，未进行设备实测。
-:::
-
 ## 1. 先建立三个互相关联的视角
 
 **节拍视角**：显示事件提供时间样本，预测器估计未来 VSYNC，调度器选择提前唤醒应用和 SF 的时刻。
@@ -197,6 +189,10 @@ SF 的 `commit()` 处理待提交状态、Layer 关系与快照、可锁存的 b
 
 可对照 [`AidlComposerHal.cpp`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/DisplayHardware/AidlComposerHal.cpp)、[`DisplayCommand.aidl`](https://android.googlesource.com/platform/hardware/interfaces/+/refs/tags/android-16.0.0_r1/graphics/composer/aidl/android/hardware/graphics/composer3/DisplayCommand.aidl) 和 [CompositionEngine 源码](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/CompositionEngine/src/)。
 
+### present 也有按帧选择的线程分支 {#present-worker}
+
+`Output` 的呈现路径检查 `mOffloadPresent`：需要卸载时调用 `presentFrameAndReleaseLayersAsync()`，否则直接执行 `presentFrameAndReleaseLayers()`。卸载标志只对当前帧生效，之后重置，下一帧重新决策；不能把所有 present 都归到同一线程，也不能看到异步分支就推断 SF 不再等待其结果。[Output 呈现分支](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/CompositionEngine/src/Output.cpp#487)
+
 ## 9. 用 fence 区分“已提交”和“可安全使用”
 
 Fence 表达异步工作依赖，可以随缓冲区传递。拿到一个 fence FD，只是拿到了观察或传递该依赖的引用；它不等于依赖已经满足，也不要求每一层都在 CPU 上同步等待。
@@ -241,7 +237,7 @@ FrameTimeline 的 deadline 与 expected presentation time 使用 `System.nanoTim
 
 ### 先确认设备，再解释 trace
 
-以下仅为待执行的只读查询，不是本文实测结果：
+先确认设备的构建、显示配置与可用追踪数据源：
 
 ```sh
 adb shell getprop ro.build.fingerprint
@@ -268,3 +264,5 @@ adb shell perfetto --query
 5. **buffer 如何提交和回收**：[`BLASTBufferQueue.cpp`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/gui/BLASTBufferQueue.cpp)、[`SurfaceFlinger.cpp`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/SurfaceFlinger.cpp)与 [CompositionEngine](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/CompositionEngine/src/)。分别记录 buffer 引用、帧标识和 acquire/release/present 依赖。
 
 阅读完成后，应能解释：为什么硬件回调关闭后软件调度仍可工作，为什么应用 `doFrame()` 完成后还会迟到，以及为什么一个 present fence 不能代表所有显示相关工作都结束。
+
+原始笔记：[原始笔记《SurfaceFlinger VSYNC 全链路与源码导读》](https://alidocs.dingtalk.com/i/nodes/1zknDm0WRardABEYczQQowE38BQEx5rG)。

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1664" height="1330" viewBox="0 0 1664 1330" role="img" aria-labelledby="title desc">
+<title id="title">Binder 请求方向：客户端提交、驱动路由与服务端接收</title>
+<desc id="desc">20 个有序步骤。客户端 talkWithDriver 的 ioctl 提交到驱动 binder_ioctl；驱动 binder_thread_read 返回 BR_TRANSACTION 到服务端 talkWithDriver，再读取命令并执行 BBinder 分派。跨列折线只连接具体节点，不穿过其他节点。</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#3268b6"/></marker></defs>
+<style>text{font-family:Segoe UI,Microsoft YaHei,Noto Sans CJK SC,sans-serif;fill:#172b45}.title{font-size:27px;font-weight:700}.subtitle{font-size:17px;fill:#52657e}.heading{font-size:23px;font-weight:700}.node-title{font-size:19px;font-weight:600}.detail{font-size:17px;fill:#52657e}.edge{fill:none;stroke:#3268b6;stroke-width:2.5;stroke-linejoin:round;marker-end:url(#arrow)}.queue{stroke-dasharray:7 5}.link-label{font-size:17px;font-weight:600;fill:#245797}</style>
+<rect width="1664" height="1330" rx="20" fill="#ffffff"/>
+<text x="40" y="45" class="title">Binder 请求：谁提交、谁接管、谁接收</text>
+<text x="40" y="77" class="subtitle">Java / libbinder · android-16.0.0_r1 | Binder driver · android16-6.12-2025-06_r1</text>
+<g id="CLIENT"><rect x="32" y="108" width="400" height="1110" rx="16" fill="#f7f9fc" stroke="#c7d4e5"/><text x="56" y="145" class="heading">客户端进程</text><text x="56" y="173" class="subtitle">提交者：发起调用的线程</text></g>
+<g id="KERNEL"><rect x="632" y="108" width="400" height="1110" rx="16" fill="#f0f6fd" stroke="#c7d4e5"/><text x="656" y="145" class="heading">内核 Binder 驱动</text><text x="656" y="173" class="subtitle">提交、工作队列与接收分阶段执行</text></g>
+<g id="SERVER"><rect x="1232" y="108" width="400" height="1110" rx="16" fill="#f7f9fc" stroke="#c7d4e5"/><text x="1256" y="145" class="heading">服务端进程</text><text x="1256" y="173" class="subtitle">接收者：正在读取工作的 Binder 线程</text></g>
+<path id="A-B" data-from="A" data-to="B" class="edge" d="M232 274 L232 318"/>
+<path id="B-D" data-from="B" data-to="D" class="edge" d="M232 402 L232 446"/>
+<path id="D-E" data-from="D" data-to="E" class="edge" d="M232 530 L232 574"/>
+<path id="E-CT" data-from="E" data-to="CT" class="edge" d="M232 658 L232 702"/>
+<path id="CT-CW" data-from="CT" data-to="CW" class="edge" d="M232 786 L232 830"/>
+<path id="KI-KWR" data-from="KI" data-to="KWR" class="edge" d="M832 274 L832 318"/>
+<path id="KWR-KW" data-from="KWR" data-to="KW" class="edge" d="M832 402 L832 446"/>
+<path id="KW-KT" data-from="KW" data-to="KT" class="edge" d="M832 530 L832 574"/>
+<path id="KT-KQ" data-from="KT" data-to="KQ" class="edge" d="M832 658 L832 702"/>
+<path id="KQ-KR" data-from="KQ" data-to="KR" class="edge queue" d="M832 786 L832 830"/>
+<path id="SW-SR" data-from="SW" data-to="SR" class="edge" d="M1432 274 L1432 318"/>
+<path id="SR-SC" data-from="SR" data-to="SC" class="edge" d="M1432 402 L1432 446"/>
+<path id="SC-SB" data-from="SC" data-to="SB" class="edge" d="M1432 530 L1432 574"/>
+<path id="SB-G" data-from="SB" data-to="G" class="edge" d="M1432 658 L1432 702"/>
+<path id="G-H" data-from="G" data-to="H" class="edge" d="M1432 786 L1432 830"/>
+<path id="H-I" data-from="H" data-to="I" class="edge" d="M1432 914 L1432 958"/>
+<path id="I-J" data-from="I" data-to="J" class="edge" d="M1432 1042 L1432 1086"/>
+<path id="CW-KI" data-from="CW" data-to="KI" class="edge" d="M408 872 L532 872 L532 232 L656 232"/>
+<path id="KR-SW" data-from="KR" data-to="SW" class="edge" d="M1008 872 L1132 872 L1132 232 L1256 232"/>
+<g id="A" data-step="1"><rect x="56" y="190" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="72" y="221" class="node-title">1. 业务接口方法</text><text x="72" y="250" class="detail">调用 AIDL 业务代理</text></g>
+<g id="B" data-step="2"><rect x="56" y="318" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="72" y="349" class="node-title">2. AIDL Stub.Proxy</text><text x="72" y="378" class="detail">编码 Parcel，调用 mRemote.transact</text></g>
+<g id="D" data-step="3"><rect x="56" y="446" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="72" y="477" class="node-title">3. Java BinderProxy</text><text x="72" y="506" class="detail">transactNative() 经 JNI 进入 Native</text></g>
+<g id="E" data-step="4"><rect x="56" y="574" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="72" y="605" class="node-title">4. BpBinder::transact()</text><text x="72" y="634" class="detail">转交本线程的 IPCThreadState</text></g>
+<g id="CT" data-step="5"><rect x="56" y="702" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="72" y="733" class="node-title">5. IPCThreadState::transact()</text><text x="72" y="762" class="detail">writeTransactionData() 写入 mOut</text></g>
+<g id="CW" data-step="6"><rect x="56" y="830" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="72" y="861" class="node-title">6. talkWithDriver()</text><text x="72" y="890" class="detail">ioctl(BINDER_WRITE_READ)</text></g>
+<g id="KI" data-step="7"><rect x="656" y="190" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="672" y="221" class="node-title">7. binder_ioctl()</text><text x="672" y="250" class="detail">分派 BINDER_WRITE_READ</text></g>
+<g id="KWR" data-step="8"><rect x="656" y="318" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="672" y="349" class="node-title">8. binder_ioctl_write_read()</text><text x="672" y="378" class="detail">处理发送端的 write_buffer</text></g>
+<g id="KW" data-step="9"><rect x="656" y="446" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="672" y="477" class="node-title">9. binder_thread_write()</text><text x="672" y="506" class="detail">解析 BC_TRANSACTION 命令</text></g>
+<g id="KT" data-step="10"><rect x="656" y="574" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="672" y="605" class="node-title">10. binder_transaction()</text><text x="672" y="634" class="detail">引用校验、复制数据与转换对象</text></g>
+<g id="KQ" data-step="11"><rect x="656" y="702" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="672" y="733" class="node-title">11. 事务工作入队</text><text x="672" y="762" class="detail">选择或唤醒接收线程</text></g>
+<g id="KR" data-step="12"><rect x="656" y="830" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="672" y="861" class="node-title">12. binder_thread_read()</text><text x="672" y="890" class="detail">接收端 ioctl 的 read 阶段</text></g>
+<g id="SW" data-step="13"><rect x="1256" y="190" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="1272" y="221" class="node-title">13. talkWithDriver()</text><text x="1272" y="250" class="detail">ioctl 返回，命令进入 mIn</text></g>
+<g id="SR" data-step="14"><rect x="1256" y="318" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="1272" y="349" class="node-title">14. getAndExecuteCommand()</text><text x="1272" y="378" class="detail">mIn.readInt32() 读取命令</text></g>
+<g id="SC" data-step="15"><rect x="1256" y="446" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="1272" y="477" class="node-title">15. executeCommand()</text><text x="1272" y="506" class="detail">处理 BR_TRANSACTION</text></g>
+<g id="SB" data-step="16"><rect x="1256" y="574" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="1272" y="605" class="node-title">16. BBinder::transact()</text><text x="1272" y="634" class="detail">调用虚函数 onTransact()</text></g>
+<g id="G" data-step="17"><rect x="1256" y="702" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="1272" y="733" class="node-title">17. JavaBBinder::onTransact()</text><text x="1272" y="762" class="detail">JNI 回调 Java Binder</text></g>
+<g id="H" data-step="18"><rect x="1256" y="830" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="1272" y="861" class="node-title">18. Binder.execTransact()</text><text x="1272" y="890" class="detail">进入 Java 分派</text></g>
+<g id="I" data-step="19"><rect x="1256" y="958" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="1272" y="989" class="node-title">19. Stub.onTransact()</text><text x="1272" y="1018" class="detail">解码参数，调用业务方法</text></g>
+<g id="J" data-step="20"><rect x="1256" y="1086" width="352" height="84" rx="10" fill="#ffffff" stroke="#9fb5d2" stroke-width="1.5"/><text x="1272" y="1117" class="node-title">20. 业务接口实现</text><text x="1272" y="1146" class="detail">执行并按同步协议写 reply</text></g>
+<g><rect x="444" y="478" width="176" height="66" rx="9" fill="#ffffff" stroke="#bdd0e8"/><text x="532" y="503" text-anchor="middle" class="link-label">BC_TRANSACTION</text><text x="532" y="529" text-anchor="middle" class="detail">6 → 7 · 提交 ioctl</text></g>
+<g><rect x="1044" y="478" width="176" height="66" rx="9" fill="#ffffff" stroke="#bdd0e8"/><text x="1132" y="503" text-anchor="middle" class="link-label">BR_TRANSACTION</text><text x="1132" y="529" text-anchor="middle" class="detail">12 → 13 · ioctl 返回</text></g>
+<text x="848" y="813" class="detail">工作队列交接</text>
+<text x="40" y="1262" class="subtitle">实线：调用或返回的数据路径；虚线：队列交接。11 → 12 不是 binder_transaction 直接调用 binder_thread_read。</text>
+<text x="40" y="1292" class="subtitle">服务端可先进入 ioctl 等待；13 表示读调用返回。编号表示本次请求的处理顺序，不是所有线程的绝对时间线。</text>
+</svg>

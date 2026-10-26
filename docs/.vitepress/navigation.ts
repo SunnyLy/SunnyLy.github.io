@@ -32,10 +32,22 @@ export const knowledgeSections: KnowledgeSection[] = [
         description: '辨明 Java 与 Native 层接口、代理、实体的关系。',
       },
       {
+        text: 'IPC 方式与场景选型',
+        group: '基础',
+        link: '/android/basics/ipc-methods.html',
+        description: '对比 AIDL、Messenger、组件、共享内存和 Socket，配套关键代码。',
+      },
+      {
         text: 'Handler 原理',
         group: '基础',
         link: '/android/basics/handler.html',
         description: '理解消息入队、Looper 分发、延迟调度与生命周期。',
+      },
+      {
+        text: 'JobScheduler 系统任务调度',
+        group: '基础',
+        link: '/android/basics/job-scheduler.html',
+        description: '从系统调度链到 JobService，掌握约束、停止竞态与版本限制。',
       },
       {
         text: 'Messenger 机制',
@@ -56,7 +68,7 @@ export const knowledgeSections: KnowledgeSection[] = [
       {
         text: 'Service 启动、绑定与销毁', group: '基础', subgroup: '四大组件',
         link: '/android/basics/service-lifecycle.html',
-        description: '区分 started 与 bound 状态、Binder 发布和停止竞态。',
+        description: '串联组件生命周期、IntentService 与前台服务通知 Demo。',
       },
       {
         text: 'Provider 与内容观察', group: '基础', subgroup: '四大组件',
@@ -64,9 +76,34 @@ export const knowledgeSections: KnowledgeSection[] = [
         description: '区分 Provider 声明与 ContentObserver 动态注册。',
       },
       {
-        text: '系统核心服务', group: '基础',
+        text: '服务总览', group: '基础', subgroup: '系统核心服务',
         link: '/android/basics/system-services.html',
-        description: 'AMS/ATMS 完整启动时序及 PMS、WMS、ContentService、安装会话。',
+        description: '核心服务职责、专题入口与排查方向。',
+      },
+      {
+        text: 'AMS / ATMS', group: '基础', subgroup: '系统核心服务',
+        link: '/android/basics/system-services/ams-atms.html',
+        description: '进程与任务管理、Launcher 点击到首帧的完整启动时序。',
+      },
+      {
+        text: 'PMS：包管理', group: '基础', subgroup: '系统核心服务',
+        link: '/android/basics/system-services/pms.html',
+        description: '包与组件查询、共享库、卸载及包状态。',
+      },
+      {
+        text: 'WMS：窗口管理', group: '基础', subgroup: '系统核心服务',
+        link: '/android/basics/system-services/wms.html',
+        description: '窗口会话、Token、布局与显示协作。',
+      },
+      {
+        text: 'ContentService', group: '基础', subgroup: '系统核心服务',
+        link: '/android/basics/system-services/content-service.html',
+        description: 'URI 观察注册与变化通知。',
+      },
+      {
+        text: 'PackageInstallerService', group: '基础', subgroup: '系统核心服务',
+        link: '/android/basics/system-services/package-installer-service.html',
+        description: '安装会话、用户确认与异步结果。',
       },
       {
         text: 'PendingIntent 原理', group: '基础',
@@ -154,6 +191,11 @@ export const knowledgeSections: KnowledgeSection[] = [
     description: '让观察、假设与证据分开记录，让结论可以复查。',
     link: '/reverse/',
     items: [
+      { text: 'Frida 原理与学习路线', group: 'Frida', link: '/reverse/frida/', description: '进程内脚本、Java bridge 与自有实验 App。' },
+      { text: '安装、版本与连接', group: 'Frida', link: '/reverse/frida/installation.html', description: '区分 CLI、绑定与 server，理解 Frida 17 bridge。' },
+      { text: 'Java API 与方法观察', group: 'Frida', link: '/reverse/frida/java-api.html', description: '类、实例、方法、ClassLoader 和可恢复的单方法观察。' },
+      { text: 'SELinux 与权限拒绝', group: 'Frida', link: '/reverse/frida/selinux-diagnostics.html', description: '从 AVC 与进程域定位访问拒绝。' },
+      { text: 'Smali trace 与 ART', group: 'Frida', link: '/reverse/frida/smali-trace.html', description: '理解 DEX、解释执行与 JIT / AOT 的追踪边界。' },
       {
         text: 'Web JS 逆向',
         group: 'Web',

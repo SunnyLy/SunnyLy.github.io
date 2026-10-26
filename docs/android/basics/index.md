@@ -5,7 +5,7 @@ outline: [2, 3]
 
 # Android 基础提纲
 
-沿[原提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)的层级与顺序学习，先理解通信，再进入组件、系统服务和运行时。内部实现统一标注 AOSP `android-16.0.0_r1`；公开 SDK 与历史截图分开说明，源码路径不代表所有设备的固定实现。
+从通信机制进入四大组件，再理解系统服务、包加载和运行时。各篇串联核心对象、调用顺序、使用代码与关键限制。
 
 ## 通信基础 {#communication}
 
@@ -13,11 +13,17 @@ outline: [2, 3]
 2. [Handler 原理](./handler.html)：Looper、MessageQueue、Handler、Message，分发顺序和生命周期。
 3. [Messenger 机制](./messenger.html)：轻量 IPC、两种构造方式、服务端到客户端的通信四步。
 
+补充：[IPC 方式与场景选型](./ipc-methods.html)对比远程方法、消息、组件、共享数据和字节流，提供 AIDL、共享内存、Provider 与 Socket 的关键代码，与 Binder 篇配合阅读。
+
+## 后台任务调度 {#background-scheduling}
+
+[JobScheduler 系统任务调度](./job-scheduler.html)补充原提纲之外的后台基础知识，覆盖系统原理、使用场景、JobService 示例、停止竞态及版本限制；与 [Handler / WorkManager 选型](./handler.html#handlerthread-是否弃用-应该换成什么)配合阅读。
+
 ## 四大组件 {#components}
 
 ### Activity 启动原理
 
-[Activity 篇](./activity-startup.html)逐个解释 ActivityThread、Instrumentation、ActivityStarter、Task、ActivityTaskSupervisor 和 ClientTransaction；[AMS/ATMS 完整时序](./system-services.html#ams-atms-launch-sequence)从 Launcher 点击图标一直到应用首帧显示。
+[Activity 篇](./activity-startup.html)逐个解释 ActivityThread、Instrumentation、ActivityStarter、Task、ActivityTaskSupervisor 和 ClientTransaction；[AMS/ATMS 完整时序](./system-services/ams-atms.html#ams-atms-launch-sequence)从 Launcher 点击图标一直到应用首帧显示。
 
 ### Broadcast 发送接收原理
 
@@ -25,7 +31,7 @@ outline: [2, 3]
 
 ### Service 启动、绑定与销毁原理
 
-[Service 篇](./service-lifecycle.html)区分 started / bound 状态，解释创建、onStartCommand、onBind、连接发布、解绑与销毁，以及后台限制和进程死亡。
+[Service 篇](./service-lifecycle.html)区分 started / bound 状态，解释创建、onStartCommand、onBind、连接发布、解绑与销毁，并补充 IntentService 原理与迁移、前台服务限制，以及[通知绑定和笔记导出 Demo](./service-lifecycle.html#foreground-demo)。
 
 ### Provider 原理
 
@@ -35,11 +41,11 @@ outline: [2, 3]
 
 [核心服务篇](./system-services.html)按原顺序整理：
 
-1. [AMS / ATMS](./system-services.html#s160)：职责、完整启动时序、冷暖复用分支及源码阅读入口。
-2. [PMS](./system-services.html#s166)：queryIntentActivities、getSharedLibraries、deletePackageAsUser、clearApplicationUserData、getPackageInstaller。
-3. [WMS](./system-services.html#s197)：窗口会话、归属、布局和显示协作。
-4. [ContentService](./system-services.html#s200)：URI 观察注册与变化通知。
-5. [PackageInstallerService](./system-services.html#s203)：PackageInstallerSession、PackageInstaller、SessionParams，创建、写入、提交、用户确认与最终结果。
+1. [AMS / ATMS](./system-services/ams-atms.html#s160)：职责、完整启动时序、冷暖复用分支及源码阅读入口。
+2. [PMS](./system-services/pms.html#s166)：queryIntentActivities、getSharedLibraries、deletePackageAsUser、clearApplicationUserData、getPackageInstaller。
+3. [WMS](./system-services/wms.html#s197)：窗口会话、归属、布局和显示协作。
+4. [ContentService](./system-services/content-service.html#s200)：URI 观察注册与变化通知。
+5. [PackageInstallerService](./system-services/package-installer-service.html#s203)：PackageInstallerSession、PackageInstaller、SessionParams，创建、写入、提交、用户确认与最终结果。
 
 ## PendingIntent、LoadedApk 与运行时 {#runtime}
 
@@ -50,6 +56,6 @@ outline: [2, 3]
 
 ## 来源、原图与覆盖 {#source-coverage}
 
-本次通过持续滚动至钉钉文档末尾、累计段落 ID 核对来源。该页面虚拟加载，顶部可见段落和页脚字数都不能代表完整正文。原提纲的每个知识条目均保留在内部覆盖清单，关联到本文列出的文章或具体小节。
+[原始提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。各条目与站内章节的对应关系保存在 `planning/android-basics-coverage.json`。
 
-两张来源图片已随站点保存，文章内可点击放大，也可下载：[广播原图](/assets/android/basics/source/broadcast-original.webp)、[PMS 查询原图](/assets/android/basics/source/package-query-original.webp)。截图未标版本，作为历史材料保留；更新后的结论以对应公开文档和固定 AOSP 链接为准。示例未在 Android 工程编译或真机运行。
+原提纲截图：[广播原图](/assets/android/basics/source/broadcast-original.webp)、[PMS 查询原图](/assets/android/basics/source/package-query-original.webp)。截图未标版本，当前机制见对应正文中的源码链接。

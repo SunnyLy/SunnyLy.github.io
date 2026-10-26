@@ -6,11 +6,7 @@ description: 从 Android WebView 远程调试切入，用断点、调用栈与�
 
 Web JS 逆向的核心是解释一条数据链：**输入从哪里来，经过哪些变换，由谁发送，怎样验证结果**。找到一个名字像 `encrypt` 的函数，或让某个请求成功一次，都只是分析过程中的证据。
 
-本文整理自[原始笔记《Web JS逆向》](https://alidocs.dingtalk.com/i/nodes/7QG4Yx2JpLRmejbvS1GLMaNxJ9dEq3XD)，保留 WebView 调试、Sources 断点、Call Stack 与事件 Hook 主线，补充请求分析、数据变换、运行环境和验证方法。适用于自有或获授权页面、App 与测试环境；不包含对某个第三方服务算法的实测结论。
-
-::: tip 阅读路线
-**接入 Android WebView**：先读第 2、3 节；**定位请求与参数**：读第 4 至 7 节；**阅读混淆代码与整理证据**：读第 8 至 11 节。图示可点击“放大查看”，原截图可点击放大。
-:::
+以下使用自有测试页面说明 WebView 调试、断点和数据变换。
 
 ## 1. 先建立分析闭环
 
@@ -47,11 +43,9 @@ if (android.os.Build.VERSION.SDK_INT >= 19) {
 
 当前 API 文档还说明：**WebView 113.0.5656.0 及以后**，当应用声明 `android:debuggable="true"` 时默认开启，否则默认关闭。这里的版本是 WebView 实现版本，不是 Android API 等级。旧的 [DevTools WebView 指南](https://developer.chrome.com/docs/devtools/remote-debugging/webviews)仍保留早期描述，判断默认行为时应优先核对当前 API 文档与实际提供者。
 
-原文的 VLite / Xposed、Magisk / LSPosed / `WebViewDebugHook.apk` 是特定环境下的接入经验。它们不是普通 Web 调试的必需组件，也不能仅凭模块已激活，就认定目标 WebView 已可调试。该 APK 名称没有给出可核验的下载来源与版本，本文不提供未经核验的安装包。
+### 2.2 VM 接入与主线程调度 {#_2-2-原文-frida-思路的最小化表达}
 
-### 2.2 原文 Frida 思路的最小化表达
-
-对已获授权且具备注入条件的测试进程，下面仅示意在 Java 桥可用的 Frida 会话中调用开关，不包含进程选择、注入或持久化 Hook：
+对自有调试 App，下面在 Java 桥已可用的会话中调用开关：
 
 ```javascript
 Java.perform(() => {
@@ -65,7 +59,7 @@ Java.perform(() => {
 
 `Java.perform()` 负责附着 Java VM，并在需要时等待应用类加载器；调度到主线程由 `Java.scheduleOnMainThread()` 完成。二者不能混为一谈。[Frida Java API](https://frida.re/docs/javascript-api/#java)
 
-原文“必须在 UI 进程”的实用含义是：**应进入实际承载目标 WebView 的应用进程**，不能只根据包名或前台 Activity 猜测。多进程应用、容器和第三方内核需要分别确认；仅注入渲染器或另一个业务进程不等于设置了宿主的开关。日志只证明脚本执行，最终还要看到目标页面并命中其 JS 断点。
+开关应设置在**实际承载 WebView 的应用进程**。多进程应用中，WebView 宿主进程与内容渲染进程有不同职责；仅在另一个业务进程调用不会替宿主完成配置。核对 Chrome inspect 列表中的页面 URL，并确认断点能命中预期页面。
 
 ### 2.3 从设备发现到页面确认
 
@@ -126,6 +120,8 @@ sequenceDiagram
 原文截图中的混淆名只对应当时脚本，不能作为其他页面的固定 Hook 点。可先用“事件分发”“请求适配器”“序列化”等职责做注释，并同时保留原名称与位置，便于回查。
 
 Promise、定时器、事件队列会切断同步调用链；异步父栈是否完整取决于运行时与框架支持。Ignore List 可以减少第三方代码噪声，但也会隐藏关键帧；链路出现缺口时，应显示被忽略帧，并确认 Console 当前选中的是目标 frame / worker 与暂停帧。[调用栈与异步帧](https://developer.chrome.com/docs/devtools/javascript/reference#call-stack)
+
+同步函数调用会压入新的执行上下文，返回后出栈。`await` 后续执行与 Promise reaction 则通过 job 调度，在浏览器中进入微任务；定时器回调属于任务调度。它们恢复时，原来的同步调用栈通常已经退出，因此 DevTools 的异步父栈是调试器补充的因果关联，不是一直挂在栈上的调用帧。判断先后顺序时要同时看入队时机和实际执行时机，不能只按源码上下位置推断。[执行上下文](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Execution_model#stack_and_execution_contexts)、[HTML 事件循环与微任务](https://html.spec.whatwg.org/multipage/webappapis.html#event-loops)
 
 ## 6. JS Hook：先观察，再讨论改写
 
@@ -287,10 +283,6 @@ HTTP 200 可能包含业务错误；一次成功也不能排除缓存、会话�
 
 结论明确分为：**已验证**，有可重复样本支持；**高置信推断**，证据较完整但仍缺关键观察；**仅静态映射**，只说明代码可能承担某职责，尚未证明本次动作经过它。
 
-::: info 本文验证范围
-资料于 2026-10-22 核对。示例用于教学，WebView Java / Frida 片段未在目标 App 或设备运行；原图属于历史操作记录，不代表当前工具版本或兼容性承诺。本站构建和图表验收只能证明文档可阅读，不能替代真实案例的运行验证。
-:::
-
 ## 12. 继续查阅
 
-正文链接对应各节依据：Android API 用于核对 WebView 行为；Chrome DevTools 文档用于断点、请求和调用栈；MDN、Frida、Babel 与 Node.js 文档用于调用语义和运行边界。完整抓包工具链见 [App 网络请求抓包](/tools/app-network-capture.html)，原始操作记录见[钉钉笔记](https://alidocs.dingtalk.com/i/nodes/7QG4Yx2JpLRmejbvS1GLMaNxJ9dEq3XD)。
+完整抓包工具链见 [App 网络请求抓包](/tools/app-network-capture.html)，Java 方法观察见 [Frida Java API](./frida/java-api.html)，原始操作记录见[钉钉笔记](https://alidocs.dingtalk.com/i/nodes/7QG4Yx2JpLRmejbvS1GLMaNxJ9dEq3XD)。

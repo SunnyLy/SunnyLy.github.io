@@ -6,14 +6,6 @@ description: 从 Kotlin 属性委托出发，追踪 Compose State 的 Snapshot �
 
 `var name by remember { mutableStateOf("Tom") }` 同时涉及 Kotlin 语法、对象复用和 Compose 状态观察。理解它的关键，是分别追踪**读取时怎样建立依赖，写入后怎样传播变化，以及何时执行后续工作**。
 
-本文根据[原始笔记《Compose State 底层原理学习笔记》](https://alidocs.dingtalk.com/i/nodes/PwkYGxZV3Z0bP5M6spoYrb9DWAgozOKL)重新组织，补充变更策略、Snapshot 提交边界、真实读取位置和阶段观察。三张图支持点击放大、缩放和拖动。
-
-::: info 源码基线与阅读范围
-- Compose 属于 AndroidX 库，不能仅凭 Android 系统版本确定其实现。本文固定 AndroidX 源码提交 [`a7537bce15de1ae43654cfcfdbb115211977a632`](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632)，这是 2026-10-22 查询得到的源码快照，不代表某个稳定版或你的应用依赖版本。
-- 原理以公开 API 与该快照交叉核对；内部类、函数和编译器生成结构可能随版本变化，应用不应直接依赖内部实现。
-- Kotlin 示例用于解释机制，未在 Android 工程编译或真机测量重组次数；网站的构建检查不等于 Compose 运行验证。
-:::
-
 ## 1. 一行声明其实有三层职责
 
 下面是一个可修改名字的 Composable 片段。省略的 Material 组件 import 应按项目使用的组件库补充；属性委托需要 `getValue` 和 `setValue` 扩展函数。
@@ -222,4 +214,4 @@ val showButton by remember(listState) {
 
 推荐先读 `SnapshotState.kt` 与 `SnapshotMutationPolicy.kt`，再分两条线：读取沿 `Snapshot.readable()` → `Recomposer.readObserverOf()` → `Composition.recordReadOf()`；外部修改沿 Snapshot 提交通知 → Recomposer 变更集合 → Composition 失效处理 → 重组与应用。最后再研究 Composer 的分组、记忆值与阶段观察，避免把所有类名堆成一条必经调用链。
 
-以上是源码支持的观察方案，不是本仓库已经运行过的 Android 测试结果。实际实验应记录应用的 Compose 依赖、编译器设置和执行环境，再用对应工具验证读取位置、跳过情况与阶段耗时。
+[原始笔记](https://alidocs.dingtalk.com/i/nodes/PwkYGxZV3Z0bP5M6spoYrb9DWAgozOKL)。节点创建与呈现链路见 [Compose 渲染流程](./compose-rendering.html)。

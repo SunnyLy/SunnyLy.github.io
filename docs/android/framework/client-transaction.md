@@ -6,14 +6,6 @@ description: 基于固定 AOSP 源码，串联 ClientTransaction 的批量派发
 
 系统决定启动、恢复或停止一个 Activity 后，需要把操作送到应用进程，再由应用主线程执行。`ClientTransaction` 将这些请求组织为可传输的 item 列表，`TransactionExecutor` 则根据客户端记录的当前状态执行操作、补齐生命周期路径。
 
-本文根据[原始笔记《Android ClientTransaction 机制详解》](https://alidocs.dingtalk.com/i/nodes/GZLxjv9VGqnO4bEpi65X096R86EDybno)重新组织，补充批量派发、线程边界、缺失记录与异常处理。身份关联先读 [Android Token 原理](./activity-token.html)，底层对象传递见 [Binder 机制](./binder-mechanism.html)。三张图均支持点击放大、缩放和拖动。
-
-::: info 源码基线与验证范围
-- 统一使用 **`android-16.0.0_r1`**，避免把滚动分支与旧版 callback / final lifecycle 模型混用。
-- 本文描述 Framework 内部调度协议，相关隐藏类和字段不是普通应用的 SDK 接入方式。
-- 结论来自源码核对，未执行设备命令或实测生命周期时间；厂商修改、系统版本和运行状态可能影响具体分支。
-:::
-
 ## 1. 容器、操作、身份与执行器各管什么
 
 `ClientTransaction` 是 `Parcelable` 数据容器，核心是有序的 `mTransactionItems`。每个 `ClientTransactionItem` 表达一项客户端操作，可以是 Activity 启动、目标生命周期状态、进程配置变化或窗口变化等。它们通过目标进程的 `IApplicationThread` 投递，而不是把服务端 Java 对象直接交给另一个进程调用。
@@ -132,6 +124,10 @@ sequenceDiagram
 
 预处理可提前登记配置、待销毁信息或启动计数，不能笼统理解为“已经调用 Activity 业务回调”。线程归属与具体副作用要分别查看各 item 的实现。[源码：LaunchActivityItem.preExecute](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#202)
 
+### 为什么 onCreate 之前已有状态变化 {#launch-preexecute-state}
+
+`LaunchActivityItem.preExecute()` 会增加 launching Activity 计数、更新进程状态并提交 pending configuration，必要时更新 Activity 客户端控制接口。这些操作发生在生命周期执行消息入队之前；`postExecute()` 再减少 launching 计数。因此，“配置已收到”或“启动计数增加”不能证明主线程已经创建页面，分析延迟要区分接收、入队和实际执行。[LaunchActivityItem 前后处理](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#202)
+
 ## 6. TransactionExecutor 不是固定的“两段式”解释器
 
 此版本 `executeTransactionItems()` 按 `getTransactionItems()` 的顺序遍历：生命周期 item 进入 `executeLifecycleItem()`，其他 item 进入 `executeNonLifecycleItem()`。因此，不能套用“先统一执行所有 callback，最后只执行一个生命周期请求”的旧模型。[源码：TransactionExecutor](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java)
@@ -219,7 +215,7 @@ Launch 处理完成后的客户端状态可到 `ON_CREATE`，后续 Resume 请�
 
 尤其不要用事务级兼容 Token 去解释列表里所有 item 的目标；应逐项读取 `getActivityToken()`，并承认存在不面向 Activity 的操作。内部协议会演进，分析不同系统版本时要固定标签核对字段、方法可见性和实际调用点，不能宣称它是稳定的公共 SDK。
 
-原文讨论的插件化与虚拟化在这里体现为版本适配问题：只理解旧 Handler 消息或替换启动参数，不能代替对配置、身份、记录和生命周期顺序的完整协调。客户端替换对象也不自动改变系统登记的组件、UID 或权限；本文不提供 Hook 或替换框架的实现步骤。
+插件化与虚拟化在这里体现为版本适配问题：只理解旧 Handler 消息或替换启动参数，不能代替对配置、身份、记录和生命周期顺序的完整协调。客户端替换对象也不自动改变系统登记的组件、UID 或权限。
 
 ## 12. 从异常与时间线反查执行阶段
 
@@ -231,7 +227,7 @@ Launch 处理完成后的客户端状态可到 `ON_CREATE`，后续 Resume 请�
 4. **路径是否符合当前状态**：记录执行前状态、目标状态、被排除的末状态和实际回调，避免仅按日志打印顺序猜测。
 5. **是否已经回报系统**：区分业务回调结束、postExecute 与 StopInfo 等延后上报路径；不要将后续呈现延迟混入生命周期时间。
 
-以下均为**待执行的只读查询示例**，本文未运行这些命令，也没有假设设备版本或输出字段。先获取设备实际信息，再对应源码标签和日志。
+先获取实际系统版本和构建，再对应源码标签、事务记录与主线程日志。
 
 ```sh
 adb shell getprop ro.build.version.release
@@ -243,7 +239,7 @@ adb shell dumpsys activity activities
 adb logcat -d -v threadtime
 ```
 
-需要衡量调度延迟时，应使用实际设备的 trace 对照 Binder 调用、主线程消息和生命周期处理；日志缺失不等于请求未发生。采集方式及可见字段受系统版本与权限影响，本篇不提供未经验证的 trace 命令或模拟耗时。
+需要衡量调度延迟时，应使用实际设备的 trace 对照 Binder 调用、主线程消息和生命周期处理；日志缺失不等于请求未发生。采集方式及可见字段受系统版本与权限影响。
 
 ## 13. 源码阅读路线
 
@@ -252,3 +248,5 @@ adb logcat -d -v threadtime
 3. **接收与线程切换**：[ClientTransactionHandler.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ClientTransactionHandler.java)、[ActivityThread.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java)。标记 preExecute、消息入队与主线程取出三处位置。
 4. **逐项解释和状态路径**：[TransactionExecutor.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java)、[TransactionExecutorHelper.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutorHelper.java)。同时看当前 item 与后续生命周期目标。
 5. **真实副作用与回报**：[servertransaction 目录](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/)、[PendingTransactionActions.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/PendingTransactionActions.java)。逐类核对 execute、postExecute 与客户端处理方法。
+
+原始笔记：[原始笔记《Android ClientTransaction 机制详解》](https://alidocs.dingtalk.com/i/nodes/GZLxjv9VGqnO4bEpi65X096R86EDybno)。

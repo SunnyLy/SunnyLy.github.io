@@ -6,25 +6,9 @@ description: 从共享目录、临时 URI 授权到导入文件，建立 FilePro
 
 # 文件边界与 FileProvider：共享的是哪一份能力
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
-- [Provider 文件目录遍历漏洞](/security/android/component-security.html#s63)
-- [FileProvider 共享目录范围](/security/android/component-security.html#s90)
-- [共享范围过大的风险](/security/android/component-security.html#s93)
-- [共享路径最小化防护](/security/android/component-security.html#s96)
-- [文件读写](/security/android/file-operations.html#s171)
-- [getContentResolver() 安全](/security/android/dos-attacks.html#s222)
-- [不可信 URI 的访问边界](/security/android/dos-attacks.html#s225)
-:::
+现行分类：[Provider 文件目录遍历漏洞](/security/android/component-security.html#s63)、[FileProvider 共享目录范围](/security/android/component-security.html#s90)、[共享范围过大的风险](/security/android/component-security.html#s93)、[共享路径最小化防护](/security/android/component-security.html#s96)、[文件读写](/security/android/file-operations.html#s171)、[getContentResolver() 安全](/security/android/dos-attacks.html#s222)、[不可信 URI 的访问边界](/security/android/dos-attacks.html#s225)。
 
 导入头像时沿用外部 Provider 返回的文件名，可能覆盖应用自己的文件；导出附件时共享整个 files 目录，又可能把凭据一起暴露。两者都使用 `content://`，风险却分别发生在接收端落盘和发送端授权。
-
-本文属于工程层。先阅读 [Android 安全模型](../foundation/security-model.html) 与 [ContentProvider 访问模型](../foundation/provider.html)，再把路径、授权和内容处理连成完整的数据流。
-
-::: info 范围与验证状态
-适用于普通 Android 应用的文件读写、AndroidX FileProvider 及外部 content URI。AndroidX 的版本独立于系统版本，接入时须核对项目实际依赖。本文配置和 Kotlin 代码为教学片段，未编译、未进行设备验证；官方资料核对日期为 2026-10-22。
-:::
 
 ## 1. 文件操作先回答三个边界问题 {#file-boundaries}
 
@@ -50,6 +34,8 @@ flowchart TD
 如果入口只应导入外部文档，应拒绝业务不允许的本应用 Provider URI，避免攻击者把它变成读取本地私有数据的代理。不要把外部传入的 `file://` 转换为本地路径直接打开，也不要把“scheme 是 content”当成全部校验。
 
 ## 2. 共享目录是暴露面的上界 {#fileprovider-roots}
+
+FileProvider 将文件规范化后匹配已配置根目录，把根名和相对路径编码成 URI；接收方打开 URI 时再映射回实际文件。路径规则决定可生成 URI 的上界，临时 grant 决定谁取得其中某个资源的能力，两者共同约束访问。AndroidX 独立发布，具体实现应对应项目依赖版本。[FileProvider 的生成与打开契约](https://developer.android.com/reference/androidx/core/content/FileProvider)
 
 FileProvider 把配置根目录内的文件映射为 content URI，并结合临时授权共享。配置一个目录不等于所有应用立即都能读取它，但根目录越宽，业务代码错误生成 URI 或错误授权后的影响越大。
 
@@ -125,13 +111,15 @@ fun importBounded(context: Context, uri: Uri, maxBytes: Long): File {
 
 ## 5. 路径校验必须连接到真实访问 {#path-and-races}
 
+真正读写针对已打开的文件描述符。校验路径后再次按路径打开，会重新解析目录项，产生检查与使用的时间差；应让共享根和父目录不由不可信主体修改，并明确只读、追加或截断模式。返回的描述符也可能来自管道，不能假定总能定位或具有固定长度。[ParcelFileDescriptor](https://developer.android.com/reference/android/os/ParcelFileDescriptor)
+
 自定义 Provider 或接收端拼接路径时，先把业务对象映射到受控文件，再检查最终规范化路径是否位于可信根目录内。字符串 `startsWith(root)` 可能把 `root-other` 错当子目录，检查要包含目录边界；更不能先检查一份路径，却随后打开另一份重新拼接的路径。
 
 canonical 路径能处理一类 `..` 和符号链接问题，却不能自动消除“检查后、打开前”目标被替换的竞态。安全前提应包含根目录及其父目录不由攻击者控制；避免在可被其他应用写入的共享目录中执行敏感更新。[Android 路径遍历说明](https://developer.android.com/privacy-and-security/risks/path-traversal)
 
 写入重要状态还需要失败恢复与并发策略。可使用临时文件完成校验后提交，或按实际 SDK 核对 `AtomicFile`；原子写入帮助避免半写状态，不等于跨线程锁或授权机制。线程、进程之间的并发访问仍需单独协调。[AtomicFile API](https://developer.android.com/reference/android/util/AtomicFile)
 
-## 6. 待执行的验证路线 {#verification}
+## 6. 文件共享检查要点 {#verification}
 
 只在自有测试 App、合成文件和隔离目录中验证，并先记录实际 OS、target SDK、AndroidX 版本与授权方式。
 
@@ -140,8 +128,6 @@ canonical 路径能处理一类 `..` 和符号链接问题，却不能自动消�
 3. 输入检查：测试 Provider 返回 `../` 风格名称、重复名称、未知大小、错误 MIME、超预算内容及读到一半失败；确认不覆盖既有文件、不提交半成品。
 4. 路径检查：覆盖同名前缀目录、规范化路径以及测试目录内的替换竞态；明确哪些竞态由私有目录前提排除，哪些仍需修复。
 5. 生命周期检查：测试接收端复制后撤销授权的结果、进程重启后的残留临时文件和缓存被回收的恢复行为。
-
-本页没有执行这些步骤。测试成功只能支持记录的场景，不能推导所有 Provider、所有文件格式或所有系统版本都安全。
 
 ## 7. 关联阅读 {#related}
 

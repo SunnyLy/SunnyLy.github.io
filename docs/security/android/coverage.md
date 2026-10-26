@@ -1,12 +1,12 @@
 ---
-description: 对照原 Android 安全提纲逐项定位专业文章，记录勘误、适用条件和官方依据，确保所有条目都能追溯。
+description: Android 安全原提纲的段落、正文锚点与官方资料对照表。
 ---
 
 # Android 安全提纲覆盖与勘误
 
 这份对照表保留[原提纲](https://alidocs.dingtalk.com/i/nodes/X6GRezwJlARdZ9n3IX4XGmwr8dqbropQ?utm_scene=person_space)的段落标识，包含标题及说明性段落。它用于核查覆盖，分类与子项顺序见[Android 安全提纲](/security/)。
 
-**统一验证状态**：全部条目已完成文档与来源审校；代码为教学片段，未经过 Android 工程编译或真机复现。表中的“依据”指向一手资料；OS、target、独立库与设备差异以定位正文的完整条件为准。资料核对日期：2026-10-22。
+本页用于维护提纲覆盖与出处，具体机制和版本条件见所链接正文。
 
 “展开”补充机制、防护与验证，“纠正”修订原强断言，“条件化”限定风险成立范围，“导读”保留组织层级。S 编号仅用于追溯，不表示风险等级。
 
@@ -115,5 +115,5 @@ description: 对照原 Android 安全提纲逐项定位专业文章，记录勘�
 | S237 | Binder 1M、flag=0 与非0 catch 说明 | [Binder 事务预算、flags 与异常处理](/security/android/dos-attacks.html#s237) | 纠正：在途事务共享缓冲；非零 flag 不必然异常 | [官方资料](https://developer.android.com/reference/android/os/TransactionTooLargeException) |
 | S240 | URLDecoder.decode | [URLDecoder.decode 解码安全](/security/android/dos-attacks.html#s240) | 展开：表单解码；Android Charset 重载为 API33+ | [官方资料](https://developer.android.com/reference/java/net/URLDecoder) |
 
-每条风险的可达性、实际副作用与修复效果仍需在获授权环境验证。原文中拼写 `ContenetProvider`、`getPackegeInfo` 等在正文作了规范说明，检索时也可使用 `ContentProvider`、`getPackageInfo`。
+原文检索别名：`ContenetProvider` 对应 `ContentProvider`，`getPackegeInfo` 对应 `getPackageInfo`，`maxlen` 对应 `android:maxLength`。
 

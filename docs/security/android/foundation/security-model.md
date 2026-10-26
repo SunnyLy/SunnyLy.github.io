@@ -7,23 +7,9 @@ description: 从 UID、组件暴露与自定义权限理解 Android 授权模型
 
 # Android 安全模型与权限边界
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
-- [权限与属性设置](/security/android/component-security.html#s9)
-- [组件暴露](/security/android/component-security.html#s12)
-- [应用程序只申请必要的权限](/security/android/configuration-security.html#s102)
-- [应用的 UID 权限](/security/android/configuration-security.html#s105)
-- [sharedUserId 与 UID 共享](/security/android/configuration-security.html#s108)
-- [reboot 权限](/security/android/configuration-security.html#s111)
-- [自定义权限保护等级](/security/android/configuration-security.html#s117)
-- [自定义权限的系统命名空间](/security/android/configuration-security.html#s123)
-- [对外导出组件的访问权限](/security/android/configuration-security.html#s126)
-:::
+现行分类：[权限与属性设置](/security/android/component-security.html#s9)、[组件暴露](/security/android/component-security.html#s12)、[应用程序只申请必要的权限](/security/android/configuration-security.html#s102)、[应用的 UID 权限](/security/android/configuration-security.html#s105)、[sharedUserId 与 UID 共享](/security/android/configuration-security.html#s108)、[reboot 权限](/security/android/configuration-security.html#s111)、[自定义权限保护等级](/security/android/configuration-security.html#s117)、[自定义权限的系统命名空间](/security/android/configuration-security.html#s123)、[对外导出组件的访问权限](/security/android/configuration-security.html#s126)。
 
 一个应用有权限读取联系人，并不意味着它可以替任何调用者读取联系人。真正需要回答的是：谁提出请求，谁持有能力，最后把什么资源交给了谁？这也是检查组件安全时比“是否导出”更完整的问题。
-
-本文属于基础层，适合已经了解 Activity、Service 等组件的读者。以下代码为未编译的教学配置，验证路线未在设备执行；平台行为以文中官方资料为依据，部署时还需核对实际 OS、targetSdk、合并 Manifest 与安装状态。
 
 ## UID 是身份边界，进程不是权限清单 {#uid-permissions}
 
@@ -33,7 +19,7 @@ Android 应用沙箱以 Linux UID 为基础，结合文件权限及其他平台�
 
 ### sharedUserId 为什么不能当便捷互通方案 {#shared-uid}
 
-历史应用可以在符合签名等条件时共享 UID，代价是合并原本隔离的信任边界。`sharedUserId` 自 API 29 起弃用；已有应用不能简单删除该属性当作安全迁移，新安装与已有安装也需分别设计。原提纲“不同越塔不要设置相同的 UID”应规范理解为不同应用的共享身份风险。[Manifest 的 sharedUserId 说明](https://developer.android.com/guide/topics/manifest/manifest-element#uid)
+历史应用可以在符合签名等条件时共享 UID，文件访问和权限检查因此看到共享身份，而非彼此独立的包名。`sharedUserId` 自 API 29 起弃用；已有包的 UID、存储归属和升级兼容需要整体迁移，不能只删除属性。新设计采用权限明确的 IPC 互通。[Manifest 的 sharedUserId 说明](https://developer.android.com/guide/topics/manifest/manifest-element#uid)
 
 新设计优先通过权限明确的 Service 或 Provider 通信。维护历史包时，先清点共享 UID 的所有成员、签名和可访问数据，再制定兼容迁移；不要只改一个 Manifest 就声称完成隔离。
 
@@ -64,6 +50,8 @@ flowchart TD
 **验证路线**：准备应用自己的受信客户端与不同签名客户端，对内部、合作方、公开入口分别发起请求。确认不可信请求被拒绝时，敏感操作确实没有发生；仅检查界面没弹出不足以证明后台未执行。
 
 ## 权限的声明、申请与实际授予 {#permission-policy}
+
+权限定义方声明等级，调用方请求权限，系统决定授予，入口再按调用 UID 检查。`normal` 通常安装时授予，`dangerous` 按运行系统与 target 进入相应运行时授权，`signature` 按签名关系授予；定义和申请相同字符串不等于已获得能力。[权限机制](https://developer.android.com/guide/topics/permissions/overview)
 
 `<permission>` 定义能力，`<uses-permission>` 申请能力，组件上的 permission 属性要求调用者拥有能力。这三者的名字必须一致；申请写进 Manifest 不等于系统已授予，更不等于应用应主动使用它。权限最小化应从实际业务及访问数据出发，而不是从库默认带来的权限列表出发。[Android 权限概览](https://developer.android.com/guide/topics/permissions/overview)
 
@@ -108,6 +96,6 @@ adb shell getprop ro.build.version.sdk
 adb shell getprop ro.build.fingerprint
 ```
 
-随后保存应用实际 targetSdk、安装状态与签名信息，再执行前述多客户端测试。没有设备或完整样例时，只能完成文档/配置审阅，不能记录成已验证所有平台。
+结合最终 Manifest、实际 targetSdk、安装状态与签名检查组件准入；再跟踪到业务方法，确认授权检查先于敏感读写。
 
 继续阅读：[Activity 与 Intent](./activity-intent.html)、[Service 与 IPC](./service-ipc.html)、[ContentProvider](./provider.html)。

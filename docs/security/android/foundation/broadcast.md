@@ -7,19 +7,9 @@ description: 区分广播发送者、接收者与注册方式，理解动态导�
 
 # 广播收发与暴露面
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
-- [BroadcastReceiver](/security/android/component-security.html#s24)
-- [动态广播组件暴露](/security/android/component-security.html#s27)
-- [静态广播组件暴露](/security/android/component-security.html#s30)
-- [Receiver 嗅探](/security/android/component-security.html#s33)
-- [粘性广播与敏感数据](/security/android/component-security.html#s36)
-:::
+现行分类：[BroadcastReceiver](/security/android/component-security.html#s24)、[动态广播组件暴露](/security/android/component-security.html#s27)、[静态广播组件暴露](/security/android/component-security.html#s30)、[Receiver 嗅探](/security/android/component-security.html#s33)、[粘性广播与敏感数据](/security/android/component-security.html#s36)。
 
 一条广播有两条安全方向：发送时决定谁能接收数据，接收时决定谁能驱动应用执行动作。只保护其中一端，仍可能泄露信息或接受伪造请求。action 字符串承担匹配职责，不是密码，也不是调用者证明。
-
-本文属于基础层，前置知识为 [组件与权限](./security-model.html)。例子均为未编译的教学片段；未在设备验证。广播行为同时受 OS、targetSdk、注册 API、依赖库和广播种类影响，不能只记录其中一个版本数字。
 
 ## 先画出发送和接收的两个方向 {#broadcast-model}
 
@@ -66,6 +56,8 @@ Android 12 上，面向 API 31 及以上、带 intent-filter 的 Receiver 需要
 **验证路线**：记录注册代码实际执行时间、导出参数和接收范围；分别测试本应用、合作应用、非受信应用及目标系统事件。页面退出或对象销毁后检查是否撤销注册，避免遗留入口与重复回调。
 
 ## 限制发送者与限制接收者不是同一个参数 {#broadcast-permissions}
+
+沿 API 方向记忆：`sendBroadcast(intent, receiverPermission)` 要求接收者持有权限；Receiver 的 Manifest `android:permission` 或注册时的 `broadcastPermission` 要求发送者持有权限。前者防止非预期接收，后者限制谁能触发回调，二者都不替代载荷与资源授权。[广播权限参数](https://developer.android.com/develop/background-work/background-tasks/broadcasts#restrict-broadcasts-with-permissions)
 
 接收器声明或注册时要求权限，用于限制谁能向它发送消息；发送广播时要求接收者持有权限，用于限制谁能收到消息。两者应以自己的调用方向理解，不能看到代码里出现一个权限字符串就认定双向都已保护。[广播权限机制](https://developer.android.com/develop/background-work/background-tasks/broadcasts#restrict-broadcasts-with-permissions)
 

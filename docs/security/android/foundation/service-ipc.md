@@ -7,20 +7,9 @@ description: 从服务准入到 Binder 方法授权，理解 AIDL、Messenger、
 
 # Service 与 IPC 身份鉴别
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
-- [Service](/security/android/component-security.html#s39)
-- [Service 组件暴露安全](/security/android/component-security.html#s42)
-- [Service 劫持](/security/android/component-security.html#s45)
-- [AIDL 接口安全](/security/android/component-security.html#s48)
-- [Messenger 服务安全](/security/android/component-security.html#s51)
-- [前台服务安全](/security/android/component-security.html#s54)
-:::
+现行分类：[Service](/security/android/component-security.html#s39)、[Service 组件暴露安全](/security/android/component-security.html#s42)、[Service 劫持](/security/android/component-security.html#s45)、[AIDL 接口安全](/security/android/component-security.html#s48)、[Messenger 服务安全](/security/android/component-security.html#s51)、[前台服务安全](/security/android/component-security.html#s54)。
 
 服务被允许启动或绑定，不代表拿到接口之后的每个业务请求都已经授权。Service 安全需要同时检查入口、通信对象、方法参数、调用者身份和资源权限。
-
-本文属于基础层，建议先理解 [UID 与权限](./security-model.html)。示例均为未编译教学片段，未进行真机或跨应用实验。平台服务行为和应用业务策略分开说明，不把某个运行环境推断成所有设备的统一结果。
 
 ## 启动服务和绑定服务暴露不同能力 {#service-entry}
 
@@ -66,7 +55,7 @@ sequenceDiagram
 
 AIDL 定义双方如何传递调用，不判断输入资源属于哪个账户。每个敏感方法需要在修改状态之前检查调用能力和业务资源，不能只保护“获取接口”方法。远程请求也可能并发，因此授权状态与实际操作之间应避免出现可利用的不一致窗口。[AIDL 官方说明](https://developer.android.com/develop/background-work/services/aidl)
 
-以下是伪代码，刻意不使用未定义的真实工程类。权限检查必须处在可信调用上下文，不能把这些示意函数当成 Android SDK：
+敏感方法按以下业务策略检查：
 
 ```text
 on incoming remote business transaction:
@@ -90,6 +79,10 @@ on incoming remote business transaction:
 **验证路线**：在自有服务中分别记录事务内与异步任务中的身份来源，使用不同 UID 客户端发请求并对照结果。不要在生产日志输出敏感请求；若只做文档审阅，应把跨线程身份验证标为未执行。
 
 ## Messenger 的消息队列不等于身份自动可信 {#messenger}
+
+远程请求先进入 `Handler.MessengerImpl.send()`，由框架把事务 UID 写入 `sendingUid`，之后才入队。因此在 Handler 回调中读取记录值，而非重新读取当前 Binder 身份。[AOSP 赋值处](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/Handler.java#L974)
+
+若只允许指定合作 App，应将该 UID 与预置允许包的实际 UID 关联，再按可信证书策略验证指定包。`checkSignatures(Process.myUid(), senderUid)` 只比较签名关系，不能限定是哪一个 App，也不适用于双方签名不同的合作关系。API 28+ 的 `hasSigningCertificate()` 包含平台认可的签名历史语义；共享 UID 和证书撤销需单独制定策略。完整防御代码见 [Messenger 指定应用认证](/android/basics/messenger.html#接收方验证是否为指定的合法应用)。[PackageManager 证书契约](https://developer.android.com/reference/android/content/pm/PackageManager#hasSigningCertificate(java.lang.String,byte[],int))
 
 Messenger 把请求交给 Handler 处理，有助于串行化消息，但消息编号、Bundle、replyTo 都不能自动充当业务身份。`Message.sendingUid` 由通过 Messenger 发送的路径提供；其他构造方式可能没有有效值，需按其契约检查，不能盲信自定义 Bundle 里的包名或 uid。[Message.sendingUid](https://developer.android.com/reference/android/os/Message#sendingUid)
 

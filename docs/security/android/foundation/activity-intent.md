@@ -7,24 +7,13 @@ description: 区分 Activity 入口、Intent 转发、深链解析、URI 授权�
 
 # Activity、Intent 与深链信任边界
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
-- [Activity](/security/android/component-security.html#s6)
-- [Intent 接收/发送安全](/security/android/component-security.html#s15)
-- [Scheme URL / intent-based URI 启动组件](/security/android/component-security.html#s18)
-- [私有组件的 taskAffinity 与 launchMode](/security/android/configuration-security.html#s120)
-- [Intent.setPackage 安全](/security/android/dos-attacks.html#s201)
-- [带 Flags 的 Intent 启动组件](/security/android/dos-attacks.html#s213)
-- [URI 读写授权与 addFlags / setFlags](/security/android/dos-attacks.html#s216)
-- [URI 外部可控条件](/security/android/dos-attacks.html#s219)
-:::
+现行分类：[Activity](/security/android/component-security.html#s6)、[Intent 接收/发送安全](/security/android/component-security.html#s15)、[Scheme URL / intent-based URI 启动组件](/security/android/component-security.html#s18)、[私有组件的 taskAffinity 与 launchMode](/security/android/configuration-security.html#s120)、[Intent.setPackage 安全](/security/android/dos-attacks.html#s201)、[带 Flags 的 Intent 启动组件](/security/android/dos-attacks.html#s213)、[URI 读写授权与 addFlags / setFlags](/security/android/dos-attacks.html#s216)、[URI 外部可控条件](/security/android/dos-attacks.html#s219)。
 
 一个页面可以被打开，只说明路由可达；它不代表打开者有权操作页面里的账户、文件或支付资源。Activity 安全需要沿着“收到什么、如何解析、最后执行什么”检查，而不是只看一个 exported 属性。
 
-本文属于基础层，建议先读[权限边界](./security-model.html)。文中流程与伪代码是教学设计，未编译、未执行设备实验；具体行为需同时记录运行 OS、targetSdk、启动方式和实例复用情况。
-
 ## 页面入口收到的都是待验证请求 {#activity-entry}
+
+系统在启动入口检查组件导出与入口权限，应用再在 `onCreate()` / `onNewIntent()` 中检查业务请求。`intent-filter` 匹配不证明调用者身份；Android 13 起，接收方 target 33+ 的相应外部 Intent 还需要匹配声明过滤器，旧版显式 Intent 经验不能直接通用。[Intent 匹配规则](https://developer.android.com/guide/components/intents-filters)
 
 Activity 可从外部链接、其他应用或应用内部流程进入。入口需要验证必需字段、类型、长度、允许值与资源归属；对已经复用的实例，新的 Intent 也应走同一套验证逻辑。不能只在首次创建时校验，后续直接相信新参数。[Activity 定义与生命周期](https://developer.android.com/reference/android/app/Activity)
 

@@ -6,22 +6,14 @@ description: 从攻击可达性、资源预算与 Binder 请求回复分析可�
 
 # 可用性与 Binder 数据预算
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
+::: info 相关分类
 - [getPackageInfo 安全](/security/android/dos-attacks.html#s234)
 - [Binder 事务预算、flags 与异常处理](/security/android/dos-attacks.html#s237)
 :::
 
-看到 `TransactionTooLargeException`，能否认定客户端发送了超过 1 MiB 的请求？不能：共享缓冲区状态、请求和回复大小都可能参与失败。看到一个可被本应用触发的崩溃，也不能立即把它称为第三方可利用的拒绝服务漏洞。
+`TransactionTooLargeException` 可能涉及共享缓冲区占用、请求大小或回复大小；它不能直接证明客户端发送了超过 1 MiB 的请求。可用性风险还需结合入口可达性、重复触发成本和受影响范围判断。
 
-本篇属于审计层，先阅读[Service 与 IPC](../foundation/service-ipc.html)和 [Binder 机制](../../../android/framework/binder-mechanism.html)。重点覆盖原提纲的 DoS、`getPackageInfo`，以及有关事务大小和 flags 的说明性段落。
-
-::: info 适用与验证边界
-- Framework 实现参考 `android-16.0.0_r1`；API 与独立平台策略按实际环境核对。
-- 所有代码是未编译、未真机运行的教学片段。本文没有测得设备阈值或复现安全漏洞。
-- 资源实验只面向自有隔离工程，不向系统服务或第三方应用发起压力请求。
-:::
+通信入口见 [Service 与 IPC](../foundation/service-ipc.html)，事务路由见 [Binder 机制](../../../android/framework/binder-mechanism.html)。
 
 ## 1. 从崩溃到 DoS 还缺哪些证据 {#dos-model}
 
@@ -54,6 +46,8 @@ flowchart TD
 
 同步调用要发送请求并接收回复。异常可能意味着请求没有送出，也可能意味着服务处理后无法发回回复。客户端仅凭异常不能判定业务未执行；对扣款、提交等有副作用操作，需要请求标识、幂等处理或状态查询，不能无条件重发。
 
+缓冲区应按接收方向定位：请求进入服务进程的事务接收区，回复进入客户端的事务接收区。检查客户端请求大小，无法排除服务端生成大回复或客户端同时接收其他事务的占用；应分别限制双向数据量与在途请求数量。[驱动的目标进程分配路径](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder.c#3189)
+
 `oneway` 不会消除缓冲区与服务端处理成本，也不提供无限异步队列。它改变远端等待语义，不能代替配额、背压或业务完成确认。具体线程与队列边界见 [Binder 的异步事务分析](../../../android/framework/binder-mechanism.html)。
 
 ### 限制的对象是协议，不只是数组
@@ -64,7 +58,7 @@ flowchart TD
 
 ## 3. getPackageInfo 的 flags 到底控制什么 {#package-flags}
 
-原提纲的 `getPackegeInfo` 应写为 `getPackageInfo`。`flags` 指定需要附带的包信息和匹配条件，不是风险等级；非零不代表必然产生大响应或抛异常，零也不代表只有版本号。
+`getPackageInfo()` 的 `flags` 指定需要附带的包信息和匹配条件，不是风险等级；非零不代表必然产生大响应或抛异常，零也不代表只有版本号。
 
 在 `android-16.0.0_r1` 的 `PackageInfoUtils` 中，基础结果直接填充包名、版本、ApplicationInfo、安装和更新时间等数据；随后根据 flags 决定是否展开 Activity 等组件信息。因此，应按实际字段需要选择 flags，而不是对所有非零 flags 机械套上 `catch RuntimeException`。[基础字段生成](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/parsing/PackageInfoUtils.java#131)、[组件附加分支](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/parsing/PackageInfoUtils.java#268)
 
@@ -72,7 +66,7 @@ flowchart TD
 
 ### 只查询自己确实需要的信息
 
-下面展示读取本应用基础包信息的分支。编译 SDK 需支持 API 33 类型；低版本分支保留旧重载。示例只处理 API 声明的包不存在情形，不伪装成覆盖所有系统失败的完整封装。
+下面读取本应用基础包信息。`PackageInfoFlags` 需要 compile SDK 33+；低版本分支使用 int 重载，包不存在时由调用方处理 `NameNotFoundException`。
 
 ```java
 static String ownVersionName(Context context)
@@ -113,7 +107,7 @@ static String ownVersionName(Context context)
 
 对包查询先保存 OS、target SDK、目标包和 flags，比较实际返回的基础字段及附加字段；不要根据异常截图倒推返回对象内容。若发生事务失败，结合客户端与服务端记录确认是否已执行，保留结果不确定这一状态。
 
-下面仅是待执行的只读环境查询，不是本篇实测结果：
+记录设备环境时可使用以下只读查询：
 
 ```sh
 adb shell getprop ro.build.version.release

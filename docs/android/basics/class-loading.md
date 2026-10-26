@@ -5,7 +5,7 @@ outline: [2, 3]
 
 # 类加载机制
 
-类加载解决“给定类名，由哪个加载器找到并定义这个类”。它与应用安装、组件注册、资源解析和类初始化有关联，但不是同一件事。本文补全[原提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)的 ClassLoader 章节，实现基线为 AOSP `android-16.0.0_r1`。
+类加载解决“给定类名，由哪个加载器找到并定义这个类”。它与应用安装、组件注册、资源解析和类初始化有关联，但不是同一件事。
 
 ## ClassLoader 继承关系
 
@@ -109,6 +109,8 @@ sequenceDiagram
 `loadClass(name)` 在此基线调用 `loadClass(name, false)`。Java 虚方法分派决定执行哪一层实现：普通 DEX 加载器沿用 `ClassLoader.loadClass()`；`BootClassLoader` 和 `DelegateLastClassLoader` 则执行各自覆盖的方法。
 
 `loadClass()` 不等于执行所有静态初始化。类的加载、链接和初始化需要分别理解；`Class.forName(name, false, loader)` 可以明确请求不初始化，后续主动使用仍可能触发初始化。基线 Android 的默认 `loadClass(name, resolve)` 方法体没有桌面 JDK 常见的显式 `resolveClass()` 调用，不应直接套用桌面实现绘图。[固定版本 ClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java#572)
+
+初始化还决定错误如何传播：首次主动使用时，非编译期常量的静态字段初始化器和静态代码块按声明顺序执行；其他线程尝试初始化同一个 Class 时需等待其初始化结果。若初始化因普通异常失败，通常首先看到 `ExceptionInInitializerError`，这个 Class 会进入错误状态，后续初始化请求可抛 `NoClassDefFoundError`。因此后者不总是“DEX 没打包”，应追查最早的初始化异常；反复调用同一个加载器的 `loadClass()` 无法把已经失败的 Class 重置。[Java 初始化规则 §12.4.2](https://docs.oracle.com/javase/specs/jls/se17/html/jls-12.html#jls-12.4.2)
 
 ## Android 的 DEX 加载器
 
@@ -336,4 +338,6 @@ String fromFile = DynamicLoadingExample.runFromFile(context);
 - `ClassCastException`：检查两端 Class 的定义加载器，不只看同名类。
 - `UnsatisfiedLinkError`：转查原生库、ABI、依赖和链接器命名空间；DEX 能找到类不代表 `.so` 能加载。
 
-排查时可以记录应用自身类的 `getClassLoader()` 和父级信息；这只是观察入口，不应反射改写 dexElements 来替代公开契约。示例的设备运行结果需按实际宿主、系统版本和构建配置验证，不能将预期输出视为真机验证记录。
+排查时可以记录应用自身类的 `getClassLoader()` 和父级信息；这只是观察入口，不应反射改写 dexElements 来替代公开契约。
+
+原始笔记：[Android 基础知识提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。

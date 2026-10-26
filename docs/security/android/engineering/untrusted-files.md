@@ -6,19 +6,16 @@ description: 为文件上传下载、头像缓存、Bitmap 解码和压缩包解
 
 # 不可信文件、图片与压缩包
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
+现行分类：
 
 - [头像本地缓存的大小和有效性](/security/android/configuration-security.html#s141)
 - [文件上传](/security/android/file-operations.html#s165)
 - [文件下载](/security/android/file-operations.html#s168)
 - [BitmapFactory 图片解析与 OOM](/security/android/file-operations.html#s174)
 - [解压安全](/security/android/special-functions.html#s183)
-:::
-
 文件安全同时涉及内容、路径、身份和资源。扩展名正确、下载使用 HTTPS 或文件位于应用目录，都不足以独立证明“可以安全解析”。
 
-> **工程层 · 前置知识**：[文件共享与 URI](./file-sharing.html)。示例为教学片段，未在 Android 工程中编译或真机验证；所有容量阈值均为示例业务策略，必须按实际设备和功能重新评估。
+文件共享与 URI 授权见[文件共享](./file-sharing.html)。下面代码中的容量阈值是示例业务策略，按设备与功能预算调整。
 
 ## 1. 将接收、验证与使用分成阶段 {#pipeline}
 
@@ -122,4 +119,4 @@ Android 14 且应用 target API 34+ 时，部分 `ZipFile`、`ZipInputStream` �
 
 为每条文件链路保留“来源主体 → 授权对象 → 字节预算 → 暂存目录 → 解析器版本 → 最终消费者”的证据。失败日志只记录必要错误类别和资源标识，避免保存敏感原文与凭证。
 
-本文聚焦原提纲的上传、下载、头像、Bitmap 与解压。通用读写和 Provider 共享见 [文件边界与 FileProvider](./file-sharing.html)，解码后的对象能力见 [注入与序列化](./injection-serialization.html)。上述用例为待执行验证路线，不是已完成的设备测试。
+通用读写与 Provider 共享见 [文件边界与 FileProvider](./file-sharing.html)，反序列化过程见 [注入与序列化](./injection-serialization.html)。

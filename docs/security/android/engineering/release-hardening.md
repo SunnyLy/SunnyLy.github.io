@@ -6,23 +6,14 @@ description: 对照最终安装包检查调试、备份、元数据、隐藏入�
 
 # 发布加固：检查最终包，而不是只看 release 名称
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
+现行分类：
 
 - [release 配置：debuggable 与 allowBackup](/security/android/configuration-security.html#s114)
 - [APK 暗码与隐藏入口](/security/android/configuration-security.html#s129)
 - [meta-data 中的敏感数据](/security/android/configuration-security.html#s132)
 - [META-INF 中的 APK、ODEX、SO](/security/android/configuration-security.html#s144)
 - [应用混淆规则增强](/security/android/configuration-security.html#s150)
-:::
-
 一个构建变体叫 release，并不能证明它关闭了调试入口、排除了敏感备份，也不能证明依赖库没有合并额外组件。发布加固的对象是实际交付物及其运行行为，配置文件只是证据的一部分。
-
-本文属于工程层。权限等级、UID、组件导出的基础机制见 [Android 安全模型](../foundation/security-model.html)，这里集中处理发布配置、包体可见性和验证方法。
-
-::: info 范围与验证状态
-面向普通 Android 应用。平台属性以官方 API 文档为依据；备份需同时记录运行系统和 target SDK，R8、Android Gradle Plugin 与构建工具按项目实际版本核对。本文 XML 为未编译教学片段，未检查任何真实 APK，未进行设备实验。资料核对日期为 2026-10-22。
-:::
 
 ## 1. 调试能力为何要在最终包检查 {#debuggable}
 
@@ -125,14 +116,12 @@ R8 可执行代码缩减、优化及重命名，增加理解内部实现的成�
 
 审查时比较优化前后的功能与包内容，验证反射调用、SDK 初始化、序列化和 native 入口；同时保护正式构建的 mapping 文件，保证崩溃能够还原，不把“无法定位异常”当成加固效果。
 
-## 7. 待执行的验证路线 {#verification}
+## 7. 发布前检查 {#verification}
 
-下列步骤针对自有应用，不代表本文已执行：
+对自有应用的正式构建逐项检查：
 
 1. 固定产物：记录构建变体、工具版本和最终 APK 标识，通过 APK Analyzer 查看合并后的调试属性、组件、备份资源与包内文件。
 2. 入口审查：用合成数据覆盖正常入口和遗留诊断入口；确认未授权主体不能执行敏感操作，不能只验证页面是否可打开。
 3. 备份矩阵：在实际支持的旧系统组合与新系统/target 组合分别验证云备份和 D2D。使用测试账户，只恢复允许的偏好，确认会话不因旧文件复活。[官方备份测试流程](https://developer.android.com/identity/data/testingbackup)
 4. 包体审查：对 meta-data、资源、assets 和非预期嵌套包追踪来源及用途，记录秘密是否已撤销或移出分发物，避免只做关键词命中计数。
 5. 优化回归：使用正式优化配置验证业务关键路径和崩溃还原；单独记录未覆盖的 OEM、迁移运输方式及设备限制。
-
-扫描通过不等于运行安全，模拟器恢复通过也不等于所有厂商迁移已覆盖。发布判断应保留产物检查、行为验证与未验证范围三类证据。

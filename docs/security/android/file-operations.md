@@ -1,15 +1,9 @@
 ---
-description: 文件操作，按 Android 安全原提纲逐项展开机制、成立条件、防护和验证边界。
+description: 文件上传、下载、读写与图片解析的权限、真实落点、数据发布和资源预算。
 outline: [2, 4]
 ---
 
 # 文件操作
-
-本章按原提纲的分类和子项顺序组织。左侧条目、正文标题与本文目录使用同一组标题和锚点。
-
-::: info 适用与验证边界
-平台行为需分别核对运行 OS、target SDK 和依赖版本；历史检查项已按正文依据限定条件。所有代码均为教学片段，未经过 Android 工程编译或真机执行；域名、容量阈值及业务规则为示例，不能直接作为生产策略。
-:::
 
 第一，谁决定要访问的对象：应用内部 ID、用户选择结果，还是外部传入的 URI、文件名与相对路径？第二，操作使用谁的权限：调用者持有的临时授权，还是应用作为代理拥有的私有数据访问能力？第三，结果会流向哪里：内部解析器、应用私有目录、另一个 App，还是上传接口？
 
@@ -77,11 +71,13 @@ canonical 路径能处理一类 `..` 和符号链接问题，却不能自动消�
 
 写入重要状态还需要失败恢复与并发策略。可使用临时文件完成校验后提交，或按实际 SDK 核对 `AtomicFile`；原子写入帮助避免半写状态，不等于跨线程锁或授权机制。线程、进程之间的并发访问仍需单独协调。[AtomicFile API](https://developer.android.com/reference/android/util/AtomicFile)
 
+**最终打开的是文件描述符**：Java 流或 `ParcelFileDescriptor.open()` 最终向系统申请按指定模式打开文件，路径名在打开时解析。拿到描述符后，后续读写针对已打开对象；若校验后重新按路径打开，目录项仍可能已经变化。因此应让敏感目录仅由应用控制，明确只读、追加或截断语义，并在同一操作作用域关闭流和描述符。Provider 返回的描述符还可能代表管道，不能假定都可 seek 或具有可信长度。[ParcelFileDescriptor](https://developer.android.com/reference/android/os/ParcelFileDescriptor)、[Os.open](https://developer.android.com/reference/android/system/Os#open(java.lang.String,int,int))
+
 ## BitmapFactory 图片解析与 OOM {#s174}
 
 压缩体积小不代表像素少。对典型 `ARGB_8888`，仅像素存储估算为宽 × 高 × 4 字节，实际还涉及行对齐、转换缓冲、并发、缓存及显示资源，因此不能把这一公式当精确峰值。
 
-Android 的[大图加载说明](https://developer.android.com/topic/performance/graphics/load-bitmap.html)介绍先以 `inJustDecodeBounds` 获取尺寸，再设置 `inSampleSize` 采样。下面只展示头部准入，不是完整安全解码器：
+Android 的[大图加载说明](https://developer.android.com/topic/performance/graphics/load-bitmap.html)介绍先以 `inJustDecodeBounds` 获取尺寸，再设置 `inSampleSize` 采样。头部准入先拒绝无效或超预算尺寸，正式解码再根据展示大小采样：
 
 ```kotlin
 // 教学片段：file 已处于应用控制的暂存目录，且接收阶段已限制字节数。

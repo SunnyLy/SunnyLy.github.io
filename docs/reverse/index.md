@@ -4,13 +4,15 @@ description: 用清楚的问题、可追溯的证据与可复现的步骤组织�
 
 # 逆向
 
-沿着具体问题追踪程序行为，把观察到的事实、尚未证实的推测和最终结论分开记录，让分析过程可以复查。
+分析 Web 请求链、Java 方法调用与 ART 执行路径，理解不同观察层级提供的信息。
 
 ## Web
 
 [Web JS 逆向：从 WebView 调试到请求链路还原](./web-js-reverse.html)从 Android WebView 远程调试切入，串联断点、调用栈、可恢复 Hook、参数字节、混淆阅读与多样本验证，配有流程图、请求时序图和本地截图。
 
-阅读或整理案例时，先明确问题、对象来源、环境和边界，再沿证据回答问题。证据不足时保留待验证状态，不用工具输出的表面结果替代结论。
+## Frida
+
+[Frida 原理与学习路线](./frida/)串联[安装与版本](./frida/installation.html)、[Java API 与方法观察](./frida/java-api.html)、[SELinux 权限拒绝](./frida/selinux-diagnostics.html)和 [Smali trace 与 ART](./frida/smali-trace.html)。附自有 Java Demo、可下载源码，以及类 / 方法 / 指令三种观察层级的流程图。
 
 ## 与其他主题连接
 

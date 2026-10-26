@@ -1,15 +1,9 @@
 ---
-description: 特殊函数，按 Android 安全原提纲逐项展开机制、成立条件、防护和验证边界。
+description: 解释命令参数、解压路径、序列化恢复、表达式求值和 TA 加载的实际能力与防护。
 outline: [2, 4]
 ---
 
 # 特殊函数
-
-本章按原提纲的分类和子项顺序组织。左侧条目、正文标题与本文目录使用同一组标题和锚点。
-
-::: info 适用与验证边界
-平台行为需分别核对运行 OS、target SDK 和依赖版本；历史检查项已按正文依据限定条件。所有代码均为教学片段，未经过 Android 工程编译或真机执行；域名、容量阈值及业务规则为示例，不能直接作为生产策略。
-:::
 
 同一个字符串进入不同消费者，风险不同。文件路径交给文件 API，表达式交给脚本引擎，序列化对象交给对象恢复器，都可能使外部数据获得超出预期的能力。防护应在敏感操作之前完成，而不是在发生异常后统一忽略。
 
@@ -88,6 +82,8 @@ Android [`Uri.getPathSegments()`](https://developer.android.com/reference/androi
 
 Android 的[不安全反序列化说明](https://developer.android.com/privacy-and-security/risks/unsafe-deserialization)覆盖 Java 对象序列化与 Parcel/Parcelable 相关风险。`Parcel` 主要用于 IPC，不适合作为长期持久化格式；`Parcelable` 也不是通用不可信输入沙箱。
 
+**危险发生在恢复过程中**：`ObjectInputStream.readObject()` 需要解析类型并恢复对象图，可执行类自定义的 `readObject()`；`Parcelable` 的对象重建则进入对应 `CREATOR.createFromParcel()`。因此读取完成后才做 `instanceof` 或强转，不能撤销重建阶段已经产生的解析成本和副作用。类型约束要尽可能前置，业务参数和资源预算仍需独立检查。[ObjectInputStream 恢复契约](https://developer.android.com/reference/java/io/ObjectInputStream)、[Parcelable.Creator](https://developer.android.com/reference/android/os/Parcelable.Creator)
+
 对跨信任边界的数据，优先选择字段明确、版本化的协议：限制总字节、字段数量、字符串长度、数组长度、嵌套深度与允许类型；拒绝未知多态类型。即使采用 JSON、CBOR 或 Protobuf，也仍需资源配额与业务校验，不能因为格式不同就宣称没有拒绝服务风险。
 
 Intent/Bundle 中读取到的对象要经过类型与语义双重检查。Android 新版的类型化读取接口可以缩小类型误用，但不能证明字段值、对象行为和调用方权限安全。具体 AndroidX 兼容接口按工程实际依赖核对，不套用未确认版本。
@@ -100,7 +96,7 @@ Intent/Bundle 中读取到的对象要经过类型与语义双重检查。Androi
 
 JEXL 可用于表达式和脚本求值。如果把不可信表达式与带文件、网络、反射或服务能力的对象绑定，引擎可能成为业务权限的代理。仅允许“算式外观”的输入，或简单过滤类名，并不能证明所有可达调用链安全。
 
-Apache 的[配置与安全说明](https://commons.apache.org/proper/commons-jexl/apidocs/org/apache/commons/jexl3/package-summary.html)指出，自 3.7 起默认权限采用 `SECURE`；旧版本和显式恢复旧行为的配置可能不同。这是滚动文档中的版本说明，不是本文对某个项目依赖版本的测量。
+JEXL 先解析表达式，再在求值时通过上下文、命名空间和反射解析对象成员。`JexlPermissions` 限制可达类型与成员，`JexlFeatures` 限制语言功能；它们保护的是不同阶段。Apache 文档注明自 3.7 起默认权限采用 `SECURE`，旧版本或显式配置可能不同，升级时应检查实际依赖与配置。[配置与安全说明](https://commons.apache.org/proper/commons-jexl/apidocs/org/apache/commons/jexl3/package-summary.html)
 
 对实际工程，应同时核对引擎版本、`JexlPermissions`、`JexlFeatures`、沙箱、命名空间与上下文对象。`RESTRICTED` 或 `SECURE` 都不是“任意用户脚本安全执行”的保证。能改成预定义规则或结构化条件时，不开放通用表达式。
 
@@ -111,13 +107,13 @@ Apache 的[配置与安全说明](https://commons.apache.org/proper/commons-jexl
 3. 限制表达式长度、编译频率、执行资源和结果大小；缓存也设容量边界。
 4. 对需要强隔离的不可信脚本使用独立信任域与可终止执行单元；不要只依赖同进程线程中断。
 
-配置项的精确语义见 [`JexlSandbox`](https://commons.apache.org/proper/commons-jexl/apidocs/org/apache/commons/jexl3/introspection/JexlSandbox.html)。本文不提供脱离版本、复制即可保证安全的引擎配置。
+细粒度成员规则可使用 [`JexlSandbox`](https://commons.apache.org/proper/commons-jexl/apidocs/org/apache/commons/jexl3/introspection/JexlSandbox.html) 配置；同时检查暴露对象返回的对象是否继续带出文件、网络或宿主服务能力，不能只限制最外层方法名称。
 
 **验证路线**：以业务允许的最小表达式集作正例，再逐项验证未授权类型访问、方法调用、循环或高成本计算、超大结果及配置迁移。拒绝测试不能替代对暴露对象完整可达能力的审查。
 
 ## TA 文件安全 {#s195}
 
-原提纲只有“TA 文件安全”标题。**若此处 TA 指 Trusted Application**，审计对象属于 TEE 与设备平台信任链，不能直接套用普通插件的 `ClassLoader` 模型；也不能由这个缩写推断设备使用 Trusty。
+**TA（Trusted Application，可信应用）**运行于 TEE，其镜像信任链、加载器和通信接口由安全平台管理，与普通 APK 的 `ClassLoader` 加载不同。这里以 AOSP Trusty 说明机制；其他 TEE 的格式、密钥与加载协议需按平台实现确认。
 
 以 AOSP Trusty 为例，它是与 Android 隔离运行的安全操作系统，通过驱动和用户态通信库连接 Android 与可信应用。Trusty 是一种 TEE 实现，不代表所有 Android 设备的安全世界都使用同一内核、文件格式或部署协议。[Trusty 架构](https://source.android.com/docs/security/features/trusty)
 
@@ -128,5 +124,5 @@ Apache 的[配置与安全说明](https://commons.apache.org/proper/commons-jexl
 3. 普通世界到可信应用的通信端点如何授权，消息长度、句柄、共享内存和状态机如何验证。
 4. 调试接口、日志和错误码是否暴露密钥或受保护数据，资源耗尽是否影响其他可信服务。
 
-这些是待查问题，不是对任一厂商实现的既定描述。签名加载不替代每条消息的输入验证；安全世界隔离也不意味着 TA 内部不会出现解析错误。普通 APK 通信能力不能被写成“可任意部署或加载 TA”。[Trusty IPC 的对象与端口模型](https://source.android.com/docs/security/features/trusty/trusty-ref)
+加载认证与运行期消息校验各自独立：签名正确只说明镜像属于授权发布内容，接收到的消息仍须检查长度、句柄、状态与调用权限。Android 客户端通过通信接口发请求，并不因此取得部署或替换 TA 的权限。[Trusty IPC 的对象与端口模型](https://source.android.com/docs/security/features/trusty/trusty-ref)
 

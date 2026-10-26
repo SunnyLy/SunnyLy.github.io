@@ -6,18 +6,9 @@ description: 从 URI 解析、参数解码到 SQLite 查询，识别解析歧义
 
 # URI、查询参数与 SQL 输入
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
-- [SQL 注入](/security/android/component-security.html#s69)
-- [getPathSegments 函数](/security/android/special-functions.html#s186)
-- [uri.getQueryParameter](/security/android/dos-attacks.html#s204)
-- [URLDecoder.decode 解码安全](/security/android/dos-attacks.html#s240)
-:::
+现行分类：[SQL 注入](/security/android/component-security.html#s69)、[getPathSegments 函数](/security/android/special-functions.html#s186)、[uri.getQueryParameter](/security/android/dos-attacks.html#s204)、[URLDecoder.decode 解码安全](/security/android/dos-attacks.html#s240)。
 
 外部字符串经过解析后仍然是不可信数据。真正的安全问题是：应用如何将它转成路由、文件名、查询条件或权限决策。
-
-> **工程层 · 前置知识**：[Activity 与 Intent](../foundation/activity-intent.html)、[Provider](../foundation/provider.html)。本文示例为教学片段，未在 Android 工程中编译或真机运行；域名、表结构和业务规则均为示意。
 
 ## 1. 解析、校验、授权是三件事 {#boundaries}
 
@@ -90,6 +81,8 @@ fun parseNoteRoute(raw: String): NoteRoute {
 
 ## 5. SQL 注入：值参数化，结构允许列表 {#sql-injection}
 
+SQLite 先编译语句，再把绑定值放入参数位置；值里的引号或运算符不会重新变成 SQL 语法。表、列、排序方向和整段条件属于语法结构，只能由应用固定映射选择；账户资源条件还需独立加入查询。Provider 使用 `SQLiteQueryBuilder` 时可设置列映射，并在 API 30+ 显式启用严格列与语法检查，不能假定默认开启。[SQLiteQueryBuilder](https://developer.android.com/reference/android/database/sqlite/SQLiteQueryBuilder)
+
 SQL 注入的前提是外部数据进入 SQL 语法结构。例如把用户输入拼进 `WHERE` 字符串，会让引号、运算符等参与 SQL 解释。Android 的 [SQL 注入风险说明](https://developer.android.com/privacy-and-security/risks/sql-injection)建议使用绑定参数并限制不可信查询结构。
 
 占位符用于**值**，不能拿来绑定表名、列名、排序方向或整段 `selection`。对这些结构选择，使用应用内部固定映射。Provider 对外接受的 `projection`、`sortOrder`、`selection` 和查询 Bundle 也要按接口协议限制，不能原样转给数据库。
@@ -124,4 +117,4 @@ db.query(
 - 字符值包含引号和 SQL 元字符时作为普通数据处理；不合法排序字段被拒绝。
 - 合法 ID 指向其他账户资源时仍拒绝访问，而非只证明“没有 SQL 语法错误”。
 
-保留测试输入、OS/target、库版本、预期结果和实际观察。本文提供验证路线，未声称上述用例已在设备上执行。
+回归用例应同时断言返回值、文件/数据库副作用和资源是否释放；参数拒绝后不能继续使用默认账户或默认路径。

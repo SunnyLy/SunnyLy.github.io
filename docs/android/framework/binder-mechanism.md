@@ -6,13 +6,7 @@ description: 以固定 AOSP 与内核源码为依据，串联 Binder 服务发�
 
 Binder 将接口调用转换为跨进程事务，同时管理远端对象引用、线程调度与调用者身份。理解它，需要把接口生成代码、用户态运行库与内核驱动连接起来，沿着一次请求与回复逐层阅读。
 
-本文在[原始 Binder 笔记](https://alidocs.dingtalk.com/i/nodes/14dA3GK8gjRyZe27foyNY7MoJ9ekBD76)的基础上补充机制说明。图示依据源码重新绘制，可点击放大、缩放与拖动。
-
-::: info 源码基线与验证范围
-- 平台源码固定为 **`android-16.0.0_r1`**，覆盖 `frameworks/base`、`frameworks/native` 与 `system/tools/aidl`。
-- 驱动独立参考 `kernel/common` 的 **`android16-6.12-2025-06_r1`**。平台与内核标签分别用于阅读，不能据此断言某台设备使用这一组合。
-- 本文讨论经典 **kernel Binder** 路径；不展开通过 socket 传输的 Binder RPC。结论来自源码与官方文档核对，未进行设备实测。
-:::
+平台实现对应 `android-16.0.0_r1`，内核参考独立标签 `android16-6.12-2025-06_r1`；两者不自动构成某台设备的组合。以下讨论 kernel Binder，socket Binder RPC 的传输路径另计。
 
 ## 1. 先分清接口、代理与实体
 
@@ -102,7 +96,7 @@ Android 16 的 Java ServiceManager 仍有兼容包装层，不应把旧教程中
 
 ### 从应用到驱动的请求路径
 
-下面是关键入口之间的阅读顺序。它合并了客户端和服务端的不同线程与进程，**不是一条真实线程栈，也不是设备实测日志**。
+下面按请求经过的入口排列；它跨越两端的进程和线程，不能当作单条线程栈。
 
 ```text
 客户端：
@@ -176,6 +170,12 @@ sequenceDiagram
 这个描述只针对**一个方向的 payload 传输机制**。参数序列化、协议元数据、对象转换、读取字符串或数组时的分配，以及反方向回复都有自己的成本，整个 RPC 不能称为“零拷贝”，也不能不加条件地说“总共只复制一次”。
 
 读取结束后的缓冲区释放也属于协议的一部分，不能把映射地址当作无限期有效的业务存储。核对入口：[`ProcessState.cpp` 的映射建立](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/ProcessState.cpp)、[`binder_alloc.c` 的分配与复制](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder_alloc.c)、[`Parcel::ipcSetDataReference()`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/Parcel.cpp)。
+
+### 接收缓冲区怎样归还给驱动 {#receive-buffer-lifetime}
+
+接收 Parcel 可以引用驱动映射的数据，但该地址不是业务永久存储。释放接收数据时，`IPCThreadState::freeBuffer()` 将 `BC_FREE_BUFFER` 和缓冲区地址写入输出命令队列，并调用 `flushIfNeeded()`；驱动据此回收接收空间。及时结束接收数据的持有，既是对象生命周期问题，也是并发事务的容量问题。[释放协议](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1696)
+
+保留反序列化得到的业务值，与保留 Parcel 内部数据指针是两回事。原生代码需要跨越 Parcel 生命周期使用数据时，应取得有明确所有权的副本或对象引用。
 
 ## 6. 线程池、同步重入与 oneway
 
@@ -293,7 +293,7 @@ Android 8 的相关文档介绍了 `/dev/binder`、`/dev/hwbinder` 与 `/dev/vnd
 
 ### 先记录实际环境
 
-以下命令是待执行的只读观察步骤，本文没有把它们作为实测结果。必须先连接实际测试设备，再根据输出记录版本与构建信息；不能从工程目录名推断设备环境。
+先查询实际版本、构建和内核，再选择对应源码；服务列表用于确认目录可见性：
 
 ```sh
 adb shell getprop ro.build.version.release
@@ -328,3 +328,5 @@ adb shell dumpsys -l
 - **服务发现与约束**：ServiceManager 的注册查找、调用身份检查，以及实际服务的业务权限和重试语义。
 
 对照源码时，反复回答五个问题：当前在哪个进程与线程？持有本地实体还是代理？正在等待提交、执行还是回复？调用身份属于谁？出现失败后，已经完成的业务动作能否确定？
+
+原始笔记：[原始 Binder 笔记](https://alidocs.dingtalk.com/i/nodes/14dA3GK8gjRyZe27foyNY7MoJ9ekBD76)。

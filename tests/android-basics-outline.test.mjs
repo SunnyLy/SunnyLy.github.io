@@ -31,7 +31,7 @@ test('Every captured Android basics paragraph is mapped or explicitly classified
   }
   // Descendants must remain in the article for their original topic.
   const byId = new Map(coverage.rows.map(r => [r.sourceId, r]))
-  for (const ids of [[65,68,71,74,77,80,83],[89,120,130,133,136],[145,148,151,154],[157,160,166,169,182,185,188,191,197,200,203,209,212,215,221],[233,250,253,256,262,265,268,271]]) {
+  for (const ids of [[65,68,71,74,77,80,83],[89,120,130,133,136],[145,148,151,154],[166,169,182,185,188,191],[203,206,209,212,215,218,221],[233,250,253,256,262,265,268,271]]) {
     const routes = ids.map(id => byId.get(String(id)).target.split('#')[0])
     assert.ok(routes.every(route => route === routes[0]), `Moved descendant in source group ${ids[0]}`)
   }
@@ -41,8 +41,13 @@ test('Android basics navigation includes all active topics in source order', () 
   const basics = knowledgeSections.find(s => s.id === 'android').items.filter(i => i.group === '基础')
   assert.deepEqual(basics.map(i => i.link), [
     '/android/basics/',
-    ...['binder-basics','handler','messenger','activity-startup','broadcast','service-lifecycle','content-provider','system-services','pending-intent','loaded-apk','class-loading','dynamic-proxy'].map(s => `/android/basics/${s}.html`),
+    ...['binder-basics','ipc-methods','handler','job-scheduler','messenger','activity-startup','broadcast','service-lifecycle','content-provider','system-services'].map(s => `/android/basics/${s}.html`),
+    ...['ams-atms','pms','wms','content-service','package-installer-service'].map(s => `/android/basics/system-services/${s}.html`),
+    ...['pending-intent','loaded-apk','class-loading','dynamic-proxy'].map(s => `/android/basics/${s}.html`),
   ])
-  assert.deepEqual(basics.filter(i => i.subgroup).map(i => i.subgroup), Array(4).fill('四大组件'))
+  assert.deepEqual(basics.filter(i => i.subgroup).map(i => i.subgroup), [
+    ...Array(4).fill('四大组件'),
+    ...Array(6).fill('系统核心服务'),
+  ])
   assert.ok(basics.every(i => !/frida|strace/i.test(i.text + i.link)))
 })

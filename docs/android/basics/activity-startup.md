@@ -7,10 +7,9 @@ outline: [2, 3]
 
 一次 `startActivity()` 不是直接创建 Activity 对象，而是提交启动请求：系统解析目标、校验权限、选择任务和进程，再调度应用主线程创建或复用界面。返回调用方不代表目标已 `onResume()`，更不代表首帧已经显示。
 
-本文对应[原始提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)“四大组件 → Activity启动原理”，保留六个核心类型的顺序，修正 `ClientTrasaction` 为 `ClientTransaction`。实现基线为 AOSP **`android-16.0.0_r1`**，不将内部类当作应用 SDK，也不据此推断设备版本。
 
 ::: tip 源码阅读约定
-以下 Java 代码均为该标签的源码节选，`// ...` 表示省略的实现，带“注”的中文注释为阅读补充。片段保留原来的类名、方法名和关键调用参数，用于对照源码；上下文中的字段、局部变量和内部类型需回到原文件阅读。各段分别标明进程与所在方法，不能把分支节选拼成每次都执行的直线流程。
+以下 Java 代码节选自 AOSP `android-16.0.0_r1`，`// ...` 表示省略的实现，带“注”的中文注释解释关键调用。各段标明进程与所在方法，分支节选不表示每次启动都执行的固定调用栈。
 :::
 
 ## ActivityThread {#s68}
@@ -542,11 +541,13 @@ client.handleLaunchActivity(r, pendingActions, mDeviceId, null /* customIntent *
 
 至此回到本文第一节的 `ActivityThread.handleLaunchActivity()`。后续 Resume item 会按生命周期路径补齐 Start 等中间状态，再执行恢复阶段；Launch 完成不能作为 Resume 完成或首帧呈现的证据。
 
+具体补齐发生在 `TransactionExecutor.executeLifecycleItem()`：先根据客户端记录的当前状态调用 `cycleToPath(..., targetState, true, ...)`，最后再执行目标 item 的 `execute()` 与 `postExecute()`。例如 Activity 已完成创建、目标是 Resume，路径会先进入 `handleStartActivity()`，再由 Resume item 完成恢复。`excludeLastState = true` 让最后一步交给带有该次参数的 item，避免通用路径先执行一次、item 又执行一次；因此不能只搜索 `LaunchActivityItem` 就认定 `onStart()` 缺失。[生命周期推进实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java#L146)
+
 源码定位：[ApplicationThread](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#2192)、[客户端入队](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ClientTransactionHandler.java#55)、[H 消息分发](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#2817)、[执行器](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java#95)、[LaunchActivityItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#214)。
 
 ## 从请求到首帧的完整路径
 
-下图用于总览阶段；包含 Launcher 点击入口、进程边界、主线程切换、Application / Provider 初始化、完整生命周期和绘制呈现的[完整时序图见 AMS / ATMS](./system-services.html#ams-atms-launch-sequence)。
+下图用于总览阶段；包含 Launcher 点击入口、进程边界、主线程切换、Application / Provider 初始化、完整生命周期和绘制呈现的[完整时序图见 AMS / ATMS](./system-services/ams-atms.html#ams-atms-launch-sequence)。
 
 ```mermaid
 sequenceDiagram
@@ -596,4 +597,6 @@ Token 与窗口归属见 [Activity Token](../framework/activity-token.html)，�
 4. **Activity 创建崩溃**：定位构造、attach、主题资源与生命周期中的首个异常原因。
 5. **已 resumed 但没有内容**：继续查窗口、布局、绘制与 Surface 提交，不把生命周期回报当作可见证明。
 
-设备上可先用 `adb shell getprop ro.build.version.release`、`adb shell getprop ro.build.version.sdk` 查询环境，再结合 `adb shell dumpsys activity activities` 与 `adb shell dumpsys window` 观察状态。本页未执行这些设备命令，不包含实测结论。
+设备上可先用 `adb shell getprop ro.build.version.release`、`adb shell getprop ro.build.version.sdk` 查询环境，再结合 `adb shell dumpsys activity activities` 与 `adb shell dumpsys window` 观察状态。
+
+原始笔记：[Android 基础知识提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。

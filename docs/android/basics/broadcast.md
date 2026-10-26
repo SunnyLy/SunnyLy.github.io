@@ -7,7 +7,6 @@ outline: [2, 3]
 
 广播是系统参与路由和调度的事件交付机制。发送方提交 Intent，系统解析与过滤接收者，再把事件交给应用进程；业务执行一般发生在接收器的调度线程，发送返回不代表所有接收者已处理完成。
 
-本文对应[原提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)“Broacast发送接收原理”，规范名称并保留 `LoadedApk`、`PendingResult.finish()` 与服务端完成回报这一主线。源码固定 AOSP **`android-16.0.0_r1`**；旧参考链接作为原始资料保存在提纲记录中，不把旧版本方法链直接套到当前平台。
 
 ## 广播分类：先区分不同维度 {#broadcast-types}
 
@@ -294,7 +293,7 @@ sequenceDiagram
 
 ### 原提纲链路怎样修正
 
-原文把 `receiver.performReceive()` 与 `receiver.onReceive()` 混写。Binder 接口的接收入口负责转交工作，真正业务回调是 `BroadcastReceiver.onReceive()`。`LoadedApk.ReceiverDispatcher.Args` 参与动态接收分发，并以 PendingResult 管理完成状态。
+Binder 接口的接收入口负责转交工作，真正业务回调是 `BroadcastReceiver.onReceive()`。`LoadedApk.ReceiverDispatcher.Args` 参与动态接收分发，并以 PendingResult 管理完成状态；`performReceive()` 与 `onReceive()` 不是同一个调用层次。
 
 同步 `onReceive()` 返回后，如果结果仍由框架持有，框架结束本次接收。调用 `goAsync()` 会把 PendingResult 交给应用，应用须在处理完毕后调用它的 `finish()`；重复 finish 也是错误。
 
@@ -306,7 +305,7 @@ sequenceDiagram
 
 ![原笔记中 ReceiverDispatcher 调用 onReceive 并在返回后 finish 的源码截图，版本未标注](/assets/android/basics/source/broadcast-original.webp)
 
-该图保留为历史阅读材料，可点击放大；截图未标注源码版本，本文结论以固定标签核对为准。<a href="/assets/android/basics/source/broadcast-original.webp" download="broadcast-original.webp">下载原图</a>。
+图中展示 ReceiverDispatcher 与完成回报的关系；对应实现见上面的源码链接。<a href="/assets/android/basics/source/broadcast-original.webp" download="broadcast-original.webp">下载原图</a>。
 
 ## 有序广播：结果链与调度原理 {#ordered-broadcast}
 
@@ -513,6 +512,8 @@ public void onReceive(Context context, Intent intent) {
 
 `goAsync()` 不取消广播时限，也不提供无限运行权。排队等待也消耗处理预算；长任务应把必要状态交给合适的任务调度器。处理异常仍须有明确业务失败记录，`finally` 只保证释放广播完成责任。
 
+`goAsync()` 会取出本次 `mPendingResult`，同时将 Receiver 中的字段清空；异步阶段的结果读写和完成操作都应使用返回的 `PendingResult`。例如有序广播需要异步设置结果时，调用 `pending.setResultCode()`、`pending.setResultData()` 后再 `pending.finish()`，不要继续调用 Receiver 自身的结果方法。这个对象属于本次交付，不能缓存到下一次广播复用。[goAsync 与 PendingResult 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/BroadcastReceiver.java)
+
 广播超时不是统一的“10 秒”：系统会根据前台优先级标志、平台版本及 CPU 饥饿等条件采用不同窗口。`Intent.FLAG_RECEIVER_FOREGROUND` 指广播调度优先级，不等于应用界面在前台，也不会启动前台服务。冷启动、接收线程积压和异步执行器等待都可能导致广播超时，不应把超时窗口当作可用的业务耗时预算。[官方广播 ANR 排查](https://developer.android.com/topic/performance/anrs/diagnose-and-fix-anrs#broadcast-receiver-timeout)
 
 ## 定位问题的顺序
@@ -524,3 +525,5 @@ public void onReceive(Context context, Intent intent) {
 5. 结合具体版本分析队列和有序结果，不只按旧函数名对照堆栈。
 
 更多关联：线程调度见 [Handler](./handler.html)，分发器归属见 [LoadedApk](./loaded-apk.html)，系统入口见 [核心服务](./system-services.html)。
+
+原始笔记：[Android 基础知识提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。

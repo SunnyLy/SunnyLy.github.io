@@ -6,7 +6,7 @@ description: 按原提纲组织 Android 安全笔记：通用组件安全、配�
 
 ## Android 安全提纲
 
-以下分类、子项及顺序对应原始提纲。每个分类对应一章完整正文，子项直达本章同名标题，原理、条件与防护说明在同一章展开。
+按入口、配置、文件、解释执行与资源消耗学习 Android 安全。每个知识点沿“输入怎样到达 → 谁检查身份 → 底层执行什么 → 如何收紧能力”展开；下列条目直达对应正文。
 
 ## [通用组件安全](/security/android/component-security.html) {#component-security}
 
@@ -110,10 +110,8 @@ description: 按原提纲组织 Android 安全笔记：通用组件安全、配�
 
 ## 阅读说明
 
-每个知识点按机制、风险前提、防护、验证与限制展开，适用条件以正文的运行 OS、target SDK 和依赖版本为准。提纲中的历史说法及强断言已结合官方资料核对，分类名称不代表漏洞严重程度。
+先理解通信或文件操作的实际调用链，再看防护代码。运行 OS、target SDK 与独立库版本分别影响行为，重要差异在对应知识点中说明；身份认证、资源授权和输入校验应分别落实。
 
-文章中的代码为教学片段，尚未经过 Android 工程编译或真机执行。测试建议用于自有或获授权环境。
-
-[提纲覆盖与勘误](./android/coverage.html)逐项对应原始 80 个段落，包含标题、原理和条件说明，并提供正文定位与资料依据。
+[提纲覆盖与勘误](./android/coverage.html)保留原始段落与正文锚点的对应关系，便于回查来源。
 
 相关实践：[App 网络请求抓包](/tools/app-network-capture.html)、[Binder 机制](/android/framework/binder-mechanism.html)、[Web JS 分析](/reverse/web-js-reverse.html)。

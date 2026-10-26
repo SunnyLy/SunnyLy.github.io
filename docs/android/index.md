@@ -11,10 +11,12 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 按[原始 Android 基础提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)的顺序，从进程通信延伸到四大组件、核心服务与运行时。[基础阅读索引](./basics/)提供原提纲与笔记的逐项对应。
 
 - [Binder 通信机制](./basics/binder-basics.html)：Java 层四个核心类型与 Native 层接口、代理、实体，厘清 AIDL Proxy 与 BinderProxy 的组合关系。
+- [IPC 方式与场景选型](./basics/ipc-methods.html)：比较通信语义、数据通路与线程模型，包含 AIDL、SharedMemory、Provider 和 Socket 关键代码。
 - [Handler 原理](./basics/handler.html)：消息如何进入队列、在哪个线程执行，以及延迟、取消和退出的边界。
+- [JobScheduler 系统任务调度](./basics/job-scheduler.html)：约束、系统调度链、JobService 调用示例、停止竞态与跨重启持久化。
 - [Messenger 机制](./basics/messenger.html)：两种构造方式、绑定通信四步、双向回复、调用身份与断连处理。
 - 四大组件：[Activity 启动](./basics/activity-startup.html)、[Broadcast 发送接收](./basics/broadcast.html)、[Service 生命周期](./basics/service-lifecycle.html)、[Provider 与内容观察](./basics/content-provider.html)。
-- [系统核心服务](./basics/system-services.html)：AMS/ATMS、PMS、WMS、ContentService 和 PackageInstallerService；包含 [Launcher 点击到首帧的完整时序](./basics/system-services.html#ams-atms-launch-sequence)。
+- [系统核心服务](./basics/system-services.html)：AMS/ATMS、PMS、WMS、ContentService 和 PackageInstallerService；包含 [Launcher 点击到首帧的完整时序](./basics/system-services/ams-atms.html#ams-atms-launch-sequence)。
 - 运行时：[PendingIntent](./basics/pending-intent.html)、[LoadedApk](./basics/loaded-apk.html)、[类加载机制](./basics/class-loading.html)、[动态代理](./basics/dynamic-proxy.html)。
 
 ## Framework
@@ -43,6 +45,6 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 ## 笔记的组织方式
 
-每篇笔记围绕具体问题展开，记录适用条件、原理、验证方法与原始参考。涉及设备或系统差异时，必须注明实际查询结果，避免把一个环境中的行为推广到所有设备。
+基础篇解释组件与应用 API，Framework 篇追踪系统服务、运行时与内核协作，Kotlin 篇分析 Compose 状态和渲染。
 
 分类入口与维护方法见[阅读与写作指南](/guide.html)。

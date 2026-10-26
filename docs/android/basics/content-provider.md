@@ -7,7 +7,6 @@ outline: [2, 3]
 
 ContentProvider 是用 URI 暴露数据操作与访问控制的应用组件；ContentResolver 是调用入口；ContentObserver 观察变化；ContentService 协调观察注册与通知。它们名字接近，但分别承担不同职责。
 
-本文对应[原始提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)“Provider原理”，补充固定 AOSP **`android-16.0.0_r1`** 中的组件装载与通知路径。原文把“静态/动态注册”与 ContentObserver 注册混在一起，下面先明确这一边界。
 
 ## Provider 声明与 Observer 注册 {#provider-registration}
 
@@ -19,7 +18,7 @@ ContentProvider 是用 URI 暴露数据操作与访问控制的应用组件；Co
 
 ### ContentObserver 在运行时注册
 
-原文列出的 `ContentResolver.registerContentObserver() → ContentService.registerContentObserver()` 是**观察者注册链**。它让系统记住对特定 URI 的订阅，不负责把 Provider 安装到系统，也不会创建数据表。
+`ContentResolver.registerContentObserver() → ContentService.registerContentObserver()` 是**观察者注册链**。它让系统记住对特定 URI 的订阅，不负责把 Provider 安装到系统，也不会创建数据表。
 
 是否观察子 URI、接收哪个用户空间的变化、观察对象持有多长生命周期，都应明确。调用者注册成功后，还需在相应生命周期注销观察者，避免不必要的持有与回调。[ContentObserver API](https://developer.android.com/reference/android/database/ContentObserver)
 
@@ -60,6 +59,8 @@ Provider 不必使用 SQLite；也可以封装文件、内存或其他数据来�
 
 查询时明确 projection、筛选和结果范围，避免不必要的全列读取或一次读取过多数据。取消、远端死亡、权限变化与无匹配数据是不同结果，不能统一吞掉后当成空列表。[ContentProvider API](https://developer.android.com/reference/android/content/ContentProvider)
 
+`ContentResolver.query()` 的默认远程查询路径也管理引用生命周期：先取得 unstable Provider，若查询时遭遇 `DeadObjectException`，会报告死亡并尝试重新取得 stable Provider。成功返回的 Cursor 由包装对象持有 stable 引用，关闭 Cursor 才释放它；调用结束不等于引用已经释放。该重试是查询实现中的特定分支，不能据此自动重试所有有副作用的写入。[query 与 CursorWrapperInner](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/ContentResolver.java)
+
 ### 线程边界
 
 远程数据方法可能在 Provider 进程 Binder 线程上并发执行，需要保护共享状态；同进程访问也不能假设总在主线程。`onCreate()` 与数据方法的调用阶段不同，启动阶段应避免大量阻塞初始化。
@@ -85,7 +86,7 @@ Provider 写入数据后通常需要按协议调用 `notifyChange()`；ContentSe
 
 ### 一组对应的注册与注销
 
-下面是拥有者生命周期方法中的 Kotlin 教学片段，`context` 是拥有者管理的 Context，URI 指向自行实现的示例 Provider；最低 API 16，尚未编译或设备验证。
+下面是拥有者生命周期方法中的 Kotlin 片段，`context` 是拥有者管理的 Context，URI 指向自行实现的示例 Provider；双参数 `onChange()` 回调从 API 16 提供。
 
 ```kotlin
 private val notesUri = android.net.Uri.parse("content://example.notes/items")
@@ -115,4 +116,6 @@ fun stopObserving() {
 - `ContentProviderClient`、Cursor 和文件描述符是不同资源，需按各自生命周期释放；不要因为缓存了引用就假设远端永久可用。
 - 观察通知与数据事务没有自动绑定成跨进程原子操作，调用方要容忍合并、重复或重新查询后的状态差异。
 
-组件安全细节见 [ContentProvider 安全](/security/android/component-security.html#s57)，包与进程初始化见 [LoadedApk](./loaded-apk.html)，ContentService 职责见 [系统核心服务](./system-services.html#s200)。
+组件安全细节见 [ContentProvider 安全](/security/android/component-security.html#s57)，包与进程初始化见 [LoadedApk](./loaded-apk.html)，ContentService 职责见 [系统核心服务](./system-services/content-service.html#s200)。
+
+原始笔记：[Android 基础知识提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。

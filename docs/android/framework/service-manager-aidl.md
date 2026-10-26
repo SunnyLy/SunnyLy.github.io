@@ -6,14 +6,6 @@ description: 基于固定 AOSP 源码，区分 ServiceManager 系统服务发现
 
 同样使用 AIDL，为什么系统服务常见 `ServiceManager.getService()`，应用服务却通常通过 `bindService()` 获取接口？区别首先在于**谁发布 Binder、客户端怎样发现它，以及谁管理服务组件的生命周期**。接口取得之后，业务调用仍遵循 Binder 的本地或远端调用规则。
 
-本文根据[原始笔记《Android ServiceManager 与 AIDL 原理详解：系统服务端与 App 应用侧的差异》](https://alidocs.dingtalk.com/i/nodes/OG9lyrgJPzbdAeE0fv3nxrk3WzN67Mw4)重新组织，补充现代实现、回调边界和权限分层。底层事务见 [Binder 机制](./binder-mechanism.html)，身份引用见 [Android Token 原理](./activity-token.html)。三张图均支持点击放大、缩放和拖动。
-
-::: info 源码基线与适用范围
-- Framework、native servicemanager、libbinder 和 AIDL 生成器统一核对 **`android-16.0.0_r1`**，不混用滚动分支与历史手写 Proxy 实现。
-- `android.os.ServiceManager` 等隐藏接口用于理解平台实现；普通应用通过公开 manager 或绑定服务使用相应能力。
-- 本文是源码分析，未查询设备、执行服务注册实验或测量调用耗时。厂商策略、编译配置和运行状态可能改变具体分支。
-:::
-
 ## 1. 四个概念分别解决什么问题
 
 **Binder** 提供对象引用和跨进程事务；**AIDL** 描述接口并生成封送代码；**ServiceManager** 提供特定 Binder 服务目录；**Service 组件** 则由 Android 组件管理机制调度。AIDL 接口可以由普通 Binder 对象实现，并不要求实现类继承 `android.app.Service`。
@@ -230,6 +222,10 @@ Service 不是后台线程。远端 AIDL 方法可能被多个 Binder 线程并�
 
 最后，`bindService()` 只是应用取得自定义 Binder 的常见方式。Binder 引用也能通过已有 Binder 调用、回调参数或适当的 `Bundle` 等契约继续传递；AIDL 本身不规定必须通过哪个入口首次发现接口。无论采用哪条路径，都要单独设计访问控制、引用有效期和死亡处理。
 
+### Manager 缓存与 Binder 服务缓存不是一层 {#manager-cache}
+
+`SystemServiceRegistry.CachedServiceFetcher` 为服务分配缓存下标，在 `ContextImpl.mServiceCache` 中保存创建好的 Manager，并用初始化状态协调并发创建。`ServiceManager` 缓存保存的则是服务 Binder 引用。复用 Manager 只省去包装对象的创建，不代表它的每次方法调用都变成本地操作，也不保证缓存里的远端服务始终存活。[CachedServiceFetcher](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/SystemServiceRegistry.java#2285)
+
 ## 11. 按故障阶段定位，而不是只看接口名字
 
 1. **找不到接口**：先区分服务目录查询和组件绑定。目录路径查名称、注册、访问策略及等待条件；绑定路径查组件声明、Intent、权限、可见性和绑定回调。
@@ -237,7 +233,7 @@ Service 不是后台线程。远端 AIDL 方法可能被多个 Binder 线程并�
 3. **连接正常但界面卡住**：确认实际执行线程、同步等待和持锁调用；Service 独立进程不意味着调用方不等待结果。
 4. **重启后一直不可用**：检查是否仍保留旧 Proxy、收到的是临时断连还是 binding died，以及重新发现与幂等重试策略。
 
-这些是源码阅读与验证的观察点，不代表已在某台设备复现故障。若补充实验，应同时记录实际系统版本、进程、线程与回调顺序，避免把同进程调用误当成跨进程结果。
+定位线程问题时同时记录两端 PID、线程和回调顺序：同进程 Binder 可能直接执行，跨进程才涉及远程事务与接收线程，二者的阻塞位置不同。
 
 ## 12. 源码阅读路线
 
@@ -245,3 +241,5 @@ Service 不是后台线程。远端 AIDL 方法可能被多个 Binder 线程并�
 - **系统服务实例**：`PowerManagerService.onStart()` → `SystemService.publishBinderService()`；对照 `publishLocalService()`，识别注册对象和两种目录。
 - **应用绑定链**：`ContextImpl.bindServiceCommon()` → `ActivityManagerService` / `ActiveServices` → `ActivityThread.handleBindService()` → `publishService()` → `LoadedApk.ServiceDispatcher`。
 - **接口与业务调用**：AIDL Java 生成器 → 具体 Stub 实现 → 权限与线程边界；继续阅读 [Binder 机制](./binder-mechanism.html) 中的 Parcel、重入和死亡通知。
+
+原始笔记：[原始笔记《Android ServiceManager 与 AIDL 原理详解：系统服务端与 App 应用侧的差异》](https://alidocs.dingtalk.com/i/nodes/OG9lyrgJPzbdAeE0fv3nxrk3WzN67Mw4)。

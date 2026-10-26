@@ -6,18 +6,9 @@ description: 理解命令执行、JEXL、反序列化和 Base64 的能力边界�
 
 # 命令、表达式与序列化边界
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
-- [命令执行安全](/security/android/special-functions.html#s180)
-- [序列化安全](/security/android/special-functions.html#s189)
-- [JEXL 表达式注入](/security/android/special-functions.html#s192)
-- [Base64.decode 解码安全](/security/android/dos-attacks.html#s210)
-:::
+现行分类：[命令执行安全](/security/android/special-functions.html#s180)、[序列化安全](/security/android/special-functions.html#s189)、[JEXL 表达式注入](/security/android/special-functions.html#s192)、[Base64.decode 解码安全](/security/android/dos-attacks.html#s210)。
 
 “特殊函数”并不天然构成漏洞。需要追问：谁能控制输入，这段输入会被当成数据还是指令，执行时获得哪些权限，失败会影响什么资产。
-
-> **工程层 · 前置知识**：[安全模型](../foundation/security-model.html)、[URI 与 SQL 输入](./uri-sql-input.html)。下列为教学片段和设计示意，未在 Android 工程中编译或真机执行；本站不依赖 JEXL。
 
 ## 1. 先识别解释器与危险能力 {#capability-model}
 
@@ -63,7 +54,7 @@ val process = ProcessBuilder(
 
 JEXL 可用于表达式和脚本求值。如果把不可信表达式与带文件、网络、反射或服务能力的对象绑定，引擎可能成为业务权限的代理。仅允许“算式外观”的输入，或简单过滤类名，并不能证明所有可达调用链安全。
 
-Apache 的[配置与安全说明](https://commons.apache.org/proper/commons-jexl/apidocs/org/apache/commons/jexl3/package-summary.html)指出，自 3.7 起默认权限采用 `SECURE`；旧版本和显式恢复旧行为的配置可能不同。这是滚动文档中的版本说明，不是本文对某个项目依赖版本的测量。
+JEXL 先解析语法，再通过上下文和命名空间求值、解析对象成员。`JexlPermissions` 限制可达类型和成员，`JexlFeatures` 限制语言功能，两者需要配合。自 3.7 起默认权限为 `SECURE`，旧版或显式配置可能不同。[Apache 配置与安全说明](https://commons.apache.org/proper/commons-jexl/apidocs/org/apache/commons/jexl3/package-summary.html)
 
 对实际工程，应同时核对引擎版本、`JexlPermissions`、`JexlFeatures`、沙箱、命名空间与上下文对象。`RESTRICTED` 或 `SECURE` 都不是“任意用户脚本安全执行”的保证。能改成预定义规则或结构化条件时，不开放通用表达式。
 
@@ -74,11 +65,13 @@ Apache 的[配置与安全说明](https://commons.apache.org/proper/commons-jexl
 3. 限制表达式长度、编译频率、执行资源和结果大小；缓存也设容量边界。
 4. 对需要强隔离的不可信脚本使用独立信任域与可终止执行单元；不要只依赖同进程线程中断。
 
-配置项的精确语义见 [`JexlSandbox`](https://commons.apache.org/proper/commons-jexl/apidocs/org/apache/commons/jexl3/introspection/JexlSandbox.html)。本文不提供脱离版本、复制即可保证安全的引擎配置。
+[`JexlSandbox`](https://commons.apache.org/proper/commons-jexl/apidocs/org/apache/commons/jexl3/introspection/JexlSandbox.html) 可细化成员访问规则；还要跟踪已允许方法返回的对象是否带出宿主服务能力。
 
 **验证路线**：以业务允许的最小表达式集作正例，再逐项验证未授权类型访问、方法调用、循环或高成本计算、超大结果及配置迁移。拒绝测试不能替代对暴露对象完整可达能力的审查。
 
 ## 4. 序列化：类型匹配不代表对象无害 {#deserialization}
+
+对象重建早于事后类型检查：Java 序列化可以调用类自定义 `readObject()`，Parcelable 进入 `CREATOR.createFromParcel()`。读取后再强转只能约束后续用法，无法撤销重建时的解析与副作用；类型和资源限制应尽可能前置。[ObjectInputStream](https://developer.android.com/reference/java/io/ObjectInputStream)、[Parcelable.Creator](https://developer.android.com/reference/android/os/Parcelable.Creator)
 
 反序列化不仅是“读取字段”。某些机制会实例化对象、执行恢复逻辑、触发嵌套解析，或形成异常大的对象图。风险成立取决于格式、可达类、库版本、输入来源和后续用途，不能把所有反序列化一律称为代码执行。
 
@@ -116,4 +109,4 @@ fun decodeBounded(raw: String): ByteArray {
 
 记录危险能力的调用点、输入来源、可信配置、可达对象、执行身份与失败路径；给出正常、越权、畸形和资源超限样本。只有明确的输入到结果链路，才能支持“可利用”结论。
 
-文件落点与解压见 [不可信文件处理](./untrusted-files.html)，解析与数据库见 [URI 与 SQL](./uri-sql-input.html)，插件执行见 [动态代码信任](../audit/runtime-code-trust.html)，崩溃和资源预算见 [可用性与 Binder](../audit/availability-binder.html)。这些验证路线尚未在设备执行，不作为已复现漏洞报告。
+文件落点与解压见 [不可信文件处理](./untrusted-files.html)，解析与数据库见 [URI 与 SQL](./uri-sql-input.html)，插件执行见 [动态代码信任](../audit/runtime-code-trust.html)，崩溃和资源预算见 [可用性与 Binder](../audit/availability-binder.html)。

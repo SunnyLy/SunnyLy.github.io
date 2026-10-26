@@ -6,9 +6,7 @@ description: 区分输入法提示、历史 PreferenceActivity Fragment 入口�
 
 # 输入界面与历史框架风险
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
+::: info 相关分类
 - [安全键盘配置漏洞](/security/android/component-security.html#s21)
 - [Fragment 框架注入（PreferenceActivity）](/security/android/dos-attacks.html#s207)
 - [EditText.setSelection() 光标定位](/security/android/dos-attacks.html#s228)
@@ -17,13 +15,7 @@ description: 区分输入法提示、历史 PreferenceActivity Fragment 入口�
 
 密码框显示成圆点，并不意味着当前输入法无法接触输入内容。一个设置页面包含 Fragment，也不意味着它存在历史 Fragment 注入漏洞。界面审计要分开处理输入参与者、可控导航参数，以及实际文本处理的边界。
 
-本篇属于审计层，覆盖原提纲的安全键盘、PreferenceActivity 和 `EditText.setSelection()`。先阅读 [Activity 与 Intent](../foundation/activity-intent.html)，剪贴板和退出后残留另见[数据生命周期](../engineering/data-lifecycle.html)。
-
-::: info 版本与验证边界
-- 历史框架实现引用 `android-16.0.0_r1` 中保留的兼容代码；它不代表旧设备曾具有相同防护。
-- 所有 Android 代码为教学片段，省略 imports；未编译、未运行设备实验，也未验证某个输入法产品。
-- 不把配置提示当成对恶意输入法、无障碍服务或已受控进程的隔离保证。
-:::
+组件入口见 [Activity 与 Intent](../foundation/activity-intent.html)，剪贴板和退出后残留见[数据生命周期](../engineering/data-lifecycle.html)。
 
 ## 1. 安全键盘配置控制了什么 {#ime-boundary}
 
@@ -49,7 +41,7 @@ if (Build.VERSION.SDK_INT >= 26) {
 
 ## 2. PreferenceActivity 的历史入口 {#legacy-fragment}
 
-原文 `PreferenceAcitivty` 应规范为 `PreferenceActivity`。该旧框架支持从 Intent 的 `EXTRA_SHOW_FRAGMENT` 选择设置 Fragment；当 Activity 可由不可信调用方启动，且外部类名未经足够约束进入实例化路径时，才需要分析非预期页面与行为是否可达。
+`PreferenceActivity` 支持从 Intent 的 `EXTRA_SHOW_FRAGMENT` 选择设置 Fragment；当 Activity 可由不可信调用方启动，且外部类名未经足够约束进入实例化路径时，需要分析非预期页面与行为是否可达。
 
 不应据此说“所有 Fragment 都能被注入”。现代 AndroidX 导航、应用自定义路由与旧框架额外参数是不同路径；即使同样接受一个字符串，也要实际追到类选择和实例化位置。
 
@@ -90,7 +82,9 @@ protected boolean isValidFragment(String fragmentName) {
 
 `EditText.setSelection(index)` 最终对文本设置选择 span；索引必须适合当前文本。负值、超过长度的值或文字已变化后的旧索引，可能导致异常。这里首先是索引与状态一致性问题，是否构成可被第三方触发的可用性风险还取决于输入来源和页面可达性。[EditText](https://developer.android.com/reference/android/widget/EditText#setSelection(int))、[Selection 固定源码](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/text/Selection.java#79)
 
-原文提到 XML 的 `maxlen`，正确属性应为 `android:maxLength`。长度过滤可以使最终文本短于外部原始字符串，但它不是触发越界的必要条件；格式化、替换、异步更新和其他 InputFilter 也可能改变长度。[LengthFilter](https://developer.android.com/reference/android/text/InputFilter.LengthFilter)
+XML 属性 `android:maxLength` 对应长度过滤。过滤可以使最终文本短于外部原始字符串；格式化、替换、异步更新和其他 InputFilter 也可能改变长度。[LengthFilter](https://developer.android.com/reference/android/text/InputFilter.LengthFilter)
+
+`LengthFilter.filter()` 先扣除当前保留文本占用的长度，再决定本次插入能保留多少内容；截断点遇到高位代理项时还会后退，避免切开 UTF-16 代理对。这个限制针对 UTF-16 文本长度，仍不是用户可见字符数量或字节长度。光标位置应在全部过滤和替换完成后，基于最终 Editable 计算。[LengthFilter 实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/text/InputFilter.java#L168)
 
 下面示例在 UI 线程设置文字，然后针对**过滤后的实际文本**计算光标位置。数值需先从外部输入安全解析为 int；不把原始字符串长度直接传入。
 
@@ -114,4 +108,4 @@ static void showTextAt(EditText view, CharSequence incoming,
 - **历史设置页**：列出可达入口、运行 OS、target SDK、子类覆盖和允许页面；在自有测试工程中分别验证合法类名、未允许类名和危险业务参数。新导航框架另追实际调用链。
 - **光标定位**：用空文本、负值、超长索引、长度过滤、多字节字符和更新后的旧索引构造边界；预期可处理地拒绝或调整，不因输入导致持续崩溃。
 
-这些都是待执行路线，本篇没有运行结果。审计报告应分别描述泄露、非预期导航和崩溃的前置条件，不把三种界面问题合成一个“配置不安全”的笼统结论。
+泄露、非预期导航和崩溃应分别说明入口、可控参数和影响范围，不能合成一个“配置不安全”的笼统结论。

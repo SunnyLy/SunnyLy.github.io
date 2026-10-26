@@ -6,13 +6,7 @@ description: 串联 Compose Compiler、Runtime、Composition、LayoutNode 与 An
 
 写下 `Text("Hello")` 后，谁创建界面节点，谁计算尺寸，谁真正执行绘制？要回答这些问题，需要分清**编译期改写、运行时组合、布局与绘制，以及 Android 后续呈现**，不能把所有工作都归给 Composer。
 
-本文根据[原始笔记《Compose 基本渲染流程》](https://alidocs.dingtalk.com/i/nodes/7dx2rn0JbYDdQwjzHNR2wpjBVMGjLRb3)重新组织，将概念图和历史截图所涉及的问题整理为源码说明与三张可缩放图。状态依赖和失效细节见 [Compose State 原理](./compose-state.html)；缓冲区提交、合成与显示见 [SurfaceFlinger 与 VSYNC](../framework/surfaceflinger-vsync.html)。
-
-::: info 源码基线与验证范围
-- AndroidX 固定为 [`a7537bce15de1ae43654cfcfdbb115211977a632`](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632)，与 State 笔记一致。它是 2026-10-22 核对的源码快照，不代表你的应用依赖或某个稳定版本。
-- Compose 编译器与 Runtime 是不同的构建、运行环节；编译器生成细节还取决于 Kotlin、Compose 插件与选项，本文不把简化改写当成固定 ABI。
-- 本文核对的是源码与公开契约，未在 Android 工程编译示例、测量耗时或验证设备呈现帧。网站构建通过不等于真机渲染验证。
-:::
+状态依赖和失效细节见 [Compose State 原理](./compose-state.html)；缓冲区提交、合成与显示见 [SurfaceFlinger 与 VSYNC](../framework/surfaceflinger-vsync.html)。
 
 ## 1. 声明式描述与命令式更新有什么区别
 
@@ -163,3 +157,5 @@ State 的变化通过 Snapshot 和观察关系传播，影响实际读取它的�
 5. **源码与教程不同**：先确认项目依赖与编译器配置，再匹配源码提交；内部存储和平台桥接的变化不意味着公开 API 用法必然改变。
 
 推荐阅读顺序是：Activity 的 `setContent()` → ComposeView / Android 包装 → Composition 与 UiApplier → Layout 的节点工厂 → LayoutNode / MeasureAndLayoutDelegate → AndroidComposeView 的绘制入口 → Coordinator。组合存储、Snapshot 和编译器优化可沿具体问题继续深入，避免把它们串成每帧必须从头跑完的单一路径。
+
+[原始笔记](https://alidocs.dingtalk.com/i/nodes/7dx2rn0JbYDdQwjzHNR2wpjBVMGjLRb3)。

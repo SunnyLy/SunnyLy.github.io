@@ -6,14 +6,6 @@ description: 基于固定 AOSP 源码，理解 Activity Token 的 Binder 身份�
 
 Activity Token 把服务端的活动记录、客户端的生命周期调度与窗口归属关联起来。读懂它的关键，是始终追问：**谁创建这个 Binder、它标识什么、接收方怎样解析、这次操作还检查哪些条件？**
 
-本文根据[原始笔记《Android Token 原理与 Activity 启动全链路解析》](https://alidocs.dingtalk.com/i/nodes/pYLaezmVNeydNlE7uP3ARkYxWrMqPxX6)整理，合并重复调用链，补充窗口身份、冷启动分支、实例重建与权限边界。三张图均支持点击放大、缩放与拖动；跨进程引用的基础见 [Binder 机制](./binder-mechanism.html)。
-
-::: info 源码基线与阅读范围
-- Framework 实现统一固定为 **`android-16.0.0_r1`**，源码链接均指向该标签。旧文中的 `r.appToken`、事务对象池 `obtain(...)` 等写法不能直接套用到此版本。
-- 主线讨论普通应用 Activity、应用窗口及子窗口；WindowContext、输入和辅助 Token 用于说明身份边界，不展开所有系统窗口策略。
-- 以下结论来自源码核对，未进行设备实测。内部类、字段与系统 Binder 接口是阅读线索，不作为普通应用可调用的 SDK 示例。
-:::
-
 ## 1. 先分清记录、实例与身份
 
 `ActivityRecord` 是 `system_server` 中的服务端状态记录，管理任务关系、配置、可见性和生命周期等信息。`ActivityClientRecord` 是应用进程中的客户端记录，其中才引用开发者编写的 Java `Activity` 实例。三者互相协作，但不是跨进程共享的同一个 Java 对象。
@@ -145,6 +137,10 @@ ActivityRecord.token                         [system_server 本地 Binder]
 
 后续生命周期 item 依据 Token 找到客户端记录，再操作其 Activity 实例。Token 解决的是目标身份关联，资源、类加载与 Context 初始化仍需要各自的数据和约束。
 
+### 同一个 Token 在两端查的是不同记录 {#token-lookup-tables}
+
+客户端 `ActivityThread` 以 `r.token` 为键把 `ActivityClientRecord` 放入 `mActivities`；服务端则由 `ActivityRecord.forTokenLocked()` 解析本地 Token 指向的服务端记录。客户端查不到记录，不等于这个 Binder 引用从未存在：启动尚未执行、客户端已销毁与服务端记录已移除是不同阶段。排查时先确认出错的是哪一端的表，再对照事务和销毁时序。[客户端入表位置](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4204)
+
 ## 7. 从 Activity Token 到窗口校验
 
 ### 普通应用窗口与子窗口必须分别跟踪
@@ -201,7 +197,7 @@ Token 的本地端在 `system_server`，所以应用死亡不等于该 Binder �
 
 例如 ATMS 的启动入口会核对调用包与 UID；WMS 添加窗口还要核对窗口类型、父窗口和策略。Binder 传来的调用身份与业务参数里的 Token 作用不同，不能用 Token 的字符串代替调用身份，也不能把一个有效 Token 当成任意系统窗口的授权。[源码：启动入口校验](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskManagerService.java#1303)
 
-原文用插件化解释“服务端记录和客户端 Java 类可以不完全一致”。从模型上说，客户端替换实例并不会自动改变系统登记的宿主组件、UID、任务和权限；继续使用宿主的合法身份也不是为另一个应用创建了系统级身份。不同 Android 版本还有类加载、组件、资源、后台启动和生命周期约束，不能仅凭 Token 机制断言某框架必然可用。
+服务端记录与客户端实例承担不同职责：客户端替换实例并不会自动改变系统登记的宿主组件、UID、任务和权限；继续使用宿主的合法身份也不是为另一个应用创建了系统级身份。不同 Android 版本还有类加载、组件、资源、后台启动和生命周期约束，不能仅凭 Token 机制断言某框架必然可用。
 
 ## 10. 遇到 BadTokenException，怎样缩小问题
 
@@ -213,7 +209,7 @@ Token 的本地端在 `system_server`，所以应用死亡不等于该 Binder �
 4. **核对服务端记录**：在同一时间点关联 ActivityRecord、Task、WindowState 与显示信息；有效 Binder 引用不保证业务目标仍存在。
 5. **核对类型和策略**：将添加失败返回值对应回当前系统版本源码，区别无效归属、退出状态与权限拒绝。
 
-以下是只读查询示例，**本文未执行这些命令，也没有虚构设备输出**。先实际查询版本和型号，再选择对应源码；dumpsys 的字段和可见信息会因系统版本及权限而异。
+先查询实际版本，再关联 Activity 与窗口记录；`dumpsys` 字段和可见信息随系统版本、构建与权限变化。
 
 ```sh
 adb shell getprop ro.build.version.release
@@ -237,3 +233,5 @@ adb logcat -d -v threadtime
 3. **事务在哪里执行**：[ClientTransactionHandler.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ClientTransactionHandler.java)、[TransactionExecutor.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java)、[ActivityThread.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java)。标出 Binder 入口、Handler 消息、客户端记录及实例创建。
 4. **窗口参数的 Token 从哪里来**：[Window.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/Window.java)、[WindowManagerGlobal.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/WindowManagerGlobal.java)、[WindowManagerService.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java)。分别跟踪普通窗口和子窗口。
 5. **回报怎样回到服务端记录**：[ActivityClient.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityClient.java)、[ActivityClientController.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityClientController.java)。为每个接口单独记录状态、调用身份和权限检查。
+
+原始笔记：[原始笔记《Android Token 原理与 Activity 启动全链路解析》](https://alidocs.dingtalk.com/i/nodes/pYLaezmVNeydNlE7uP3ARkYxWrMqPxX6)。

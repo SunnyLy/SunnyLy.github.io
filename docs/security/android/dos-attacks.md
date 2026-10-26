@@ -1,15 +1,9 @@
 ---
-description: Dos攻击，按 Android 安全原提纲逐项展开机制、成立条件、防护和验证边界。
+description: 从 URI、解码、页面参数、文件流与 Binder 事务理解异常和资源耗尽的根因与处理方法。
 outline: [2, 4]
 ---
 
 # Dos攻击
-
-本章按原提纲的分类和子项顺序组织。左侧条目、正文标题与本文目录使用同一组标题和锚点。
-
-::: info 适用与验证边界
-平台行为需分别核对运行 OS、target SDK 和依赖版本；历史检查项已按正文依据限定条件。所有代码均为教学片段，未经过 Android 工程编译或真机执行；域名、容量阈值及业务规则为示例，不能直接作为生产策略。
-:::
 
 可用性审计要先说明攻击者能否进入入口、能否反复触发、消耗了什么资源，以及影响持续多久。相同异常可能是普通输入错误、已授权用户操作失败，也可能是外部可控输入造成的服务不可用；错误类型本身不决定安全影响。
 
@@ -126,7 +120,7 @@ flowchart TD
 
 **PreferenceActivity 的历史入口**
 
-原文 `PreferenceAcitivty` 应规范为 `PreferenceActivity`。该旧框架支持从 Intent 的 `EXTRA_SHOW_FRAGMENT` 选择设置 Fragment；当 Activity 可由不可信调用方启动，且外部类名未经足够约束进入实例化路径时，才需要分析非预期页面与行为是否可达。
+`PreferenceActivity` 支持从 Intent 的 `EXTRA_SHOW_FRAGMENT` 选择设置 Fragment。Activity 读取类名、调用 `isValidFragment()`，通过后才进入 `Fragment.instantiate()`；导出的设置入口应精确约束类名，再由具体页面检查参数与操作权限。
 
 不应据此说“所有 Fragment 都能被注入”。现代 AndroidX 导航、应用自定义路由与旧框架额外参数是不同路径；即使同样接受一个字符串，也要实际追到类选择和实例化位置。
 
@@ -245,7 +239,7 @@ fun importBounded(context: Context, uri: Uri, maxBytes: Long): File {
 
 `EditText.setSelection(index)` 最终对文本设置选择 span；索引必须适合当前文本。负值、超过长度的值或文字已变化后的旧索引，可能导致异常。这里首先是索引与状态一致性问题，是否构成可被第三方触发的可用性风险还取决于输入来源和页面可达性。[EditText](https://developer.android.com/reference/android/widget/EditText#setSelection(int))、[Selection 固定源码](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/text/Selection.java#79)
 
-原文提到 XML 的 `maxlen`，正确属性应为 `android:maxLength`。长度过滤可以使最终文本短于外部原始字符串，但它不是触发越界的必要条件；格式化、替换、异步更新和其他 InputFilter 也可能改变长度。[LengthFilter](https://developer.android.com/reference/android/text/InputFilter.LengthFilter)
+`android:maxLength` 通过长度过滤约束最终文本；格式化、替换、异步更新和其他 `InputFilter` 也会改变文本。因此光标必须依据最终的 `Editable` 计算，而非输入字符串的长度。[LengthFilter](https://developer.android.com/reference/android/text/InputFilter.LengthFilter)
 
 下面示例在 UI 线程设置文字，然后针对**过滤后的实际文本**计算光标位置。数值需先从外部输入安全解析为 int；不把原始字符串长度直接传入。
 
@@ -265,11 +259,11 @@ static void showTextAt(EditText view, CharSequence incoming,
 
 ### 外部文本与 maxLength 条件 {#s231}
 
-原提纲中的 `maxlen` 应为 `android:maxLength`。它可以让最终文本短于输入，但不是越界的必要条件；替换、格式化、其他过滤器及异步更新都可能让旧索引失效。应在最后一次设置文本的同一 UI 阶段，按 `getText().length()` 拒绝或截断非法索引，不能只捕获异常再重试。[LengthFilter](https://developer.android.com/reference/android/text/InputFilter.LengthFilter)
+`maxLength` 只限制过滤后的文本，不自动调整业务保存的旧光标索引。应在最后一次设置文本的同一 UI 阶段，按 `getText().length()` 拒绝或截断非法索引。外部原始输入仍应提前限制长度，避免先分配、格式化超大字符串再交给过滤器。[LengthFilter](https://developer.android.com/reference/android/text/InputFilter.LengthFilter)
 
 ## getPackageInfo 安全 {#s234}
 
-原提纲的 `getPackegeInfo` 应写为 `getPackageInfo`。`flags` 指定需要附带的包信息和匹配条件，不是风险等级；非零不代表必然产生大响应或抛异常，零也不代表只有版本号。
+`getPackageInfo()` 请求包管理服务生成 `PackageInfo`。`flags` 指定附加的包信息和匹配条件；非零不代表必然产生大响应或抛异常，零也不代表只有版本号。
 
 在 `android-16.0.0_r1` 的 `PackageInfoUtils` 中，基础结果直接填充包名、版本、ApplicationInfo、安装和更新时间等数据；随后根据 flags 决定是否展开 Activity 等组件信息。因此，应按实际字段需要选择 flags，而不是对所有非零 flags 机械套上 `catch RuntimeException`。[基础字段生成](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/parsing/PackageInfoUtils.java#131)、[组件附加分支](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/parsing/PackageInfoUtils.java#268)
 

@@ -265,7 +265,7 @@
       "sourceId": "160",
       "kind": "knowledge",
       "label": "AMS/ATMS (ActivityManagerService/ActivityTaskManagerService)",
-      "target": "/android/basics/system-services.html#s160"
+      "target": "/android/basics/system-services/ams-atms.html#s160"
     },
     {
       "sourceId": "163",
@@ -275,13 +275,13 @@
       "sourceId": "166",
       "kind": "knowledge",
       "label": "PMS (PackageManagerService)",
-      "target": "/android/basics/system-services.html#s166"
+      "target": "/android/basics/system-services/pms.html#s166"
     },
     {
       "sourceId": "169",
       "kind": "knowledge",
       "label": "queryIntentActivities （查询匹配Intent的Activities）",
-      "target": "/android/basics/system-services.html#s169"
+      "target": "/android/basics/system-services/pms.html#s169"
     },
     {
       "sourceId": "172",
@@ -295,25 +295,25 @@
       "sourceId": "182",
       "kind": "knowledge",
       "label": "getSharedLibraries (获取共享依赖库)",
-      "target": "/android/basics/system-services.html#s182"
+      "target": "/android/basics/system-services/pms.html#s182"
     },
     {
       "sourceId": "185",
       "kind": "knowledge",
       "label": "deletePackageAsUser（卸载应用）",
-      "target": "/android/basics/system-services.html#s185"
+      "target": "/android/basics/system-services/pms.html#s185"
     },
     {
       "sourceId": "188",
       "kind": "knowledge",
       "label": "clearApplicationUserData （删除应用数据）",
-      "target": "/android/basics/system-services.html#s188"
+      "target": "/android/basics/system-services/pms.html#s188"
     },
     {
       "sourceId": "191",
       "kind": "knowledge",
       "label": "getPackageInstaller (获取应用安装器)",
-      "target": "/android/basics/system-services.html#s191"
+      "target": "/android/basics/system-services/pms.html#s191"
     },
     {
       "sourceId": "194",
@@ -323,55 +323,55 @@
       "sourceId": "197",
       "kind": "knowledge",
       "label": "WMS (WindowManagerService)",
-      "target": "/android/basics/system-services.html#s197"
+      "target": "/android/basics/system-services/wms.html#s197"
     },
     {
       "sourceId": "200",
       "kind": "knowledge",
       "label": "ContentService",
-      "target": "/android/basics/system-services.html#s200"
+      "target": "/android/basics/system-services/content-service.html#s200"
     },
     {
       "sourceId": "203",
       "kind": "knowledge",
       "label": "PackageInstallerService (Apk包安装器服务)",
-      "target": "/android/basics/system-services.html#s203"
+      "target": "/android/basics/system-services/package-installer-service.html#s203"
     },
     {
       "sourceId": "206",
       "kind": "context",
       "label": "重要类：",
-      "target": "/android/basics/system-services.html#s203"
+      "target": "/android/basics/system-services/package-installer-service.html#s203"
     },
     {
       "sourceId": "209",
       "kind": "knowledge",
       "label": "PackageInstallerSession",
-      "target": "/android/basics/system-services.html#s209"
+      "target": "/android/basics/system-services/package-installer-service.html#s209"
     },
     {
       "sourceId": "212",
       "kind": "knowledge",
       "label": "PackageInstaller",
-      "target": "/android/basics/system-services.html#s212"
+      "target": "/android/basics/system-services/package-installer-service.html#s212"
     },
     {
       "sourceId": "215",
       "kind": "knowledge",
       "label": "PackageInstaller$SessionParams",
-      "target": "/android/basics/system-services.html#s215"
+      "target": "/android/basics/system-services/package-installer-service.html#s215"
     },
     {
       "sourceId": "218",
       "kind": "context",
       "label": "重点步骤：",
-      "target": "/android/basics/system-services.html#s203"
+      "target": "/android/basics/system-services/package-installer-service.html#s203"
     },
     {
       "sourceId": "221",
       "kind": "knowledge",
       "label": "getPackageInstaller():PackageInstaller ----> createSession():Int ---- >openSession(sessionId:Int):PackageInstallerSession ---->commit()",
-      "target": "/android/basics/system-services.html#installer-flow"
+      "target": "/android/basics/system-services/package-installer-service.html#installer-flow"
     },
     {
       "sourceId": "224",

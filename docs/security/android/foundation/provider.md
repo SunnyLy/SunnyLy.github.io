@@ -7,23 +7,9 @@ description: 分清 authority、导出、读写与路径权限、临时 URI gran
 
 # ContentProvider 访问模型
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
-- [ContentProvider](/security/android/component-security.html#s57)
-- [组件暴露安全](/security/android/component-security.html#s60)
-- [Provider uriPath 权限控制](/security/android/component-security.html#s66)
-- [隐式 Intent 的 URI 操作权限](/security/android/component-security.html#s72)
-- [getType() 方法安全](/security/android/component-security.html#s75)
-- [MIME 查询原理与权限边界](/security/android/component-security.html#s78)
-- [空 URI 与未定义 URI](/security/android/component-security.html#s81)
-- [authority 劫持](/security/android/component-security.html#s84)
-- [authority 唯一性与抢先安装](/security/android/component-security.html#s87)
-:::
+现行分类：[ContentProvider](/security/android/component-security.html#s57)、[组件暴露安全](/security/android/component-security.html#s60)、[Provider uriPath 权限控制](/security/android/component-security.html#s66)、[隐式 Intent 的 URI 操作权限](/security/android/component-security.html#s72)、[getType() 方法安全](/security/android/component-security.html#s75)、[MIME 查询原理与权限边界](/security/android/component-security.html#s78)、[空 URI 与未定义 URI](/security/android/component-security.html#s81)、[authority 劫持](/security/android/component-security.html#s84)、[authority 唯一性与抢先安装](/security/android/component-security.html#s87)。
 
 同一个 content URI 可以被用于查询、写入、打开文件或询问 MIME 类型。这些操作的权限路径并不完全相同。只看到 `exported="false"`，或只检查一个 query 方法，都不足以判断整套数据接口是否符合预期。
-
-本文属于基础层，前置知识为 [权限模型](./security-model.html)和 [Intent URI 授权](./activity-intent.html#uri-grants)。原提纲的 `ContenetProvider` 应写作 ContentProvider。下文是机制与验证设计，未编译样例、未进行安装或设备实验。
 
 ## authority 是路由名，不是资源所有权证明 {#authority-routing}
 
@@ -33,13 +19,15 @@ description: 分清 authority、导出、读写与路径权限、临时 URI gran
 
 ### 名称冲突、抢先占用与任意劫持是不同结果 {#authority-conflicts}
 
-来源把 authority 唯一性和抢先安装称为“authority 劫持”。严谨分析需要区分：目标应用因名称冲突未能安装，客户端在目标应用缺失时误信其他 Provider，以及目标已安装时是否能被替换。安装失败和成功接管数据不是同一个安全影响。
+authority 冲突导致安装失败，与客户端信任了错误提供者属于不同问题。前者检查安装和更新规则，后者检查实际解析出的包、签名和业务协议；路由名称本身不能证明提供者可信。
 
-不要仅凭“名字公开且可配置”认定任意应用可接管已安装 Provider。需保存安装先后、更新关系、签名、用户/配置文件、完整 authority 和实际解析结果。多用户与特定 OEM 的行为不能从一个普通样例推导。本文没有完成这些实验，因此不宣布某条“抢注利用链”成立。
+跨应用读取前，应确认解析出的提供者符合预期合作身份，并按用户/配置文件限定资源。目标缺失时明确失败，不接受任意同名 authority 提供者作为替代；安装冲突与解析结果应分别记录。
 
 **验证路线**：仅在隔离设备使用自有双样例，依次测试不同安装顺序、目标缺失和正常更新；记录安装返回与客户端解析到的包，确认失败发生在哪一阶段。防护上避免用一个路由字符串充当合作方认证；可信合作还需核对身份与业务协议。
 
 ## 导出、读写权限与临时授权共同形成访问面 {#provider-permissions}
+
+跨进程请求先进入 Binder `Transport`：校验 URI，再按操作执行读、写或文件权限检查，之后才调用 Provider 的业务方法。`Transport.openFile()` 先检查模式与授权，应用的 `openFile()` 再映射实际文件并返回描述符；只保护 `query()` 不能保护另一条文件入口。[AOSP Transport](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/ContentProvider.java#L588)
 
 Provider 可通过 permission 或分开的 readPermission、writePermission 控制访问。导出控制常规外部可达性，URI grant 可为特定资源提供临时访问能力；因此正常共享场景中“不导出”与“授予某 URI”并不矛盾。[Provider 权限定义](https://developer.android.com/guide/topics/manifest/provider-element#prmsn)
 
@@ -76,7 +64,7 @@ path-permission 对 URI 路径设置访问要求；它与 Provider 内部如何�
 
 ## URI grant 要和接收方及生命周期一起审查 {#uri-sharing}
 
-临时 URI 授权是分享某项访问能力，不应把原文“禁止隐式 Intent 授权”简化成所有解析式分享均必然有漏洞。关键是目标如何选择、谁实际取得授权、授权作用于哪些资源以及何时失效。[ContentProvider 临时权限](https://developer.android.com/guide/topics/providers/content-provider-basics#Permissions)
+临时 URI 授权向接收方交付某项资源的访问能力。检查实际目标、读写范围、前缀/持久标记和失效时机；系统分享选择器可用于用户主动选择接收方，但不应附带超出分享目的的写权限。[ContentProvider 临时权限](https://developer.android.com/guide/topics/providers/content-provider-basics#Permissions)
 
 显式限制接收方有助于收窄边界；需要选择器的合法分享也应保证只给业务需要的能力。发送者持有资源不意味着应该把写权限一并交出去，前缀和持久授权也不能默认继承。
 
@@ -100,7 +88,7 @@ API 34 增加 `getTypeAnonymous(Uri)`，用于提供不需要权限即可公开�
 
 ## 空输入与未定义 URI 不应引发副作用 {#invalid-uri}
 
-原文“传入空 URI 或其他未定义 URI”需要进一步区分 null、不支持的 scheme/authority、空路径和不存在资源。API 对 uri 的非空契约不意味着应用可以相信所有到达的路径；也不能因为某个畸形输入造成异常就直接宣布数据越权。
+应区分 `null`、不支持的 scheme/authority、空路径和不存在资源。前者可能在调用入口被拒绝，其余输入仍需由 Provider 按方法契约处理；不能在处理未知类型时转而打开任意路径。
 
 实现可根据具体方法契约对不支持输入返回适当结果或受控异常，关键是行为确定、无敏感副作用、不把异常细节作为内部数据出口。getType 的未知类型可以按契约返回 null，不能为“成功处理”而任意打开输入路径。
 

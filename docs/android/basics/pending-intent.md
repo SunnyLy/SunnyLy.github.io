@@ -7,13 +7,14 @@ outline: [2, 3]
 
 `PendingIntent` 是可以交给其他组件或系统持有的操作凭据，常见于通知点击、闹钟和安装结果回调。接收者以后触发操作时，系统使用创建者授予的身份和权限执行相应请求；它不只是一个延迟保存的 Intent，也不保证目标操作一定成功。
 
-本文对应[原提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)的“PendingIntent 原理 / 关键点 IntentSender”。内部链路以 AOSP `android-16.0.0_r1` 为基线；公开行为以 [PendingIntent API](https://developer.android.com/reference/android/app/PendingIntent) 为准。
 
 ## IntentSender：凭据背后的 Binder {#s227}
 
 公开 `PendingIntent` 包装 `IIntentSender` 引用，`getIntentSender()` 可以取得公开的 `IntentSender` 包装对象。创建或取得凭据时，框架经 AMS 与 PendingIntent 管理逻辑查找或建立系统记录；之后的 `send()` 请求由系统解析这份记录，派发 Activity、广播或服务操作。
 
 `IntentSender` 不是 Activity 或 Receiver 的实例，不代表调用者获得创建者的全部权限。能力范围还受记录的操作类型、目标、Intent 内容、可变性以及系统启动策略约束。不能直接把系统内部 `IIntentSender` 当作普通应用应调用的 SDK。[PendingIntent 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/PendingIntent.java)、[IntentSender API](https://developer.android.com/reference/android/content/IntentSender)
+
+这里的身份委托是关键：持有者触发的是**创建者身份下预先描述的操作**，不是把整套权限复制到持有者进程。`getCreatorUid()`、`getCreatorPackage()` 可查询系统记录的创建者，但无法证明是谁把凭据转交给当前应用，因为它还可以被再次转交。业务如需识别交付方，应使用独立的认证协议。[创建者身份 API](https://developer.android.com/reference/android/app/PendingIntent#getCreatorUid())
 
 ```mermaid
 sequenceDiagram
@@ -57,10 +58,12 @@ API 23 起可使用 `FLAG_IMMUTABLE`；面向 Android 12 / API 31 及以上的�
 
 ### PackageInstaller 回调的例外
 
-不要机械地将所有 PendingIntent 改成不可变：`PackageInstaller.Session.commit(IntentSender)` 的回调需要系统填入结果。公开文档规定，当应用 target SDK 为 35 或更高时，使用来自不可变 PendingIntent 的状态接收器会抛出 `IllegalArgumentException`。应按安装 API 的契约配置明确指向本应用接收组件的可变凭据，并处理用户确认及最终状态，详见[安装会话流程](./system-services.html#installer-flow)。
+不要机械地将所有 PendingIntent 改成不可变：`PackageInstaller.Session.commit(IntentSender)` 的回调需要系统填入结果。公开文档规定，当应用 target SDK 为 35 或更高时，使用来自不可变 PendingIntent 的状态接收器会抛出 `IllegalArgumentException`。应按安装 API 的契约配置明确指向本应用接收组件的可变凭据，并处理用户确认及最终状态，详见[安装会话流程](./system-services/package-installer-service.html#installer-flow)。
 
 ## 取消、失败与业务完成
 
 持有者调用 `send()` 可能遇到 `CanceledException`；创建方应在业务失效时撤销凭据，并设计重复触发与过期处理。发送结果、系统接受启动、目标组件执行和业务成功是不同边界，关键业务需要自己的请求编号、状态校验和回执。
 
-排查时先确认凭据类型、创建者、requestCode、Intent 身份和 flags，再检查目标组件及当前启动限制。不要通过打印完整 Intent extras 泄漏凭据、账号或个人数据。本文未调用真实通知、闹钟或安装操作。
+排查时先确认凭据类型、创建者、requestCode、Intent 身份和 flags，再检查目标组件及当前启动限制。不要通过打印完整 Intent extras 泄漏凭据、账号或个人数据。
+
+原始笔记：[Android 基础知识提纲](https://alidocs.dingtalk.com/i/nodes/1OQX0akWmxaRZD7yfgRMaeOX8GlDd3mE)。

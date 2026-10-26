@@ -1,0 +1,20 @@
+# 系统服务个人笔记审阅记录
+
+范围：五篇 Framework 专题与五篇系统服务基础笔记。仅核对官方源码与 API 契约，未编译教学片段、未运行设备命令或测量时序；全站构建由主控统一执行。
+
+共同修改：删除整理史、查看器操作及重复的范围声明；保留所有原有标题、锚点和原始笔记链接。行为差异放回对应机制，保留 Android 9 TaskRecord 与 Android 16 Task 的区别、Binder 独立内核参考范围。
+
+- **activity-token.md**：原有创建、往返解析与启动链成立；补客户端 `mActivities` 与服务端 `ActivityRecord` 的不同查表边界，区分未执行启动和已销毁。依据：[ActivityThread 入表](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4204)。
+- **binder-mechanism.md**：保留请求/回复、对象转换和图片顺序；补 `freeBuffer` → `BC_FREE_BUFFER` 的接收区归还，说明指针所有权与共享接收容量的关系。依据：[IPCThreadState](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1696)。
+- **client-transaction.md**：保留现代 item 列表和生命周期状态机；补 launch 的 preExecute 计数、进程状态、pending configuration，以及接收与主线程执行的观察差异。依据：[LaunchActivityItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#202)。
+- **service-manager-aidl.md**：保留目录与业务调用分离；补 Manager 包装对象缓存与 Binder 引用缓存的层次，避免把复用 Manager 当成无 IPC。依据：[CachedServiceFetcher](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/SystemServiceRegistry.java#2285)。
+- **surfaceflinger-vsync.md**：保留硬件采样、预测与 fence 的边界；补按帧选择的直接/异步 present 分支，不归纳为所有输出永远同一线程。依据：[CompositionEngine Output](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/CompositionEngine/src/Output.cpp#487)。
+- **ams-atms.md**：保留完整启动时序与历史模型；补 ATMS/AMS 同进程但不同锁、Handler 避免锁顺序风险，以及 PID 创建与 ApplicationThread attach 的区别。依据：[ATMS startProcessAsync](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskManagerService.java)。
+- **pms.md**：将接口继承/职责委托写成直接说明；补 clearApplicationUserData 的权限、用户、保护包检查及 Handler、冻结进程、安装锁、结果回调。依据：[PMS 接口实现](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/PackageManagerService.java#4792)。
+- **package-installer-service.md**：补服务端封存与 Handler 安装阶段、sessionId 与访问资格区别、流写入/fsync/commit 示例，保留可变结果 PendingIntent 的 target 35 条件。依据：[PackageInstallerSession](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/PackageInstallerSession.java#2189)、[PackageInstallerService](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/PackageInstallerService.java#655)、[公开 Session 契约](https://developer.android.com/reference/android/content/pm/PackageInstaller.Session)。
+- **wms.md**：补两端对象、add/relayout/finishDrawing 时序，区分窗口布局、应用绘制、图像提交与显示完成，并补按症状定位。依据：[ViewRootImpl](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java#1633)、[Session](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/Session.java#248)、[WMS](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#1534)。
+- **content-service.md**：补 authority/path 观察树、用户与订阅匹配、后台延迟分发、Transport/Handler、后台重新查询及同步调度边界。依据：[ContentService](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/content/ContentService.java#365)、[分发策略](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/content/ContentService.java#581)、[ContentObserver](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/database/ContentObserver.java#321)。
+
+待确认仅涉及实际设备组合、厂商修改、权限可见性和运行耗时；正文没有据固定标签推断某台设备行为。
+
+核验：十篇原有标题与锚点、五篇 Framework 的原有外部来源 URL、Binder 图片顺序及空白检查通过；WMS、ContentService 新增时序图通过已安装 Mermaid 的 parse 检查。未运行全站构建。

@@ -1,15 +1,9 @@
 ---
-description: 配置安全，按 Android 安全原提纲逐项展开机制、成立条件、防护和验证边界。
+description: 从权限授予、发布配置、数据生命周期到动态代码，理解 Android 配置如何影响真实访问能力。
 outline: [2, 4]
 ---
 
 # 配置安全
-
-本章按原提纲的分类和子项顺序组织。左侧条目、正文标题与本文目录使用同一组标题和锚点。
-
-::: info 适用与验证边界
-平台行为需分别核对运行 OS、target SDK 和依赖版本；历史检查项已按正文依据限定条件。所有代码均为教学片段，未经过 Android 工程编译或真机执行；域名、容量阈值及业务规则为示例，不能直接作为生产策略。
-:::
 
 配置安全不是 Manifest 单文件检查。发布变体可能合并依赖组件，运行时还可能注册 Receiver、生成 URI 授权或暴露 Binder 对象。因此应从最终发布物出发，追踪每个入口到敏感操作和返回数据。
 
@@ -22,7 +16,7 @@ adb shell getprop ro.build.version.sdk
 adb shell getprop ro.build.fingerprint
 ```
 
-随后保存应用实际 targetSdk、安装状态与签名信息，再执行前述多客户端测试。没有设备或完整样例时，只能完成文档/配置审阅，不能记录成已验证所有平台。
+运行系统决定平台实现，`targetSdk` 决定部分兼容行为；同时记录发布变体的 target、签名与最终 Manifest，才能解释同一份源码在不同安装包上的差异。
 
 继续阅读：[Activity 与 Intent](/security/android/foundation/activity-intent.html)、[Service 与 IPC](/security/android/foundation/service-ipc.html)、[ContentProvider](/security/android/foundation/provider.html)。
 
@@ -40,7 +34,7 @@ Android 应用沙箱以 Linux UID 为基础，结合文件权限及其他平台�
 
 ## sharedUserId 与 UID 共享 {#s108}
 
-历史应用可以在符合签名等条件时共享 UID，代价是合并原本隔离的信任边界。`sharedUserId` 自 API 29 起弃用；已有应用不能简单删除该属性当作安全迁移，新安装与已有安装也需分别设计。原提纲“不同越塔不要设置相同的 UID”应规范理解为不同应用的共享身份风险。[Manifest 的 sharedUserId 说明](https://developer.android.com/guide/topics/manifest/manifest-element#uid)
+历史应用可以在符合签名等条件时共享 UID，代价是合并原本隔离的信任边界：文件访问和权限检查看到的是共享身份，而非各自包名。`sharedUserId` 自 API 29 起弃用；已有应用不能简单删除该属性当作安全迁移，新安装与已有安装需分别设计。[Manifest 的 sharedUserId 说明](https://developer.android.com/guide/topics/manifest/manifest-element#uid)
 
 新设计优先通过权限明确的 Service 或 Provider 通信。维护历史包时，先清点共享 UID 的所有成员、签名和可访问数据，再制定兼容迁移；不要只改一个 Manifest 就声称完成隔离。
 
@@ -129,6 +123,8 @@ flowchart TD
 
 自定义权限的 `protectionLevel` 决定授予策略，原文 `protectLevel` 不是正确属性。若接口只供同签名家族应用使用，可考虑 signature 权限；若业务确实面向其他应用，需另行设计受信关系。normal、dangerous、signature 各有用途，不能统一替换成一个等级。[permission 元素定义](https://developer.android.com/guide/topics/manifest/permission-element)
 
+**从声明到检查**：权限定义方声明保护等级，调用方通过 `<uses-permission>` 请求该名称，系统按等级决定是否授予；组件启动或业务 API 再检查调用 UID 是否持有它。`normal` 通常在安装时授予，`dangerous` 按适用系统与 target 进入运行时授权，`signature` 依赖签名关系而非用户点击批准。因此权限名相同、包名前缀相同或请求了权限，都不等于已经获准访问。[权限授予机制](https://developer.android.com/guide/topics/permissions/overview)
+
 ```xml
 <!-- 教学片段：声明位于 manifest 下，service 位于 application 下。 -->
 <permission
@@ -183,7 +179,7 @@ flowchart TD
 
 ## APK 暗码与隐藏入口 {#s129}
 
-原笔记中的“暗码”不是一个统一 Android API。应把它具体化：调试 Activity、测试深链、特殊广播 action、WebView 调试页面、远程诊断指令，或者隐藏菜单开启后的特权操作。
+“暗码”通常指隐藏功能的触发入口，例如调试 Activity、测试深链、特殊广播 action、WebView 调试页面、远程诊断指令或隐藏菜单。真正需要保护的是触发后可调用的能力，而不是触发字符串是否容易猜到。
 
 风险成立需要入口可达并能触发未授权能力。例如外部 App 能启动测试 Activity，后者信任 extras 就导出私有日志。防护应优先在正式变体移除不需要的入口；确需保留诊断功能时，再限制调用主体、业务授权、数据范围与有效期，而不是只隐藏按钮或把 action 改得复杂。
 
@@ -264,7 +260,7 @@ Android Keystore 可使密钥材料不直接进入应用进程，并限制密钥
 
 读取缓存前也要检查大小、有效格式和资源归属。缓存损坏可回源重建，但不能无限重试或无限留存坏文件。应用外部目录中的可修改内容不应成为无需校验的可信源；目录选择见 [Android 数据与文件存储](https://developer.android.com/training/data-storage)。
 
-原提纲的“本地缓存攻击”不是一个由头像大小直接证明的固定漏洞名称。需进一步确认谁能控制缓存、缓存如何命名和覆盖、解码器如何处理输入，以及能否影响其他账户或造成稳定资源耗尽。
+大小约束作用于压缩文件、解码像素、并发任务与缓存总量四个阶段。下载体积受限的头像仍可能解码为很大的位图；按账户隔离缓存则解决数据串用，两者需要分别实现。[图片解码预算](/security/android/file-operations.html#s174)
 
 ## META-INF 中的 APK、ODEX、SO {#s144}
 
@@ -303,7 +299,7 @@ fun copySensitive(clipboard: ClipboardManager, text: String) {
 
 如果产品实现主动清理，需要识别仍是本次写入的剪贴项，并考虑用户已经复制新内容的情况。读取、比较、再清空不是跨进程原子操作，不能无条件清空用户后来复制的数据。应优先缩短秘密有效期、让复制成为明确用户操作，并谨慎说明清理的最佳努力性质。
 
-例如验证码即使显示为敏感且随后清空，也仍应由服务端限制用途、有效期和重放；UI 措施不能把可复制数据变成不可转交凭据。这里的限制是防护能力边界，不是已在本文复现的攻击结论。
+验证码即使标记敏感并随后清空，服务端仍需限制用途、有效期和重放；剪贴板 UI 不改变凭据可被复制、转交的性质。
 
 ## 应用混淆规则增强 {#s150}
 
@@ -397,7 +393,7 @@ static FixDecision classifyFix(Location fix, long maxAgeMillis,
 
 旧的 `Settings.Secure.ALLOW_MOCK_LOCATION` 自 API 23 弃用，官方说明该设置已不再使用。继续读取旧键、反射隐藏接口或依赖设置界面文字，不能构成通用可靠检测方案。[旧设置的弃用说明](https://developer.android.com/reference/android/provider/Settings.Secure#ALLOW_MOCK_LOCATION)
 
-原提纲要求检查“选择模拟位置信息应用”，但普通应用不能凭一个旧开关就可靠还原所有平台上的选择状态。不要为此扫描用户完整应用列表，也不要把“安装了某工具”直接变成不利决定；只采集与业务有关且有说明的必要信号。
+“选择模拟位置信息应用”与开发者选项总开关、某条 `Location` 的模拟标记是三个不同状态。实际业务优先检查本次位置、采样时间和质量；旧设置键不能可靠代替本次位置判断，也不应以扫描用户完整应用列表来替代。
 
 ## 插件动态加载 {#s159}
 

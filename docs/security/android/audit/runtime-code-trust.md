@@ -6,22 +6,14 @@ description: 区分应用动态代码与 TEE 可信应用，从来源、完整�
 
 # 动态代码与可信执行文件
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
+::: info 相关分类
 - [插件动态加载](/security/android/configuration-security.html#s159)
 - [TA 文件安全](/security/android/special-functions.html#s195)
 :::
 
-一个插件文件存放在应用私有目录，为什么仍可能不可信？私有目录降低其他应用直接替换文件的机会，却不能证明文件由谁发布、是否被回滚，或应用自己的下载和解压链是否把不可信数据写进来了。动态加载审计要沿着“取得字节到执行字节”的完整链路判断。
+动态代码的信任链从字节来源延伸到实际执行对象。私有目录减少其他应用直接替换文件的机会，但发布者授权、版本回滚、下载解压和加载时的防替换仍需要分别处理。
 
-本篇属于审计层，先理解[安全模型](../foundation/security-model.html)和[文件边界](../engineering/file-sharing.html)。覆盖原提纲的插件动态加载，以及只有标题的“TA 文件安全”；后者按条件解释，不推断原作者使用的具体平台。
-
-::: info 适用与验证边界
-- Android 行为变化以官方对应版本文档为依据；独立库和 OEM 加载协议需另外固定版本。
-- Java 示例是教学片段，省略 imports，未编译、未做设备或 TEE 运行验证。
-- 本篇讨论防护与审计，不提供在第三方应用中注入代码的操作。
-:::
+权限边界见[安全模型](../foundation/security-model.html)，存储与共享路径见[文件边界](../engineering/file-sharing.html)。
 
 ## 1. 插件加载链的信任主体 {#plugin-chain}
 
@@ -83,11 +75,13 @@ static boolean matchesTrustedContent(byte[] content,
 
 这是典型的校验与使用之间的竞争窗口。即使路径字符串没有变化，它指向的内容也可能被替换。优先采用不允许不可信写入者参与的私有发布目录和清晰的版本切换流程；具体加载器如何打开文件，仍须按实现核对。
 
+版本切换还涉及**内存中的旧代码**：替换磁盘文件不会替换已加载的 Class 或现存实例。类卸载取决于定义加载器是否可被回收，不能靠删除文件或置空一个局部变量保证立即卸载。更新时应停止分发新工作，处理在途任务和回调，释放插件线程及对象引用；新加载器产生的同名类型也不能自动替换旧类型。[类卸载条件 §12.7](https://docs.oracle.com/javase/specs/jls/se17/html/jls-12.html#jls-12.7)、[Android 类加载机制](../../../android/basics/class-loading.html)
+
 应用发布渠道也有自己的动态代码政策。满足平台加载要求不代表自动满足商店政策；是否允许远程交付可执行代码，应对照所用渠道的最新规则。[官方风险页中的政策提示](https://developer.android.com/privacy-and-security/risks/dynamic-code-loading)
 
 ## 4. 若 TA 指 Trusted Application {#ta-scope}
 
-原提纲只有“TA 文件安全”标题。**若此处 TA 指 Trusted Application**，审计对象属于 TEE 与设备平台信任链，不能直接套用普通插件的 `ClassLoader` 模型；也不能由这个缩写推断设备使用 Trusty。
+**TA 若指 Trusted Application**，其加载属于 TEE 与设备平台信任链，与普通插件的 `ClassLoader` 模型不同；需要先确认所用 TEE 实现及其文件、签名和部署协议。
 
 以 AOSP Trusty 为例，它是与 Android 隔离运行的安全操作系统，通过驱动和用户态通信库连接 Android 与可信应用。Trusty 是一种 TEE 实现，不代表所有 Android 设备的安全世界都使用同一内核、文件格式或部署协议。[Trusty 架构](https://source.android.com/docs/security/features/trusty)
 

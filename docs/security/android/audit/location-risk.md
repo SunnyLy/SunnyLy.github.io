@@ -6,22 +6,14 @@ description: 将模拟位置标记、位置质量与设备状态作为有局限�
 
 # 模拟位置与位置业务风控
 
-::: info 旧专题链接
-本站已将正文按原提纲五类重新组织。本页保留供历史链接查阅，不再出现在全文搜索中；请从以下同名章节继续阅读。
-
+::: info 相关分类
 - [模拟位置检查](/security/android/configuration-security.html#s153)
 - [开发者选项与模拟位置应用检测](/security/android/configuration-security.html#s156)
 :::
 
-用户开启开发者选项，是否就应该拒绝签到或交易？不能由这个状态直接得出作弊结论。开发、测试和辅助场景可能合法使用相关能力；反过来，开关关闭也不能证明位置一定真实。位置业务应先定义需要证明什么，再选择证据和处置策略。
+开发者选项描述设备设置状态，不能直接证明某次位置是否真实。位置业务需要分别评估采样质量、模拟标记、会话关联与操作风险，再决定重试、复核或授权。
 
-本篇属于审计层，覆盖原提纲的模拟位置检查及开发者选项/模拟应用检测。先理解[安全模型](../foundation/security-model.html)中的客户端信任边界；账号关联和恢复策略见[数据生命周期](../engineering/data-lifecycle.html)。
-
-::: info 适用与验证边界
-- Android API 版本按官方契约标注；系统服务、OEM 和定位 SDK 的行为不能互相替代。
-- 示例为未编译、未真机验证的 Java 教学片段，要求最低 API 18，编译 SDK 支持 API 31。
-- 没有采集真实位置、扫描用户设备或复现绕过；本篇不提供伪造位置的操作步骤。
-:::
+客户端信任边界见[安全模型](../foundation/security-model.html)，账号关联和恢复策略见[数据生命周期](../engineering/data-lifecycle.html)。
 
 ## 1. 模拟标记说明什么 {#mock-signals}
 
@@ -53,11 +45,11 @@ flowchart TD
 
 旧的 `Settings.Secure.ALLOW_MOCK_LOCATION` 自 API 23 弃用，官方说明该设置已不再使用。继续读取旧键、反射隐藏接口或依赖设置界面文字，不能构成通用可靠检测方案。[旧设置的弃用说明](https://developer.android.com/reference/android/provider/Settings.Secure#ALLOW_MOCK_LOCATION)
 
-原提纲要求检查“选择模拟位置信息应用”，但普通应用不能凭一个旧开关就可靠还原所有平台上的选择状态。不要为此扫描用户完整应用列表，也不要把“安装了某工具”直接变成不利决定；只采集与业务有关且有说明的必要信号。
+普通应用不能凭一个旧开关就可靠还原所有平台上的模拟位置应用选择状态。采集信号应限于业务必要范围；应用安装情况本身不证明这次定位来源。
 
 ## 3. 教学示例：只做候选位置分级 {#candidate-validation}
 
-下面片段根据采样年龄、精度与模拟标记输出下一步建议，不直接决定账号处罚或交易授权。参数由业务定义，不代表 Android 推荐统一阈值；失败状态保留原因，不能把“未知”写成“正常”。
+下面片段根据采样年龄、精度与模拟标记输出候选位置状态，要求 API 18+、compile SDK 31+。参数由业务定义；失败状态保留原因，不直接决定账号处罚或交易授权。
 
 ```java
 enum FixDecision { RETRY_QUALITY, REVIEW_SIGNAL, CANDIDATE_ONLY }
@@ -70,6 +62,12 @@ static FixDecision classifyFix(Location fix, long maxAgeMillis,
         throw new IllegalArgumentException("invalid policy budget");
     }
     if (fix == null || !fix.hasAccuracy()) {
+        return FixDecision.RETRY_QUALITY;
+    }
+    double latitude = fix.getLatitude();
+    double longitude = fix.getLongitude();
+    if (Double.isNaN(latitude) || latitude < -90 || latitude > 90
+            || Double.isNaN(longitude) || longitude < -180 || longitude > 180) {
         return FixDecision.RETRY_QUALITY;
     }
     long now = SystemClock.elapsedRealtimeNanos();
@@ -93,7 +91,9 @@ static FixDecision classifyFix(Location fix, long maxAgeMillis,
 
 本例要求位置来自当前启动周期内的可信获取路径。`getElapsedRealtimeNanos()` 可与本机单调时钟比较，不能拿另一设备或重启前的值计算年龄；墙上时间会被用户或网络校时改变，不适合替代这个年龄比较。[Location 时钟约定](https://developer.android.com/reference/android/location/Location#getElapsedRealtimeNanos())
 
-片段没有验证全部业务字段，没有实现定位订阅、权限申请或服务端防重放；调用方还要判断坐标数值与业务范围，严格限制请求规模。它也没有证明对象未被应用内其他代码修改，不能当完整反作弊 SDK。
+`getAccuracy()` 是以米为单位、约 68% 置信水平的水平误差半径，不是误差绝不会超过的上界。处于签到区域边缘时，单个坐标落在线内不足以确定真实位置也在线内；可要求更新采样、结合误差范围复核或提供替代流程。[水平精度契约](https://developer.android.com/reference/android/location/Location#getAccuracy())
+
+坐标范围检查不替代业务范围判断。调用方仍需实现定位订阅、权限申请和服务端防重放，并明确 Location 对象的修改所有权，避免分级过程中被其他线程改变。
 
 同一误差阈值不适合所有用途。系统允许用户仅授予近似位置；地下空间、弱信号和节电环境也可能降低质量。应解释为何需要更精确或更新的位置，允许重试及合理替代，而不是把授权较少或定位较差判为攻击。[位置权限与精度选择](https://developer.android.com/develop/sensors-and-location/location/permissions)
 
@@ -113,4 +113,4 @@ static FixDecision classifyFix(Location fix, long maxAgeMillis,
 
 对服务端请求另测过期会话、重复请求和操作不匹配：即使位置字段看似正常，也应遵守业务授权。需要真实位置实验时先取得参与者同意并最小化保存；日志优先记录状态原因与时间区间，避免无必要持久化完整轨迹。
 
-至少记录实际 OS/API、target SDK、定位来源、授权精度、采样年龄及预期结果。本文未执行这些实验，不给出准确率、识别率或“无法绕过”的结论；无模拟标记只能作为当前观测，不能外推为安全证明。
+至少记录实际 OS/API、target SDK、定位来源、授权精度、采样年龄及预期结果。无模拟标记只能作为当前观测，不能外推为位置真实性证明。

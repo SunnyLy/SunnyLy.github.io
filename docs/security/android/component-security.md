@@ -1,15 +1,9 @@
 ---
-description: 通用组件安全，按 Android 安全原提纲逐项展开机制、成立条件、防护和验证边界。
+description: 理解 Activity、广播、Service 与 Provider 的入口权限、调用身份、资源授权及安全实现。
 outline: [2, 4]
 ---
 
 # 通用组件安全
-
-本章按原提纲的分类和子项顺序组织。左侧条目、正文标题与本文目录使用同一组标题和锚点。
-
-::: info 适用与验证边界
-平台行为需分别核对运行 OS、target SDK 和依赖版本；历史检查项已按正文依据限定条件。所有代码均为教学片段，未经过 Android 工程编译或真机执行；域名、容量阈值及业务规则为示例，不能直接作为生产策略。
-:::
 
 Android 应用沙箱以 Linux UID 为基础，结合文件权限及其他平台机制隔离应用。应用启动多个进程，并不会因此自动获得几组相互独立的应用权限。反过来，相同包名字符串也不能作为调用者身份证明，身份应来自对应通信机制提供的可信信息。[AOSP 应用沙箱](https://source.android.com/docs/security/app-sandbox)
 
@@ -18,6 +12,8 @@ Android 应用沙箱以 Linux UID 为基础，结合文件权限及其他平台�
 ## Activity {#s6}
 
 Activity 可从外部链接、其他应用或应用内部流程进入。入口需要验证必需字段、类型、长度、允许值与资源归属；对已经复用的实例，新的 Intent 也应走同一套验证逻辑。不能只在首次创建时校验，后续直接相信新参数。[Activity 定义与生命周期](https://developer.android.com/reference/android/app/Activity)
+
+**检查发生在两层**：系统处理启动请求时检查目标组件的导出状态和所需权限；应用在 `onCreate()` 与 `onNewIntent()` 中解析业务参数并授权资源。`intent-filter` 负责路由匹配，不是调用者身份认证；Android 13 起，接收方 target 33+ 的相应外部 Intent 还受声明过滤器匹配要求约束。匹配成功仍不代表当前账户有权操作资源。[Intent 匹配与安全](https://developer.android.com/guide/components/intents-filters)
 
 ### 权限与属性设置 {#s9}
 
@@ -189,7 +185,7 @@ Android 12 上，面向 API 31 及以上、带 intent-filter 的 Receiver 需要
 
 ### Service 组件暴露安全 {#s42}
 
-启动服务把一个工作请求交给组件，绑定服务则取得可交互的接口。一个 Service 也可以同时具备两种用法，所以应分别检查处理入口，不能只审查 onBind。[绑定服务概览](https://developer.android.com/develop/background-work/services/bound-services)
+`startService()` / `bindService()` 先进入系统的服务管理路径，系统检查目标服务的导出和入口权限，再调度 `onStartCommand()` / `onBind()`。这些生命周期回调由系统交付，不能在里面随手读取 Binder UID 就认定找到了最初请求者；远程接口的身份检查应放在每次 AIDL 事务中。[绑定服务概览](https://developer.android.com/develop/background-work/services/bound-services)
 
 无需其他应用使用的服务，显式限制导出。需要外部访问时，在 Manifest 中声明适合业务的准入权限，并检查最终合并配置；公开可达不意味着可以替外部调用者操作任何账户或文件。[service 元素定义](https://developer.android.com/guide/topics/manifest/service-element)
 
@@ -231,7 +227,7 @@ sequenceDiagram
 
 AIDL 定义双方如何传递调用，不判断输入资源属于哪个账户。每个敏感方法需要在修改状态之前检查调用能力和业务资源，不能只保护“获取接口”方法。远程请求也可能并发，因此授权状态与实际操作之间应避免出现可利用的不一致窗口。[AIDL 官方说明](https://developer.android.com/develop/background-work/services/aidl)
 
-以下是伪代码，刻意不使用未定义的真实工程类。权限检查必须处在可信调用上下文，不能把这些示意函数当成 Android SDK：
+方法级检查顺序如下，名称表示业务策略：
 
 ```text
 on incoming remote business transaction:
@@ -258,6 +254,8 @@ on incoming remote business transaction:
 
 Messenger 把请求交给 Handler 处理，有助于串行化消息，但消息编号、Bundle、replyTo 都不能自动充当业务身份。`Message.sendingUid` 由通过 Messenger 发送的路径提供；其他构造方式可能没有有效值，需按其契约检查，不能盲信自定义 Bundle 里的包名或 uid。[Message.sendingUid](https://developer.android.com/reference/android/os/Message#sendingUid)
 
+**身份如何跨过消息队列**：AOSP 的 `Handler.MessengerImpl.send()` 在 Binder 接收线程先执行 `msg.sendingUid = Binder.getCallingUid()`，再调用 `Handler.this.sendMessage(msg)` 入队。Handler 稍后处理消息时应读取这个已记录的字段；此时重新调用 `Binder.getCallingUid()` 已经脱离原事务。发送者自行填写 `sendingUid` 不会代替接收端这一步赋值。指定合作 App 的校验和回复示例见 [Messenger](/android/basics/messenger.html)。[AOSP Handler](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/Handler.java#L974)
+
 防护应先确认消息来源和准入策略，再解释允许的 what 与数据格式，拒绝未知命令；响应只发给业务确实允许的回调对象。敏感服务仍应有入口限制和资源授权，不能把 Handler 串行执行误认为安全隔离。
 
 **验证路线**：用正常 Messenger 客户端、无效消息编号、缺数据与非受信客户端测试；检查身份缺失时是否拒绝敏感动作。对回复路径也观察信息是否交给非预期接收方。
@@ -281,6 +279,8 @@ Messenger 把请求交给 Handler 处理，有助于串行化消息，但消息�
 ### 组件暴露安全 {#s60}
 
 Provider 可通过 permission 或分开的 readPermission、writePermission 控制访问。导出控制常规外部可达性，URI grant 可为特定资源提供临时访问能力；因此正常共享场景中“不导出”与“授予某 URI”并不矛盾。[Provider 权限定义](https://developer.android.com/guide/topics/manifest/provider-element#prmsn)
+
+**权限由哪层检查**：跨进程访问先进入 Provider 的 Binder `Transport`，它校验输入 URI，并根据读、写或文件模式进入权限检查，再调用应用实现的 `query()` / `openFile()` 等方法。框架检查涉及调用 UID、导出与用户边界、组件/路径权限及 URI grant；应用方法仍须检查具体记录或文件是否属于获准资源。[AOSP Transport 与读权限检查](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/ContentProvider.java#L948)
 
 ```mermaid
 flowchart TD
@@ -310,6 +310,8 @@ flowchart TD
 自定义 Provider 或接收端拼接路径时，先把业务对象映射到受控文件，再检查最终规范化路径是否位于可信根目录内。字符串 `startsWith(root)` 可能把 `root-other` 错当子目录，检查要包含目录边界；更不能先检查一份路径，却随后打开另一份重新拼接的路径。
 
 canonical 路径能处理一类 `..` 和符号链接问题，却不能自动消除“检查后、打开前”目标被替换的竞态。安全前提应包含根目录及其父目录不由攻击者控制；避免在可被其他应用写入的共享目录中执行敏感更新。[Android 路径遍历说明](https://developer.android.com/privacy-and-security/risks/path-traversal)
+
+文件打开的实际过程是：`ContentResolver` 请求 Provider → `Transport.openFile()` 检查模式与授权 → 自定义 `openFile()` 将业务 ID 映射为文件 → 用确定的读写模式打开并返回 `ParcelFileDescriptor`。路径校验必须针对最后打开的同一个对象；只在 `query()` 隐藏路径，不能保护独立的文件打开入口。只读导出应拒绝其他模式，而非原样接受外部 `mode`。[AOSP 文件入口](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/ContentProvider.java#L588)、[文件描述符打开契约](https://developer.android.com/reference/android/os/ParcelFileDescriptor#open(java.io.File,int))
 
 写入重要状态还需要失败恢复与并发策略。可使用临时文件完成校验后提交，或按实际 SDK 核对 `AtomicFile`；原子写入帮助避免半写状态，不等于跨线程锁或授权机制。线程、进程之间的并发访问仍需单独协调。[AtomicFile API](https://developer.android.com/reference/android/util/AtomicFile)
 
@@ -346,9 +348,11 @@ db.query(
 
 这里的占位符阻止值变成 SQL 结构，`owner_id` 条件实现示意的行级隔离，两者职责不同。真实的共享、管理员权限或跨账户迁移必须有明确授权模型。API 参数语义见 [`SQLiteDatabase.query`](https://developer.android.com/reference/android/database/sqlite/SQLiteDatabase#query(java.lang.String,java.lang.String%5B%5D,java.lang.String,java.lang.String%5B%5D,java.lang.String,java.lang.String,java.lang.String,java.lang.String))。
 
+底层会先编译 SQL 语句，再把 `selectionArgs` 绑定到参数位置；绑定值不会重新被解析为运算符或子查询。使用 `SQLiteQueryBuilder` 的共享接口还可设置列映射，并在 API 30+ 显式启用 `setStrictColumns(true)` / `setStrictGrammar(true)`，缩小列名与查询语法范围；这些选项默认关闭，也不负责账户行级授权。[SQLiteQueryBuilder 契约](https://developer.android.com/reference/android/database/sqlite/SQLiteQueryBuilder)
+
 ### 隐式 Intent 的 URI 操作权限 {#s72}
 
-临时 URI 授权是分享某项访问能力，不应把原文“禁止隐式 Intent 授权”简化成所有解析式分享均必然有漏洞。关键是目标如何选择、谁实际取得授权、授权作用于哪些资源以及何时失效。[ContentProvider 临时权限](https://developer.android.com/guide/topics/providers/content-provider-basics#Permissions)
+临时 URI 授权是把某项资源访问能力交给接收方。目标如何选择、谁取得授权、可访问哪些资源和授权何时失效，决定了共享范围；使用隐式分享并不自动意味着授权失控。[ContentProvider 临时权限](https://developer.android.com/guide/topics/providers/content-provider-basics#Permissions)
 
 显式限制接收方有助于收窄边界；需要选择器的合法分享也应保证只给业务需要的能力。发送者持有资源不意味着应该把写权限一并交出去，前缀和持久授权也不能默认继承。
 
@@ -380,7 +384,7 @@ API 34 增加 `getTypeAnonymous(Uri)`，用于提供不需要权限即可公开�
 
 #### 空 URI 与未定义 URI {#s81}
 
-原文“传入空 URI 或其他未定义 URI”需要进一步区分 null、不支持的 scheme/authority、空路径和不存在资源。API 对 uri 的非空契约不意味着应用可以相信所有到达的路径；也不能因为某个畸形输入造成异常就直接宣布数据越权。
+空 URI 需要区分 `null`、不支持的 scheme/authority、空路径和不存在资源。`null` 可能在 API 入口已被拒绝；其余输入仍可能到达 Provider，需要按方法契约处理。输入异常和数据越权是不同结果。
 
 实现可根据具体方法契约对不支持输入返回适当结果或受控异常，关键是行为确定、无敏感副作用、不把异常细节作为内部数据出口。getType 的未知类型可以按契约返回 null，不能为“成功处理”而任意打开输入路径。
 
@@ -390,11 +394,11 @@ API 34 增加 `getTypeAnonymous(Uri)`，用于提供不需要权限即可公开�
 
 ### authority 劫持 {#s84}
 
-来源把 authority 唯一性和抢先安装称为“authority 劫持”。严谨分析需要区分：目标应用因名称冲突未能安装，客户端在目标应用缺失时误信其他 Provider，以及目标已安装时是否能被替换。安装失败和成功接管数据不是同一个安全影响。
+authority 解析安全涉及三个不同问题：目标应用因名称冲突无法安装、目标缺失时客户端信任了其他 Provider、已安装 Provider 是否能被另一包替换。分别检查安装冲突、客户端身份校验与更新授权，不把路由冲突等同于数据接管。
 
 #### authority 唯一性与抢先安装 {#s87}
 
-不要仅凭“名字公开且可配置”认定任意应用可接管已安装 Provider。需保存安装先后、更新关系、签名、用户/配置文件、完整 authority 和实际解析结果。多用户与特定 OEM 的行为不能从一个普通样例推导。本文没有完成这些实验，因此不宣布某条“抢注利用链”成立。
+authority 用于 Provider 路由，不代表提供者通过了合作方认证。应区分安装时的名称冲突与客户端解析到错误提供者：前者影响安装，后者还要求客户端接受并信任该提供者。跨应用协议需要核对解析到的包、签名、用户/配置文件及资源范围；不要用一个 authority 字符串代替这些身份检查。
 
 **验证路线**：仅在隔离设备使用自有双样例，依次测试不同安装顺序、目标缺失和正常更新；记录安装返回与客户端解析到的包，确认失败发生在哪一阶段。防护上避免用一个路由字符串充当合作方认证；可信合作还需核对身份与业务协议。
 
