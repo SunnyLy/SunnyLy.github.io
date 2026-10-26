@@ -1,0 +1,114 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="950" viewBox="0 0 1280 950" role="img" aria-labelledby="title desc">
+  <title id="title">View 触摸分发经典 U 型图：分发、拦截与未处理分支</title>
+  <desc id="desc">三行依次是 Activity、父 ViewGroup、子 View。左列 dispatchTouchEvent 向下，中间是父容器 onInterceptTouchEvent，右列 onTouchEvent 在未处理时向上兜底。拦截返回 true 时处理本次 DOWN，不拦截则向子 View 分发。红色虚线画出各 dispatch 直接返回 false 后的折叠路径，实际先回到调用方的分发方法。仅示意单个命中子 View 的 DOWN，监听器不消费，省略的窗口中间层也未处理。任一处理方法返回 true，则结果返回调用方，不再走上层兜底。</desc>
+  <defs>
+    <marker id="call" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#2563eb"/></marker>
+    <marker id="fallback" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#b45309"/></marker>
+    <marker id="reject" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#be123c"/></marker>
+  </defs>
+  <rect x="1" y="1" width="1278" height="948" rx="20" fill="#f8fafc" stroke="#cbd5e1"/>
+  <g font-family="system-ui, sans-serif" text-anchor="middle" fill="#0f172a">
+    <text x="640" y="41" font-size="27" font-weight="700">触摸分发的 U 型图</text>
+    <text x="320" y="175" font-size="19" fill="#2563eb">向下分发</text>
+    <text x="670" y="430" font-size="19" fill="#6d28d9">是否拦截？</text>
+
+    <g fill="#fff" stroke="#e2e8f0">
+      <rect x="22" y="190" width="1236" height="122" rx="14"/>
+      <rect x="22" y="440" width="1236" height="122" rx="14"/>
+      <rect x="22" y="690" width="1236" height="122" rx="14"/>
+    </g>
+    <g font-size="22" font-weight="700">
+      <text x="90" y="244">Activity</text>
+      <text x="90" y="494">ViewGroup</text>
+      <text x="90" y="744">View</text>
+    </g>
+    <g font-size="17" fill="#64748b">
+      <text x="90" y="273">页面</text>
+      <text x="90" y="523">父容器</text>
+      <text x="90" y="773">子控件</text>
+    </g>
+
+    <g fill="none" stroke="#2563eb" stroke-width="3.5" marker-end="url(#call)">
+      <path d="M320 300V448"/>
+      <path d="M460 500H538"/>
+      <path d="M580 550L352 698"/>
+      <path d="M460 770H878"/>
+    </g>
+    <g fill="none" stroke="#b45309" stroke-width="3.5" marker-end="url(#fallback)">
+      <path d="M800 500H878"/>
+      <path d="M1030 700V552"/>
+      <path d="M1030 450V302"/>
+      <path d="M1030 200V142"/>
+    </g>
+    <g fill="none" stroke="#be123c" stroke-width="3" stroke-dasharray="9 6" marker-end="url(#reject)">
+      <path d="M180 225H160V110H878"/>
+      <path d="M460 475L878 275"/>
+      <path d="M460 725L878 525"/>
+    </g>
+
+    <g fill="#dbeafe" stroke="#93c5fd" stroke-width="2">
+      <rect x="180" y="200" width="280" height="100" rx="12"/>
+      <rect x="180" y="450" width="280" height="100" rx="12"/>
+      <rect x="180" y="700" width="280" height="100" rx="12"/>
+    </g>
+    <g fill="#fff7ed" stroke="#fdba74" stroke-width="2">
+      <rect x="880" y="200" width="300" height="100" rx="12"/>
+      <rect x="880" y="450" width="300" height="100" rx="12"/>
+      <rect x="880" y="700" width="300" height="100" rx="12"/>
+    </g>
+    <rect x="540" y="450" width="260" height="100" rx="12" fill="#f3e8ff" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="880" y="80" width="300" height="60" rx="10" fill="#f1f5f9" stroke="#94a3b8"/>
+
+    <g font-size="22" font-weight="600">
+      <text x="320" y="237">dispatchTouchEvent</text>
+      <text x="320" y="487">dispatchTouchEvent</text>
+      <text x="320" y="737">dispatchTouchEvent</text>
+      <text x="1030" y="237">onTouchEvent</text>
+      <text x="1030" y="487">onTouchEvent</text>
+      <text x="1030" y="737">onTouchEvent</text>
+      <text x="670" y="488" font-size="21">onInterceptTouchEvent</text>
+    </g>
+    <g fill="#dcfce7">
+      <rect x="204" y="252" width="232" height="32" rx="16"/>
+      <rect x="204" y="502" width="232" height="32" rx="16"/>
+      <rect x="204" y="752" width="232" height="32" rx="16"/>
+      <rect x="914" y="252" width="232" height="32" rx="16"/>
+      <rect x="914" y="502" width="232" height="32" rx="16"/>
+      <rect x="914" y="752" width="232" height="32" rx="16"/>
+    </g>
+    <g font-size="18" fill="#166534">
+      <text x="320" y="274">true：本次已处理</text>
+      <text x="320" y="524">true：本次已处理</text>
+      <text x="320" y="774">true：本次已处理</text>
+      <text x="1030" y="274">true：本次已处理</text>
+      <text x="1030" y="524">true：本次已处理</text>
+      <text x="1030" y="774">true：本次已处理</text>
+    </g>
+    <text x="670" y="527" font-size="18" fill="#6d28d9">true 拦截 / false 不拦截</text>
+    <text x="1030" y="117" font-size="19">未处理，返回窗口输入链</text>
+
+    <g font-size="19" fill="#2563eb">
+      <text x="403" y="372">super</text>
+      <text x="403" y="400" font-size="17">继续默认分发</text>
+      <text x="500" y="483" font-size="17">检查</text>
+      <text x="425" y="596">false</text>
+      <text x="428" y="622" font-size="17">向子级分发</text>
+      <text x="670" y="755">super：执行自身触摸逻辑</text>
+    </g>
+    <g font-size="19" fill="#b45309">
+      <text x="840" y="479">true</text>
+      <text x="1124" y="378">false</text>
+      <text x="1124" y="628">false</text>
+      <text x="1091" y="169">false</text>
+    </g>
+    <g font-size="19" fill="#be123c" font-weight="600">
+      <text x="620" y="96">dispatch 直接 return false</text>
+      <text x="650" y="355">直接 false</text>
+      <text x="650" y="605">直接 false</text>
+    </g>
+
+    <text x="640" y="853" font-size="19" font-weight="600">蓝：默认分发　　橙：拦截 / 未处理后的兜底　　红虚线：dispatch 直接返回 false</text>
+    <text x="640" y="888" font-size="18" fill="#475569">范围：单个命中子 View 的 DOWN；监听器不消费；省略窗口中间层。</text>
+    <text x="640" y="921" font-size="18" fill="#475569">向上箭头和斜线省略了调用栈返回：先回到调用方的 dispatch，再决定兜底。详见图下时序。</text>
+  </g>
+</svg>

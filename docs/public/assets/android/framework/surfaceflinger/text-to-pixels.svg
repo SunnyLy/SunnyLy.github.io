@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="300" viewBox="0 0 800 300" role="img" aria-labelledby="title desc">
+  <title id="title">从文字到屏幕像素</title>
+  <desc id="desc">字符串 A 经过字形排版与栅格化，变为缓冲区中的颜色，再由屏幕显示。粗网格仅用于说明原理。</desc>
+  <defs>
+    <pattern id="grid" x="334" y="82" width="22" height="22" patternUnits="userSpaceOnUse"><rect width="22" height="22" fill="#fff" stroke="#cbd5e1"/></pattern>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#2563eb"/></marker>
+  </defs>
+  <rect x="1" y="1" width="798" height="298" rx="20" fill="#f8fafc" stroke="#cbd5e1"/>
+  <g font-family="system-ui, sans-serif" text-anchor="middle" fill="#0f172a">
+    <text x="122" y="48" font-size="18" font-weight="700">App 中的文字</text>
+    <rect x="48" y="82" width="148" height="154" rx="12" fill="#dbeafe"/>
+    <text x="122" y="183" font-size="82">A</text>
+    <text x="122" y="270" font-size="15">字符串与字体</text>
+    <path d="M214 156H300" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)"/>
+    <text x="258" y="120" font-size="14">字形排版</text>
+    <text x="258" y="141" font-size="14">与栅格化</text>
+    <text x="389" y="48" font-size="18" font-weight="700">图像中的像素</text>
+    <rect x="334" y="82" width="110" height="154" fill="url(#grid)"/>
+    <g fill="#1e40af">
+      <path d="M356 82h66v22h-66zM334 104h22v66h-22zM422 104h22v66h-22zM334 170h110v22H334zM334 192h22v44h-22zM422 192h22v44h-22z"/>
+    </g>
+    <text x="389" y="270" font-size="15">每个格子有颜色</text>
+    <path d="M464 156H550" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)"/>
+    <text x="507" y="120" font-size="14">合成</text>
+    <text x="507" y="141" font-size="14">并提交显示</text>
+    <text x="662" y="48" font-size="18" font-weight="700">手机屏幕</text>
+    <rect x="603" y="67" width="118" height="176" rx="16" fill="#0f172a"/>
+    <rect x="611" y="81" width="102" height="146" rx="5" fill="#fff"/>
+    <text x="662" y="177" font-size="72" fill="#1e40af">A</text>
+    <text x="662" y="270" font-size="15">面板呈现图像</text>
+  </g>
+</svg>

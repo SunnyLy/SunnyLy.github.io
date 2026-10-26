@@ -41,7 +41,7 @@ test('Android basics navigation includes all active topics in source order', () 
   const basics = knowledgeSections.find(s => s.id === 'android').items.filter(i => i.group === '基础')
   assert.deepEqual(basics.map(i => i.link), [
     '/android/basics/',
-    ...['binder-basics','ipc-methods','handler','job-scheduler','messenger','activity-startup','broadcast','service-lifecycle','content-provider','system-services'].map(s => `/android/basics/${s}.html`),
+    ...['binder-basics','ipc-methods','handler','job-scheduler','messenger','view-touch','activity-startup','broadcast','service-lifecycle','content-provider','system-services'].map(s => `/android/basics/${s}.html`),
     ...['ams-atms','pms','wms','content-service','package-installer-service'].map(s => `/android/basics/system-services/${s}.html`),
     ...['pending-intent','loaded-apk','class-loading','dynamic-proxy'].map(s => `/android/basics/${s}.html`),
   ])

@@ -19,6 +19,10 @@ outline: [2, 3]
 
 [JobScheduler 系统任务调度](./job-scheduler.html)补充原提纲之外的后台基础知识，覆盖系统原理、使用场景、JobService 示例、停止竞态及版本限制；与 [Handler / WorkManager 选型](./handler.html#handlerthread-是否弃用-应该换成什么)配合阅读。
 
+## View 与交互 {#views-and-input}
+
+[View 触摸机制](./view-touch.html)从经典 U 型图和手势序列开始，解释分发、拦截、点击、滑动冲突、坐标与多指处理，再追到系统输入通道；附可观察 CANCEL 与父级接管的交互 Demo。
+
 ## 四大组件 {#components}
 
 ### Activity 启动原理

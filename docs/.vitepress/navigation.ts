@@ -56,6 +56,12 @@ export const knowledgeSections: KnowledgeSection[] = [
         description: '串联服务绑定、Binder 传输与 Handler 请求响应。',
       },
       {
+        text: 'View 触摸机制',
+        group: '基础',
+        link: '/android/basics/view-touch.html',
+        description: '用 U 型图理解分发、拦截、点击、多指与滑动冲突，深入系统输入通道。',
+      },
+      {
         text: 'Activity 启动原理', group: '基础', subgroup: '四大组件',
         link: '/android/basics/activity-startup.html',
         description: '厘清启动六个关键类型、任务复用与生命周期。',

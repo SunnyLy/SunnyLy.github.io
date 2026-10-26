@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="900" viewBox="0 0 1120 900" role="img" aria-labelledby="title desc">
+  <title id="title">从屏幕分区到 Activity、PhoneWindow、DecorView 与 Content 的层级</title>
+  <desc id="desc">左侧展示状态栏、应用栏、内容区与导航栏。右侧展示 Activity 持有 PhoneWindow，PhoneWindow 管理 DecorView，DecorView 中按主题包含装饰布局和内容容器，业务布局加入内容容器。SystemUI 的系统栏窗口独立于应用 View 树；可选系统栏背景色 View 不等于系统栏图标。</desc>
+  <rect x="1" y="1" width="1118" height="898" rx="22" fill="#f8fafc" stroke="#cbd5e1"/>
+  <g font-family="system-ui, sans-serif" fill="#0f172a">
+    <text x="560" y="42" text-anchor="middle" font-size="24" font-weight="700">屏幕上的区域，如何对应窗口和 View 层级</text>
+    <text x="560" y="73" text-anchor="middle" font-size="17" fill="#475569">依据 Android 官方窗口定义与 AOSP 布局重绘；示意平台主题，不是所有版本的固定布局</text>
+    <text x="202" y="123" text-anchor="middle" font-size="21" font-weight="700">屏幕外观</text>
+    <rect x="50" y="145" width="304" height="590" rx="30" fill="#0f172a"/>
+    <rect x="64" y="162" width="276" height="555" rx="18" fill="#fff"/>
+    <path d="M82 162H322Q340 162 340 180V222H64V180Q64 162 82 162Z" fill="#ede9fe"/>
+    <text x="83" y="186" font-size="15">9:41</text>
+    <text x="320" y="186" text-anchor="end" font-size="13">Wi-Fi 100%</text>
+    <text x="202" y="211" text-anchor="middle" font-size="17" font-weight="700">① StatusBar</text>
+    <rect x="64" y="222" width="276" height="70" fill="#dbeafe"/>
+    <text x="202" y="250" text-anchor="middle" font-size="18" font-weight="700">② ActionBar / App bar</text>
+    <text x="202" y="277" text-anchor="middle" font-size="15">应用标题与操作，不是状态栏</text>
+    <rect x="64" y="292" width="276" height="365" fill="#eff6ff"/>
+    <text x="202" y="338" text-anchor="middle" font-size="21" font-weight="700">③ Content</text>
+    <rect x="87" y="369" width="230" height="239" rx="12" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+    <text x="202" y="407" text-anchor="middle" font-size="17">setContentView 的业务布局</text>
+    <rect x="108" y="434" width="188" height="56" rx="8" fill="#2563eb"/>
+    <text x="202" y="469" text-anchor="middle" font-size="18" fill="#fff">Button</text>
+    <rect x="108" y="516" width="188" height="55" rx="8" fill="#e2e8f0"/>
+    <text x="202" y="550" text-anchor="middle" font-size="18">TextView / 列表</text>
+    <path d="M64 657H340V699Q340 717 322 717H82Q64 717 64 699Z" fill="#ede9fe"/>
+    <text x="202" y="682" text-anchor="middle" font-size="17" font-weight="700">④ NavigationBar</text>
+    <rect x="165" y="699" width="74" height="5" rx="2.5" fill="#475569"/>
+    <text x="202" y="765" text-anchor="middle" font-size="16">①④：系统栏，由 SystemUI 管理</text>
+    <text x="202" y="792" text-anchor="middle" font-size="16">②③：App 的界面内容</text>
+    <text x="202" y="822" text-anchor="middle" font-size="15" fill="#475569">现代 edge-to-edge 内容可延伸到系统栏下方</text>
+
+    <text x="742" y="123" text-anchor="middle" font-size="21" font-weight="700">对象持有关系 → 窗口内的 View 父子关系</text>
+    <rect x="405" y="145" width="680" height="660" rx="18" fill="#fff" stroke="#64748b" stroke-width="2"/>
+    <text x="425" y="179" font-size="21" font-weight="700">Activity</text>
+    <text x="1065" y="179" text-anchor="end" font-size="16" fill="#475569">getWindow()：持有窗口对象</text>
+    <rect x="425" y="201" width="640" height="583" rx="14" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/>
+    <text x="445" y="232" font-size="21" font-weight="700">PhoneWindow extends Window</text>
+    <text x="445" y="260" font-size="16" fill="#475569">窗口的具体实现，不是 View；管理 DecorView 与内容容器</text>
+    <rect x="445" y="280" width="600" height="483" rx="12" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+    <text x="465" y="311" font-size="20" font-weight="700">DecorView extends FrameLayout</text>
+    <text x="465" y="337" font-size="16">窗口 View 树的根；window.getDecorView()</text>
+    <rect x="463" y="352" width="564" height="29" rx="5" fill="#e2e8f0"/>
+    <text x="745" y="373" text-anchor="middle" font-size="15">可选 statusBarBackground：只是背景，不含 SystemUI 图标</text>
+    <rect x="463" y="396" width="564" height="294" rx="10" fill="#eff6ff" stroke="#60a5fa"/>
+    <text x="480" y="424" font-size="17" font-weight="700">主题装饰布局：例如 ActionBarOverlayLayout</text>
+    <rect x="480" y="438" width="530" height="49" rx="7" fill="#bfdbfe"/>
+    <text x="745" y="468" text-anchor="middle" font-size="17">② ActionBarContainer / 标题区域（按主题可选）</text>
+    <rect x="480" y="503" width="530" height="169" rx="8" fill="#fff" stroke="#2563eb" stroke-width="2"/>
+    <text x="745" y="532" text-anchor="middle" font-size="19" font-weight="700">③ FrameLayout：@android:id/content</text>
+    <rect x="500" y="546" width="490" height="109" rx="8" fill="#f8fafc" stroke="#94a3b8"/>
+    <text x="745" y="574" text-anchor="middle" font-size="17">业务根布局：例如 LinearLayout</text>
+    <rect x="520" y="589" width="207" height="47" rx="7" fill="#2563eb"/>
+    <text x="623" y="619" text-anchor="middle" font-size="17" fill="#fff">Button</text>
+    <rect x="748" y="589" width="222" height="47" rx="7" fill="#e2e8f0"/>
+    <text x="859" y="619" text-anchor="middle" font-size="17">TextView / 其他 View</text>
+    <rect x="463" y="705" width="564" height="29" rx="5" fill="#e2e8f0"/>
+    <text x="745" y="726" text-anchor="middle" font-size="15">可选 navigationBarBackground：不是系统导航控件</text>
+    <text x="560" y="864" text-anchor="middle" font-size="18" font-weight="700">系统栏的独立窗口不属于 App 的 DecorView 子树。触摸先选窗口，再在该窗口内分发。</text>
+  </g>
+</svg>

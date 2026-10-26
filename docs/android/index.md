@@ -15,6 +15,7 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 - [Handler 原理](./basics/handler.html)：消息如何进入队列、在哪个线程执行，以及延迟、取消和退出的边界。
 - [JobScheduler 系统任务调度](./basics/job-scheduler.html)：约束、系统调度链、JobService 调用示例、停止竞态与跨重启持久化。
 - [Messenger 机制](./basics/messenger.html)：两种构造方式、绑定通信四步、双向回复、调用身份与断连处理。
+- [View 触摸机制](./basics/view-touch.html)：经典 U 型图、目标选择、拦截与 CANCEL、点击、滑动冲突、多指和系统输入链路。
 - 四大组件：[Activity 启动](./basics/activity-startup.html)、[Broadcast 发送接收](./basics/broadcast.html)、[Service 生命周期](./basics/service-lifecycle.html)、[Provider 与内容观察](./basics/content-provider.html)。
 - [系统核心服务](./basics/system-services.html)：AMS/ATMS、PMS、WMS、ContentService 和 PackageInstallerService；包含 [Launcher 点击到首帧的完整时序](./basics/system-services/ams-atms.html#ams-atms-launch-sequence)。
 - 运行时：[PendingIntent](./basics/pending-intent.html)、[LoadedApk](./basics/loaded-apk.html)、[类加载机制](./basics/class-loading.html)、[动态代理](./basics/dynamic-proxy.html)。
@@ -23,7 +24,7 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 [Binder 机制：从 AIDL 到内核事务](./framework/binder-mechanism.html)以固定 AOSP 与内核源码串联服务发现、Java/JNI 调用链、Parcel、线程模型和调用身份，区分源码结论与设备验证。
 
-[SurfaceFlinger 与 VSYNC：从硬件节拍到一帧呈现](./framework/surfaceflinger-vsync.html)连接显示驱动、Composer HAL、VSYNC 预测、应用 Choreographer、BLAST 与合成管线，说明提交、呈现和缓冲区复用的时间边界。
+[SurfaceFlinger 与 VSYNC：从硬件节拍到一帧呈现](./framework/surfaceflinger-vsync.html)从文字如何变成屏幕像素开始，图解 App 绘制、Buffer、图层合成、VSYNC 和卡顿，再展开底层源码与 Play Integrity 的显示相关风险信号。
 
 [Android Token 原理：从 Activity 启动到窗口归属](./framework/activity-token.html)区分活动、窗口和输入通道身份，沿启动事务、窗口校验、生命周期回报与重建追踪同一份 Binder 引用。
 
