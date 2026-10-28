@@ -20,6 +20,13 @@ outline: [2, 3]
 
 **实线表示消息流向，虚线表示循环控制。** 控制面板只是 Looper 的类比；取消息、分发与回调都在同一目标线程串行执行。正常返回后，Looper 回收 Message，再进入下一轮。
 
+**如何让这套设备运行？**
+
+- `Looper.prepare()`：搭好设备并接通电源。为当前线程创建 Looper 和 MessageQueue，建立线程关联；消息可以入队，但此时还没有开始取货。
+- `Looper.loop()`：按下 ON。当前线程开始循环取出可处理的消息，再交给目标 Handler；没有可处理消息时会等待。
+
+这是帮助记忆的类比：`prepare()` 不负责创建线程，`loop()` 也不创建线程；控制器和处理台都在 Looper 所属线程运行。
+
 **记住一条主线：`Handler → MessageQueue → Looper → Message.target（原 Handler）`。** Message 是在线路中传递的载体。
 
 ## 2. 最小示例：后台发送，主线程接收 {#example}
@@ -139,6 +146,54 @@ flowchart TB
 - 构造时显式传入 Looper；把引用传给另一个线程，不会改变 Looper 的所属线程。
 
 `Handler()`、`Handler(Callback)` 的隐式选择 Looper 构造方式已弃用。多个 Handler 绑定同一 Looper，仍共享同一条执行线；一个回调卡住，后面的工作都要等待。[Looper API](https://developer.android.com/reference/android/os/Looper)、[Handler 构造说明](https://developer.android.com/reference/android/os/Handler)
+
+### prepare：先创建，绑定到当前线程
+
+下面是 `Looper.java` 的核心源码。`ThreadLocal` 按线程保存 Looper，因此不同线程可以各有一个，同一线程不能重复 `prepare()`。
+
+```java
+public static void prepare() {
+    prepare(true); // 普通线程的 Looper 允许退出
+}
+
+private static void prepare(boolean quitAllowed) {
+    if (sThreadLocal.get() != null) {
+        throw new RuntimeException("Only one Looper may be created per thread");
+    }
+    sThreadLocal.set(new Looper(quitAllowed));
+}
+
+private Looper(boolean quitAllowed) {
+    mQueue = new MessageQueue(quitAllowed); // 创建消息队列
+    mThread = Thread.currentThread();       // 记录所属线程
+}
+```
+
+`Looper.myLooper()` 从当前线程的 `ThreadLocal` 取回 Looper；`prepare()` 本身不会启动取消息循环。[AOSP Looper.prepare 和构造方法](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Looper.java)
+
+### loop：在当前线程取消息并分发
+
+`Looper.loop()` 先通过 `myLooper()` 找到当前线程的 Looper，再循环调用 `loopOnce()`。后者调用 `mQueue.next()` 等待并取得消息，随后调用 `msg.target.dispatchMessage(msg)`。队列退出时 `next()` 返回 `null`，循环结束。[AOSP Looper.loop 和 loopOnce](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Looper.java)
+
+```java
+new Thread(() -> {
+    Looper.prepare(); // ① 创建并绑定当前子线程的 Looper
+    Handler handler = new Handler(Looper.myLooper());
+
+    handler.post(() -> {
+        Log.d("LooperDemo", "执行线程：" + Thread.currentThread().getName());
+        Looper.myLooper().quitSafely(); // 示例执行一次后退出
+    });
+
+    Looper.loop(); // ② 当前子线程取消息，执行上面的任务
+    Log.d("LooperDemo", "消息循环已退出"); // ③ 退出后才能运行到这里
+}, "Worker-Looper").start();
+```
+
+- 只调用 `prepare()`：消息可以入队，但该线程不会自动消费；没有 Looper 就调用 `loop()`：抛出异常。
+- **只有需要在子线程运行自己的消息循环时**才需要准备其 Looper；普通一次性后台任务不需要。
+- 子线程使用 `new Handler(Looper.getMainLooper())` 可以向主线程投递任务，无需为子线程准备 Looper；回调在主线程执行。
+- 实际需要专用 Looper 线程时，可用下文的 `HandlerThread`，由它完成准备与循环，并在不再需要时退出。
 
 ## 5. 延迟、屏障与等待 {#timing-and-wait}
 

@@ -23,6 +23,8 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 ## Framework
 
+[Android 分区、刷机与 OTA](./framework/partitions-ota.html)图解存储布局、启动校验、解锁、Root 以及 A/B 更新。
+
 [Binder 机制：从 AIDL 到内核事务](./framework/binder-mechanism.html)以固定 AOSP 与内核源码串联服务发现、Java/JNI 调用链、Parcel、线程模型和调用身份，区分源码结论与设备验证。
 
 [SurfaceFlinger 与 VSYNC：从硬件节拍到一帧呈现](./framework/surfaceflinger-vsync.html)从文字如何变成屏幕像素开始，图解 App 绘制、Buffer、图层合成、VSYNC 和卡顿，再展开底层源码与 Play Integrity 的显示相关风险信号。

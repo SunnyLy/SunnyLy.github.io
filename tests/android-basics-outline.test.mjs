@@ -42,12 +42,12 @@ test('Android basics navigation includes all active topics in source order', () 
   assert.deepEqual(basics.map(i => i.link), [
     '/android/basics/',
     ...['binder-basics','ipc-methods','handler','job-scheduler','messenger','view-touch','activity-startup','broadcast','service-lifecycle','content-provider','system-services'].map(s => `/android/basics/${s}.html`),
-    ...['ams-atms','pms','wms','content-service','package-installer-service'].map(s => `/android/basics/system-services/${s}.html`),
+    ...['system-server','ams-atms','pms','wms','content-service','package-installer-service'].map(s => `/android/basics/system-services/${s}.html`),
     ...['pending-intent','loaded-apk','class-loading','dynamic-proxy','apk-signing'].map(s => `/android/basics/${s}.html`),
   ])
   assert.deepEqual(basics.filter(i => i.subgroup).map(i => i.subgroup), [
     ...Array(4).fill('四大组件'),
-    ...Array(6).fill('系统核心服务'),
+    ...Array(7).fill('系统核心服务'),
   ])
   assert.ok(basics.every(i => !/frida|strace/i.test(i.text + i.link)))
 })

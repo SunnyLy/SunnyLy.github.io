@@ -25,6 +25,10 @@ flowchart TB
 
 图中箭头表示职责关联，省略同进程内部接口与细分执行器。应用 API 的调用不必都经过同一个入口；系统内部协作也不必每次再走远程 Binder。
 
+## SystemServer 启动流程
+
+[阅读 SystemServer 启动流程](./system-services/system-server.html)：Zygote 创建进程，系统服务启动、注册与分阶段就绪。
+
 ## AMS / ATMS {#s160}
 
 [阅读 AMS / ATMS](./system-services/ams-atms.html)：进程与任务管理的职责拆分，以及 Launcher 点击到首帧的完整启动时序。

@@ -87,6 +87,11 @@ export const knowledgeSections: KnowledgeSection[] = [
         description: '核心服务职责、专题入口与排查方向。',
       },
       {
+        text: 'SystemServer 启动流程', group: '基础', subgroup: '系统核心服务',
+        link: '/android/basics/system-services/system-server.html',
+        description: '从 Zygote fork 到系统服务启动、注册与就绪。',
+      },
+      {
         text: 'AMS / ATMS', group: '基础', subgroup: '系统核心服务',
         link: '/android/basics/system-services/ams-atms.html',
         description: '进程与任务管理、Launcher 点击到首帧的完整启动时序。',
@@ -135,6 +140,12 @@ export const knowledgeSections: KnowledgeSection[] = [
         text: '打包与签名原理', group: '基础',
         link: '/android/basics/apk-signing.html',
         description: '从构建、APK 验签到 v1～v4、密钥轮换与 Play App Signing。',
+      },
+      {
+        text: 'Android 分区、刷机与 OTA',
+        group: 'Framework',
+        link: '/android/framework/partitions-ota.html',
+        description: '从分区与启动校验到解锁、Root、刷机和 OTA 更新。',
       },
       {
         text: 'Binder 机制',
