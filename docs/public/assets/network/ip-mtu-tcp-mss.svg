@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="480" viewBox="0 0 680 480" role="img" aria-labelledby="title desc">
+<title id="title">MTU 看整包，MSS 只看 TCP 数据</title>
+<desc id="desc">嵌套条形图表示IP包由IP头、TCP头及数据组成，MTU约束链路承载的IP包，MSS针对TCP数据。下面路径经过不同链路，最小相关限制成为路径MTU，不提供固定通用数字。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="480" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">MTU 看整包，MSS 只看 TCP 数据</text>
+<text x="28" y="90" class="strong" text-anchor="start">先看同一个 TCP/IP 包</text>
+<rect x="28" y="130" width="624" height="135" rx="12" fill="none" stroke="#416c9d" stroke-width="3"/>
+<rect x="40" y="143" width="110" height="72" rx="4" fill="#ffe2b0"/>
+<rect x="154" y="143" width="160" height="72" rx="4" fill="#bcd9ff"/>
+<rect x="318" y="143" width="322" height="72" rx="4" fill="#bce5d5"/>
+<text x="95" y="186" class="body" text-anchor="middle">IP 头</text>
+<text x="234" y="176" class="body" text-anchor="middle">TCP 头</text>
+<text x="234" y="203" class="small" text-anchor="middle">含选项</text>
+<text x="479" y="186" class="strong" text-anchor="middle">TCP 数据</text>
+<path d="M318 225v18H640v-18" fill="none" stroke="#27775e" stroke-width="3"/>
+<text x="479" y="259" class="small" text-anchor="middle">MSS 关注这里</text>
+<text x="340" y="306" class="strong" text-anchor="middle">外框：链路 MTU 限制的 IP 包大小</text>
+<rect x="28" y="350" width="175" height="53" rx="12" fill="#e6efff"/>
+<rect x="252" y="350" width="175" height="53" rx="12" fill="#e6efff"/>
+<rect x="476" y="350" width="176" height="53" rx="12" fill="#e6efff"/>
+<text x="115" y="385" class="body" text-anchor="middle">链路 1</text>
+<text x="339" y="385" class="body" text-anchor="middle">较小的链路 2</text>
+<text x="564" y="385" class="body" text-anchor="middle">链路 3</text>
+<path d="M205 376 L248 376" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M430 376 L472 376" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<text x="340" y="447" class="small" text-anchor="middle">路径 MTU 取沿途最小限制；隧道还会占用空间</text>
+</svg>

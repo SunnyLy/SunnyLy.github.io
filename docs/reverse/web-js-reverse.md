@@ -41,7 +41,9 @@ if (android.os.Build.VERSION.SDK_INT >= 19) {
 }
 ```
 
-当前 API 文档还说明：**WebView 113.0.5656.0 及以后**，当应用声明 `android:debuggable="true"` 时默认开启，否则默认关闭。这里的版本是 WebView 实现版本，不是 Android API 等级。旧的 [DevTools WebView 指南](https://developer.chrome.com/docs/devtools/remote-debugging/webviews)仍保留早期描述，判断默认行为时应优先核对当前 API 文档与实际提供者。
+当前 API 文档还说明：**WebView 113.0.5656.0 及以后**，当应用声明 `android:debuggable="true"` 时默认开启，否则默认关闭。
+
+这里的版本是 WebView 实现版本，不是 Android API 等级。旧的 [DevTools WebView 指南](https://developer.chrome.com/docs/devtools/remote-debugging/webviews)仍保留早期描述，判断默认行为时应优先核对当前 API 文档与实际提供者。
 
 ### 2.2 VM 接入与主线程调度 {#_2-2-原文-frida-思路的最小化表达}
 
@@ -72,7 +74,7 @@ Java.perform(() => {
 
 ## 3. DevTools：从现象选择入口
 
-**Network** 回答“实际发送了什么”；**Sources** 回答“哪些代码生成了它”；**Console** 用来验证当前作用域里的小假设；**Application** 帮助识别缓存、Service Worker 和页面状态。面板名称与位置可能随 Chrome 版本变化，本文截图保留原笔记的历史界面。
+**Network** 查看请求；**Sources** 查找生成请求的代码；**Console** 验证当前作用域；**Application** 查看缓存、Service Worker 和页面状态。截图为历史界面，面板位置随 Chrome 版本变化。
 
 没有现成断点时，先看现象再选择工具：
 
@@ -121,7 +123,9 @@ sequenceDiagram
 
 Promise、定时器、事件队列会切断同步调用链；异步父栈是否完整取决于运行时与框架支持。Ignore List 可以减少第三方代码噪声，但也会隐藏关键帧；链路出现缺口时，应显示被忽略帧，并确认 Console 当前选中的是目标 frame / worker 与暂停帧。[调用栈与异步帧](https://developer.chrome.com/docs/devtools/javascript/reference#call-stack)
 
-同步函数调用会压入新的执行上下文，返回后出栈。`await` 后续执行与 Promise reaction 则通过 job 调度，在浏览器中进入微任务；定时器回调属于任务调度。它们恢复时，原来的同步调用栈通常已经退出，因此 DevTools 的异步父栈是调试器补充的因果关联，不是一直挂在栈上的调用帧。判断先后顺序时要同时看入队时机和实际执行时机，不能只按源码上下位置推断。[执行上下文](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Execution_model#stack_and_execution_contexts)、[HTML 事件循环与微任务](https://html.spec.whatwg.org/multipage/webappapis.html#event-loops)
+同步函数调用会压入新的执行上下文，返回后出栈。`await` 后续执行与 Promise reaction 则通过 job 调度，在浏览器中进入微任务；定时器回调属于任务调度。
+
+它们恢复时，原来的同步调用栈通常已经退出，因此 DevTools 的异步父栈是调试器补充的因果关联，不是一直挂在栈上的调用帧。判断先后顺序时要同时看入队时机和实际执行时机，不能只按源码上下位置推断。[执行上下文](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Execution_model#stack_and_execution_contexts)、[HTML 事件循环与微任务](https://html.spec.whatwg.org/multipage/webappapis.html#event-loops)
 
 ## 6. JS Hook：先观察，再讨论改写
 

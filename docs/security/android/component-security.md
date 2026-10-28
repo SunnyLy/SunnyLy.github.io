@@ -39,7 +39,9 @@ flowchart TD
 
 **默认值与安装要求不能混写**
 
-组件类型和历史平台的默认导出规则不同。Android 12 上，面向 API 31 及以上、带 intent-filter 的 Activity、Service 和 Receiver 需要显式声明 exported；缺少声明会影响安装。这不等于“所有组件从 API 31 起默认 false”，Provider 还应按其独立规则判断。[Android 12 的组件导出要求](https://developer.android.com/about/versions/12/behavior-changes-12#exported)
+组件类型和历史平台的默认导出规则不同。Android 12 上，面向 API 31 及以上、带 intent-filter 的 Activity、Service 和 Receiver 需要显式声明 exported；缺少声明会影响安装。
+
+这不等于“所有组件从 API 31 起默认 false”，Provider 还应按其独立规则判断。[Android 12 的组件导出要求](https://developer.android.com/about/versions/12/behavior-changes-12#exported)
 
 工程上显式声明每个组件的预期边界，并检查最终合并结果。无需外部访问的入口设为不导出；需要外部访问的敏感入口，根据合作方与能力选择权限及业务校验。不能把“所有导出组件都加同一个签名权限”套到公开网页入口，否则会破坏预期功能。
 
@@ -221,7 +223,9 @@ sequenceDiagram
 
 这是跨进程机制示意，省略了调度细节。依据来自 [绑定接口契约](https://developer.android.com/develop/background-work/services/bound-services)及 [Binder 当前事务身份定义](https://developer.android.com/reference/android/os/Binder#getCallingUid())；这里关于分层鉴权的要求是由两者结合得到的设计结论。
 
-本地 AIDL 接口可能直接返回实现对象，方法在当前调用线程执行，不产生新的 Binder 事务；本地调用的 `oneway` 也仍是同步执行。此时 `getCallingUid()` 的意义取决于线程是否已经处于其他入站事务中，不能把它当成独立本地调用者认证。内部调用需要明确的可信入口和业务授权上下文，不能不加区分地套用远程事务检查。[AIDL 的本地与远程调用语义](https://developer.android.com/develop/background-work/services/aidl)
+本地 AIDL 接口可能直接返回实现对象，方法在当前调用线程执行，不产生新的 Binder 事务；本地调用的 `oneway` 也仍是同步执行。此时 `getCallingUid()` 的意义取决于线程是否已经处于其他入站事务中，不能把它当成独立本地调用者认证。
+
+内部调用需要明确的可信入口和业务授权上下文，不能不加区分地套用远程事务检查。[AIDL 的本地与远程调用语义](https://developer.android.com/develop/background-work/services/aidl)
 
 **AIDL 只生成通信协议，不生成业务授权**
 
@@ -311,7 +315,9 @@ flowchart TD
 
 canonical 路径能处理一类 `..` 和符号链接问题，却不能自动消除“检查后、打开前”目标被替换的竞态。安全前提应包含根目录及其父目录不由攻击者控制；避免在可被其他应用写入的共享目录中执行敏感更新。[Android 路径遍历说明](https://developer.android.com/privacy-and-security/risks/path-traversal)
 
-文件打开的实际过程是：`ContentResolver` 请求 Provider → `Transport.openFile()` 检查模式与授权 → 自定义 `openFile()` 将业务 ID 映射为文件 → 用确定的读写模式打开并返回 `ParcelFileDescriptor`。路径校验必须针对最后打开的同一个对象；只在 `query()` 隐藏路径，不能保护独立的文件打开入口。只读导出应拒绝其他模式，而非原样接受外部 `mode`。[AOSP 文件入口](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/ContentProvider.java#L588)、[文件描述符打开契约](https://developer.android.com/reference/android/os/ParcelFileDescriptor#open(java.io.File,int))
+文件打开的实际过程是：`ContentResolver` 请求 Provider → `Transport.openFile()` 检查模式与授权 → 自定义 `openFile()` 将业务 ID 映射为文件 → 用确定的读写模式打开并返回 `ParcelFileDescriptor`。
+
+路径校验必须针对最后打开的同一个对象；只在 `query()` 隐藏路径，不能保护独立的文件打开入口。只读导出应拒绝其他模式，而非原样接受外部 `mode`。[AOSP 文件入口](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/ContentProvider.java#L588)、[文件描述符打开契约](https://developer.android.com/reference/android/os/ParcelFileDescriptor#open(java.io.File,int))
 
 写入重要状态还需要失败恢复与并发策略。可使用临时文件完成校验后提交，或按实际 SDK 核对 `AtomicFile`；原子写入帮助避免半写状态，不等于跨线程锁或授权机制。线程、进程之间的并发访问仍需单独协调。[AtomicFile API](https://developer.android.com/reference/android/util/AtomicFile)
 
@@ -424,5 +430,7 @@ FileProvider 把配置根目录内的文件映射为 content URI，并结合临�
 </paths>
 ```
 
-对应 Provider 应使用匹配的 authority、`android:exported="false"`、`android:grantUriPermissions="true"`，并用 `android.support.FILE_PROVIDER_PATHS` 元数据引用该资源。按官方文档建立自己的 FileProvider 子类及 Manifest 声明；不要因为看到私有 Provider 就误以为 URI grant 无法访问它。[FileProvider API 与配置](https://developer.android.com/reference/androidx/core/content/FileProvider)
+对应 Provider 应使用匹配的 authority、`android:exported="false"`、`android:grantUriPermissions="true"`，并用 `android.support.FILE_PROVIDER_PATHS` 元数据引用该资源。
+
+按官方文档建立自己的 FileProvider 子类及 Manifest 声明；不要因为看到私有 Provider 就误以为 URI grant 无法访问它。[FileProvider API 与配置](https://developer.android.com/reference/androidx/core/content/FileProvider)
 

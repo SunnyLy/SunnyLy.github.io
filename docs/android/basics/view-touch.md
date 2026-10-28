@@ -80,7 +80,9 @@ sequenceDiagram
   Own-->>Parent: true / false
 ```
 
-对应 `ViewGroup.java` 的 `dispatchTouchEvent()`：L2771 子级分发成功才进入目标记录分支；L2812–2815 没有子目标时，以 `child = null` 转入自身处理。父容器自身返回 false，同样先返回其调用方。**主图直连 Activity 的前提是省略的窗口中间层也都未处理**；有多层业务容器时，应补上各层的兜底节点。
+对应 `ViewGroup.java` 的 `dispatchTouchEvent()`：L2771 子级分发成功才进入目标记录分支；L2812–2815 没有子目标时，以 `child = null` 转入自身处理。
+
+父容器自身返回 false，同样先返回其调用方。**主图直连 Activity 的前提是省略的窗口中间层也都未处理**；有多层业务容器时，应补上各层的兜底节点。
 
 ### 直接 return false，跳过的是哪一层
 

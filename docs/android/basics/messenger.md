@@ -146,9 +146,13 @@ public final class NoteMessageService extends Service {
 
 使用显式 Intent 绑定目标 Service；`bindService()` 是异步连接，请在 `onServiceConnected(ComponentName, IBinder)` 中执行 `remote = new Messenger(binder)`，成功后才允许发送。绑定返回 `true` 也不是业务接口已经可用。
 
-客户端的连接状态应由一个线程管理，例如主线程，至少区分“未绑定、连接中、已连接、已关闭”。单独记录绑定尝试与清理责任，按生命周期调用 `unbindService()`；SDK 契约要求正常返回 `false` 或抛出 `SecurityException` 时也释放连接，不能只在返回 `true` 时安排清理。正常解绑不依赖 `onServiceDisconnected()` 回调来清理本地状态。系统报告断连时清空远端引用，重新连接策略应有次数和退避限制。[Context.bindService 返回与释放契约](https://developer.android.com/reference/android/content/Context#bindService(android.content.Intent,%20android.content.ServiceConnection,%20int))
+客户端的连接状态应由一个线程管理，例如主线程，至少区分“未绑定、连接中、已连接、已关闭”。单独记录绑定尝试与清理责任，按生命周期调用 `unbindService()`；SDK 契约要求正常返回 `false` 或抛出 `SecurityException` 时也释放连接，不能只在返回 `true` 时安排清理。
 
-这与连接登记前的参数错误不同：固定版本 `ContextImpl.bindServiceCommon()` 在 `conn == null` 或同时提供 Handler/Executor 时先抛 `IllegalArgumentException`，此时尚未取得 ServiceDispatcher。不能仅按异常类型统一决定解绑，因为隐式 Intent 等其他参数校验又可能发生在登记之后；应结合具体失败位置维护清理状态。[固定版本绑定入口](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ContextImpl.java#L2201)
+正常解绑不依赖 `onServiceDisconnected()` 回调来清理本地状态。系统报告断连时清空远端引用，重新连接策略应有次数和退避限制。[Context.bindService 返回与释放契约](https://developer.android.com/reference/android/content/Context#bindService(android.content.Intent,%20android.content.ServiceConnection,%20int))
+
+这与连接登记前的参数错误不同：固定版本 `ContextImpl.bindServiceCommon()` 在 `conn == null` 或同时提供 Handler/Executor 时先抛 `IllegalArgumentException`，此时尚未取得 ServiceDispatcher。
+
+不能仅按异常类型统一决定解绑，因为隐式 Intent 等其他参数校验又可能发生在登记之后；应结合具体失败位置维护清理状态。[固定版本绑定入口](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ContextImpl.java#L2201)
 
 ### 4. send 发送请求
 
@@ -187,7 +191,9 @@ Handler.this.sendMessage(msg); // UID 随消息入队，供稍后的 Handler 回
 
 #### 接收方验证是否为指定的合法应用
 
-业务目标是**仅允许指定应用发消息**，需要同时验证：① Messenger 保存的真实发送 UID；② 该 UID 对应预先允许的包名；③ 该包的签名符合接收方预置的证书策略。`pm.checkSignatures(Process.myUid(), senderUid)` 只比较接收应用与发送 UID 的签名关系，既不限定发送包名，也不适用于双方采用不同签名的合作场景。
+业务目标是**仅允许指定应用发消息**，需要同时验证：① Messenger 保存的真实发送 UID；② 该 UID 对应预先允许的包名；③ 该包的签名符合接收方预置的证书策略。
+
+`pm.checkSignatures(Process.myUid(), senderUid)` 只比较接收应用与发送 UID 的签名关系，既不限定发送包名，也不适用于双方采用不同签名的合作场景。
 
 下面的跨应用版本采用 **API 28+ 的 `hasSigningCertificate()`**。把 `MessageSenderPolicy.java` 与服务端放在同一包中，并将前面的 `onMessage()` 入口判断替换为：
 
@@ -305,9 +311,13 @@ apksigner verify --print-certs trusted-client.apk
 
 用 `what` 区分消息类型，`arg1/arg2` 携带简单整数，Bundle 传递有明确定义的字段，`replyTo` 提供回复端点。协议应约定版本、必填字段、大小上限、错误码、超时及是否允许重复请求。
 
-还要区分 Binder 接收与 Handler 接收：`MessengerImpl.send()` 调用 `Handler.sendMessage()`，但不会把后者表示“是否成功入队”的 boolean 回传给发送者。若目标 Looper 已退出，即使 Binder 对象仍存活，调用方也不能靠 `send()` 无异常判断消息已经进入业务队列。需要确认时应由服务端在完成授权与参数检查后显式回复，并由客户端设置超时。[MessengerImpl 入队实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/Handler.java#L974)
+还要区分 Binder 接收与 Handler 接收：`MessengerImpl.send()` 调用 `Handler.sendMessage()`，但不会把后者表示“是否成功入队”的 boolean 回传给发送者。
 
-跨进程不要把普通 Java 对象塞进 `obj`。官方对 Messenger 场景下 `Message.obj` 的类型有限制；自定义数据一般放入 Bundle，并在需要自定义 Parcelable 时正确配置 ClassLoader 和兼容性。大图片、文件内容用受控 URI 或文件描述符传递，避免用大 Bundle 代替文件协议。[Message 数据与 replyTo 契约](https://developer.android.com/reference/android/os/Message)
+若目标 Looper 已退出，即使 Binder 对象仍存活，调用方也不能靠 `send()` 无异常判断消息已经进入业务队列。需要确认时应由服务端在完成授权与参数检查后显式回复，并由客户端设置超时。[MessengerImpl 入队实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/Handler.java#L974)
+
+跨进程不要把普通 Java 对象塞进 `obj`。官方对 Messenger 场景下 `Message.obj` 的类型有限制；自定义数据一般放入 Bundle，并在需要自定义 Parcelable 时正确配置 ClassLoader 和兼容性。
+
+大图片、文件内容用受控 URI 或文件描述符传递，避免用大 Bundle 代替文件协议。[Message 数据与 replyTo 契约](https://developer.android.com/reference/android/os/Message)
 
 ### sendingUid 与权限边界
 

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="720" viewBox="0 0 680 720" role="img" aria-labelledby="title desc">
+<title id="title">NAT：出去改源端点，回来查映射</title>
+<desc id="desc">设备A与B通过同一NAPT路由器访问网站。路由器内两行将私网端点映射到同一公网地址的不同端口q与r。实线为请求，虚线为回包；公网地址是路由器的映射端点，不是额外机器。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="720" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">NAT：出去改源端点，回来查映射</text>
+<rect x="28" y="78" width="290" height="85" rx="12" fill="#e6efff"/>
+<text x="173" y="112" class="strong" text-anchor="middle">设备 A</text>
+<text x="173" y="144" class="mono" text-anchor="middle">192.168.10.20:p</text>
+<rect x="362" y="78" width="290" height="85" rx="12" fill="#e0f2ec"/>
+<text x="507" y="112" class="strong" text-anchor="middle">设备 B</text>
+<text x="507" y="144" class="mono" text-anchor="middle">192.168.10.30:p</text>
+<path d="M116 163 L116 240" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M451 163 L451 240" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M230 240 L230 163" fill="none" stroke="#5b7297" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path d="M565 240 L565 163" fill="none" stroke="#5b7297" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<text x="95" y="208" class="small" text-anchor="end">请求</text>
+<text x="249" y="208" class="small" text-anchor="start">回 A</text>
+<text x="430" y="208" class="small" text-anchor="end">请求</text>
+<text x="584" y="208" class="small" text-anchor="start">回 B</text>
+<rect x="28" y="245" width="624" height="216" rx="12" fill="#dbe6f4"/>
+<text x="340" y="279" class="strong" text-anchor="middle">同一台 NAT 路由器 · 映射表</text>
+<rect x="46" y="295" width="588" height="62" rx="12" fill="#fff"/>
+<text x="66" y="333" class="mono" text-anchor="start">A 的私网端点 ↔ 198.51.100.8:q</text>
+<rect x="46" y="372" width="588" height="62" rx="12" fill="#fff"/>
+<text x="66" y="410" class="mono" text-anchor="start">B 的私网端点 ↔ 198.51.100.8:r</text>
+<path d="M148 462 L148 567" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M486 462 L486 567" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M248 567 L248 462" fill="none" stroke="#5b7297" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<path d="M586 567 L586 462" fill="none" stroke="#5b7297" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#arrow)"/>
+<text x="112" y="503" class="small" text-anchor="end">源 q</text>
+<text x="268" y="503" class="small" text-anchor="start">目标 q</text>
+<text x="450" y="539" class="small" text-anchor="end">源 r</text>
+<text x="605" y="539" class="small" text-anchor="middle">目标 r</text>
+<rect x="28" y="570" width="624" height="75" rx="12" fill="#ffe7c4"/>
+<text x="340" y="602" class="strong" text-anchor="middle">网站：203.0.113.20:443</text>
+<text x="340" y="632" class="small" text-anchor="middle">看到的对端是公网映射端点 q 或 r</text>
+<text x="340" y="679" class="small" text-anchor="middle">实线：去程　虚线：回程；映射还受协议、目标和状态影响</text>
+<text x="340" y="707" class="small" text-anchor="middle">文档示例地址；NAT 不提供加密或业务授权</text>
+</svg>

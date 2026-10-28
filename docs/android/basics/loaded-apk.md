@@ -33,13 +33,17 @@ flowchart TB
 
 `makeApplicationInner()` 检查已有实例，准备类加载器及包上下文，通过 Instrumentation 创建 Application，关联 Context 并缓存结果。现代组件工厂 `AppComponentFactory` 也参与实例化路径。
 
-缓存存在两个层次：当前 LoadedApk 的 `mApplication` 与进程内按包名索引的 `sApplications`。内部入口先复用这些实例，再执行创建；因此包信息缓存中的弱引用不意味着 Application 会随一次局部变量离开作用域立即消失。ActivityThread 也维护已创建 Application 的集合，这些都是进程内状态。[缓存与实例化顺序](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/LoadedApk.java#L1415)
+缓存存在两个层次：当前 LoadedApk 的 `mApplication` 与进程内按包名索引的 `sApplications`。内部入口先复用这些实例，再执行创建；因此包信息缓存中的弱引用不意味着 Application 会随一次局部变量离开作用域立即消失。
+
+ActivityThread 也维护已创建 Application 的集合，这些都是进程内状态。[缓存与实例化顺序](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/LoadedApk.java#L1415)
 
 `Application.attach()` 会连接基础 Context 并进入 `attachBaseContext()`。**Application 对象创建完成不等于 `Application.onCreate()` 已执行。** `makeApplicationInner()` 是否直接调用后者还取决于传入的 Instrumentation；不能脱离调用点画一条固定生命周期链。[LoadedApk 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/LoadedApk.java)、[Instrumentation 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/Instrumentation.java)
 
 ### 普通冷启动中的初始化顺序
 
-在 `ActivityThread.handleBindApplication()` 的普通绑定路径中，框架调用 `makeApplicationInner(..., null)`，随后安装本次需要初始化的 Provider，最后通过 `Instrumentation.callApplicationOnCreate()` 调用 Application 回调。因此这些 Provider 的 `onCreate()` 可能早于 Application 的 `onCreate()`，却晚于 Application 对象的创建与基础 Context 关联。
+在 `ActivityThread.handleBindApplication()` 的普通绑定路径中，框架调用 `makeApplicationInner(..., null)`，随后安装本次需要初始化的 Provider，最后通过 `Instrumentation.callApplicationOnCreate()` 调用 Application 回调。
+
+因此这些 Provider 的 `onCreate()` 可能早于 Application 的 `onCreate()`，却晚于 Application 对象的创建与基础 Context 关联。
 
 ```mermaid
 sequenceDiagram

@@ -11,7 +11,9 @@ outline: [2, 3]
 
 `PackageInstallerSession` 是 `system_server` 内的会话实现，管理暂存内容、提交状态及后续安装处理。它不是普通应用 `openSession()` 的 Java 返回类型。[PackageInstallerService 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/pm/PackageInstallerService.java)
 
-服务端 `commit()` 将会话封存后，通过 Handler 的 `MSG_ON_SESSION_SEALED`、`MSG_STREAM_VALIDATE_AND_COMMIT`、`MSG_INSTALL` 等阶段推进，安装阶段再进入 `InstallingSession.installStage()`。封存后不能继续把会话当作可任意写入的临时目录；校验失败、等待用户操作和最终安装失败也不能合并为同一种结果。[提交与消息阶段](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/PackageInstallerSession.java#2189)
+服务端 `commit()` 将会话封存后，通过 Handler 的 `MSG_ON_SESSION_SEALED`、`MSG_STREAM_VALIDATE_AND_COMMIT`、`MSG_INSTALL` 等阶段推进，安装阶段再进入 `InstallingSession.installStage()`。
+
+封存后不能继续把会话当作可任意写入的临时目录；校验失败、等待用户操作和最终安装失败也不能合并为同一种结果。[提交与消息阶段](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/PackageInstallerSession.java#2189)
 
 ## PackageInstaller 与 Session：公开客户端 {#s212}
 
@@ -75,5 +77,7 @@ installer.openSession(sessionId).use { session ->
 `commit()` 返回不表示安装成功；应处理待用户操作、成功和各类失败状态。结果接收端也要绑定到自己创建的会话，避免把任意收到的广播当作安装成功证明。[Session 提交与结果契约](https://developer.android.com/reference/android/content/pm/PackageInstaller.Session#commit(android.content.IntentSender))
 
 ::: warning 结果 PendingIntent 的可变性例外
-不能把“所有 PendingIntent 一律 immutable”作为规则。安装提交的结果端点需要系统填写结果；`Session.commit()` 文档明确指出，调用方 target SDK 为 API 35+ 时使用 immutable PendingIntent 会抛 `IllegalArgumentException`。应按 API 契约选择明确指向自己接收组件的可变结果端点，并校验会话与输入，详见 [PendingIntent](../pending-intent.html)。
+不能把“所有 PendingIntent 一律 immutable”作为规则。安装提交的结果端点需要系统填写结果；`Session.commit()` 文档明确指出，调用方 target SDK 为 API 35+ 时使用 immutable PendingIntent 会抛 `IllegalArgumentException`。
+
+应按 API 契约选择明确指向自己接收组件的可变结果端点，并校验会话与输入，详见 [PendingIntent](../pending-intent.html)。
 :::

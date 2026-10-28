@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="660" viewBox="0 0 680 660" role="img" aria-labelledby="title desc">
+<title id="title">字节出门与进门：应用和内核各做什么</title>
+<desc id="desc">左侧发送应用写入字节，内核发送缓冲、TCP/IP处理与网卡发送；网络到达右侧后，网卡与内核接收重排，应用读取。两侧区分应用和内核；只画一个方向，不表示一次写入对应一个包。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="660" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">字节出门与进门：应用和内核各做什么</text>
+<rect x="24" y="78" width="300" height="530" rx="12" fill="#e8efff"/>
+<rect x="356" y="78" width="300" height="530" rx="12" fill="#e1f3ed"/>
+<text x="174" y="112" class="strong" text-anchor="middle">发送设备</text>
+<text x="506" y="112" class="strong" text-anchor="middle">接收设备</text>
+<rect x="44" y="138" width="260" height="82" rx="12" fill="#fff"/>
+<text x="174" y="170" class="strong" text-anchor="middle">应用</text>
+<text x="174" y="200" class="body" text-anchor="middle">编码 → send</text>
+<rect x="376" y="138" width="260" height="82" rx="12" fill="#fff"/>
+<text x="506" y="170" class="strong" text-anchor="middle">应用</text>
+<text x="506" y="200" class="body" text-anchor="middle">recv → 解释消息</text>
+<path d="M174 220 L174 267" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<text x="190" y="252" class="small" text-anchor="start">写入</text>
+<path d="M506 267 L506 220" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<text x="522" y="252" class="small" text-anchor="start">返回字节</text>
+<rect x="44" y="270" width="260" height="94" rx="12" fill="#c7ddff"/>
+<text x="174" y="304" class="strong" text-anchor="middle">内核发送缓冲</text>
+<text x="174" y="338" class="small" text-anchor="middle">排队，等待发送条件</text>
+<rect x="376" y="270" width="260" height="94" rx="12" fill="#bfe8d9"/>
+<text x="506" y="304" class="strong" text-anchor="middle">内核接收缓冲</text>
+<text x="506" y="338" class="small" text-anchor="middle">TCP 补缺口、按序交付</text>
+<path d="M174 365 L174 405" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M506 405 L506 365" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<rect x="44" y="408" width="260" height="80" rx="12" fill="#fff"/>
+<text x="174" y="440" class="strong" text-anchor="middle">TCP/IP → 网卡</text>
+<text x="174" y="470" class="small" text-anchor="middle">分段、封装并发送</text>
+<rect x="376" y="408" width="260" height="80" rx="12" fill="#fff"/>
+<text x="506" y="440" class="strong" text-anchor="middle">网卡 → TCP/IP</text>
+<text x="506" y="470" class="small" text-anchor="middle">接收、检查与重排</text>
+<path d="M174 488 L174 552" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M174 552 L506 552" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M506 552 L506 488" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<text x="340" y="582" class="small" text-anchor="middle">网络中的包：这里省略逐跳转发</text>
+<text x="340" y="638" class="small" text-anchor="middle">一次 send ≠ 一个包 ≠ 一次 recv；只画此方向的字节流</text>
+</svg>

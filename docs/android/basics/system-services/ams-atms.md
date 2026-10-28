@@ -23,7 +23,11 @@ AMS/ATMS 是职责拆分，不能解读成两者完全独立。一个“启动 A
 
 阅读主线是：**ATMS 接收请求 → Starter 决策 → Record 进入 Task → Supervisor 找进程 → 生命周期事务进入应用**。这些名字分别表示服务、执行器、状态记录与容器，不能互相替代。
 
-`Task` 是任务实体，`ActivityRecord` 是活动记录，`ActivityTaskManagerService` 是管理服务，三者不能混成一个 `ActivityTask` 类。旧教程中的 `TaskRecord` 确实存在，例如 Android 9 的 `com.android.server.am.TaskRecord` 保存 `taskId`、`mActivities` 和所属 `ActivityStack`。本篇 Android 16 基线采用 `com.android.server.wm.Task`，它同时参与窗口容器树；旧版的 `ActivityStack` 也不能机械替换为某个固定层级的新对象。跨版本应对照职责和调用点，而非只替换类名。[Android 9 TaskRecord](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-9.0.0_r1/services/core/java/com/android/server/am/TaskRecord.java#L131)
+`Task` 是任务实体，`ActivityRecord` 是活动记录，`ActivityTaskManagerService` 是管理服务，三者不能混成一个 `ActivityTask` 类。
+
+旧教程中的 `TaskRecord` 确实存在，例如 Android 9 的 `com.android.server.am.TaskRecord` 保存 `taskId`、`mActivities` 和所属 `ActivityStack`。
+
+本篇 Android 16 基线采用 `com.android.server.wm.Task`，它同时参与窗口容器树；旧版的 `ActivityStack` 也不能机械替换为某个固定层级的新对象。跨版本应对照职责和调用点，而非只替换类名。[Android 9 TaskRecord](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-9.0.0_r1/services/core/java/com/android/server/am/TaskRecord.java#L131)
 
 | 核心类 | 保存或管理什么 | 沿启动链重点看哪里 |
 | --- | --- | --- |
@@ -160,7 +164,9 @@ mFactory.recycle(starter);
 
 ### ActivityStarter：执行校验、建立记录、决定复用
 
-按方法跟踪为 `execute()` → `executeRequest()` → `startActivityUnchecked()` → `startActivityInner()`。这些方法之间还包含目标解析、权限检查、后台启动限制、URI 授权、启动拦截和失败清理；不能仅因为方法名里有 `Unchecked` 就认为权限不再检查。任务相关关键状态的修改受全局锁保护，执行请求前已保存真实调用身份。
+按方法跟踪为 `execute()` → `executeRequest()` → `startActivityUnchecked()` → `startActivityInner()`。
+
+这些方法之间还包含目标解析、权限检查、后台启动限制、URI 授权、启动拦截和失败清理；不能仅因为方法名里有 `Unchecked` 就认为权限不再检查。任务相关关键状态的修改受全局锁保护，执行请求前已保存真实调用身份。
 
 `executeRequest()` 中先构造服务端的启动记录，目标 ActivityInfo 来自前面的组件解析，调用来源也单独保存：
 
@@ -199,7 +205,9 @@ if (newTask) {
 }
 ```
 
-`setNewTask()` 内还会调用根任务的 `reuseOrCreateTask()`，再把启动记录加入或重新挂接到选定任务。因此 `FLAG_ACTIVITY_NEW_TASK`、`newTask` 局部变量和“分配一个全新 Task 对象”不能直接画等号。`launchMode`、affinity、flags、已有任务状态与显示区域等共同影响决策；已有实例还可能通过 `deliverNewIntent()` 收到新 Intent，而不重新 `onCreate()`。
+`setNewTask()` 内还会调用根任务的 `reuseOrCreateTask()`，再把启动记录加入或重新挂接到选定任务。因此 `FLAG_ACTIVITY_NEW_TASK`、`newTask` 局部变量和“分配一个全新 Task 对象”不能直接画等号。
+
+`launchMode`、affinity、flags、已有任务状态与显示区域等共同影响决策；已有实例还可能通过 `deliverNewIntent()` 收到新 Intent，而不重新 `onCreate()`。
 
 源码：[execute](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityStarter.java#L800)、[记录构建](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityStarter.java#L1471)、[startActivityInner](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityStarter.java#L1875)、[setNewTask](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityStarter.java#L3157)。
 
@@ -229,7 +237,9 @@ final TaskFragment topFragment = topActivity.getTaskFragment();
 resumed[0] |= topFragment.resumeTopActivity(prev, options, deferPause);
 ```
 
-TaskFragment 检查当前可见性、暂停交接、现有 Activity 与进程状态。已经有可用客户端记录时可能发送恢复事务；需要首次启动或重建时进入 `mTaskSupervisor.startSpecificActivity(next, true, true)`。它维护的 `mResumedActivity` 与 `mPausingActivity` 说明生命周期协调落在具体容器，不是用一个全局变量代表全设备的 Activity 状态。
+TaskFragment 检查当前可见性、暂停交接、现有 Activity 与进程状态。已经有可用客户端记录时可能发送恢复事务；需要首次启动或重建时进入 `mTaskSupervisor.startSpecificActivity(next, true, true)`。
+
+它维护的 `mResumedActivity` 与 `mPausingActivity` 说明生命周期协调落在具体容器，不是用一个全局变量代表全设备的 Activity 状态。
 
 源码：[RootWindowContainer 定义](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/RootWindowContainer.java#L170)、[resumeFocusedTasksTopActivities](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/RootWindowContainer.java#L2452)、[Task 递归与叶子路径](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/Task.java#L5142)、[TaskFragment.resumeTopActivity](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/TaskFragment.java#L1423)。
 
@@ -259,7 +269,9 @@ mService.startProcessAsync(r, knownToBeDead, isTop,
                 : HostingRecord.HOSTING_TYPE_ACTIVITY);
 ```
 
-这里的 `hasThread()` 只是 `mThread != null`，指应用通信端点可用，不是在询问 Java 主线程是否存在，更不证明 `Application.onCreate()` 已执行完。`realStartActivityLocked()` 还会检查暂停门槛，可能返回 `false` 等待后续推进，不能把一次调用当成客户端启动成功。[Supervisor 定义](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#L182)、[startSpecificActivity](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#L1129)、[暂停门槛](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#L808)
+这里的 `hasThread()` 只是 `mThread != null`，指应用通信端点可用，不是在询问 Java 主线程是否存在，更不证明 `Application.onCreate()` 已执行完。
+
+`realStartActivityLocked()` 还会检查暂停门槛，可能返回 `false` 等待后续推进，不能把一次调用当成客户端启动成功。[Supervisor 定义](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#L182)、[startSpecificActivity](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#L1129)、[暂停门槛](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#L808)
 
 ### ProcessRecord 与 WindowProcessController：同一进程的两侧视图
 
@@ -282,7 +294,9 @@ proc.addActivityIfNeeded(this);
 
 `ActivityRecord.app` 指向 WindowProcessController；其 Activity 集合又能定位属于该进程的服务端记录。进程通信端点以 `IApplicationThread` 接口使用，框架中可带有委托包装；App 实际接收端是 `ActivityThread.ApplicationThread`，不是 WindowProcessController 本身。
 
-缺少进程时，`ATMS.startProcessAsync()` 先记录待启动的 Activity，再通过 Handler 消息调用 `ActivityManagerInternal.startProcess`。源码明确说明这样可避免持有 ATMS 锁直接进入 AMS 导致潜在死锁。进程 attach 后，`RootWindowContainer.attachApplication()` 根据 UID、进程名及记录状态找到待启动项，再尝试 `realStartActivityLocked()`；不是把最初整条 startActivity 调用从头执行一遍。
+缺少进程时，`ATMS.startProcessAsync()` 先记录待启动的 Activity，再通过 Handler 消息调用 `ActivityManagerInternal.startProcess`。
+
+源码明确说明这样可避免持有 ATMS 锁直接进入 AMS 导致潜在死锁。进程 attach 后，`RootWindowContainer.attachApplication()` 根据 UID、进程名及记录状态找到待启动项，再尝试 `realStartActivityLocked()`；不是把最初整条 startActivity 调用从头执行一遍。
 
 ATMS 与 AMS 都在 `system_server`，同进程并不能消除不同状态锁之间的顺序风险。冷启动还要跨过运行时初始化和 `attachApplication()`：PID 已分配与 `IApplicationThread` 已可用是两个条件，不能看到进程出现就认定启动事务已经可以执行。
 
@@ -309,7 +323,11 @@ isSuccessful = mService.getLifecycleManager().scheduleTransactionItems(
         launchActivityItem, lifecycleItem);
 ```
 
-`ClientLifecycleManager` 组织事务，`ClientTransaction.schedule()` 通过 `IApplicationThread` 投递。App 的 ApplicationThread 接收后转交 ActivityThread；`ClientTransactionHandler.scheduleTransaction()` 把事务送入主线程消息队列，随后由 TransactionExecutor 执行。`LaunchActivityItem.execute()` 建立客户端记录并进入 `handleLaunchActivity()`，再沿 `performLaunchActivity()` 创建 Activity、通过 Instrumentation 调用生命周期。具体类创建和回调代码见 [Activity 启动原理](../activity-startup.html)。
+`ClientLifecycleManager` 组织事务，`ClientTransaction.schedule()` 通过 `IApplicationThread` 投递。
+
+App 的 ApplicationThread 接收后转交 ActivityThread；`ClientTransactionHandler.scheduleTransaction()` 把事务送入主线程消息队列，随后由 TransactionExecutor 执行。
+
+`LaunchActivityItem.execute()` 建立客户端记录并进入 `handleLaunchActivity()`，再沿 `performLaunchActivity()` 创建 Activity、通过 Instrumentation 调用生命周期。具体类创建和回调代码见 [Activity 启动原理](../activity-startup.html)。
 
 ```java
 // system_server：ClientTransaction.schedule() 中的远程接口调用。
@@ -339,7 +357,9 @@ void scheduleTransaction(ClientTransaction transaction) {
 
 ## 从 Launcher 点击图标到应用首帧 {#ams-atms-launch-sequence}
 
-以同一用户下普通桌面图标、目标进程不存在、启动一个需要 resumed 的 Activity 为主线，图中保留进程复用分支。图中 **Launcher、system_server、Zygote、目标 App、SurfaceFlinger 是不同进程**；AMS、ATMS、PMS 和 WMS 在此属于同一 system_server，其内部调用不等于跨进程 Binder。虚线表示回复或异步回报；标有 Binder、Socket 的箭头才指出对应传输边界。它是分阶段源码导读，不是某次启动的线程时间线。
+以同一用户下普通桌面图标、目标进程不存在、启动一个需要 resumed 的 Activity 为主线，图中保留进程复用分支。图中 **Launcher、system_server、Zygote、目标 App、SurfaceFlinger 是不同进程**；AMS、ATMS、PMS 和 WMS 在此属于同一 system_server，其内部调用不等于跨进程 Binder。
+
+虚线表示回复或异步回报；标有 Binder、Socket 的箭头才指出对应传输边界。它是分阶段源码导读，不是某次启动的线程时间线。
 
 ```mermaid
 sequenceDiagram
@@ -425,13 +445,23 @@ sequenceDiagram
   Note over L,S: 目标应用的首帧可见；不等于全部数据已经加载完成
 ```
 
-`IActivityTaskManager.startActivity()` 还有一条回到 `Instrumentation.execStartActivity()`、再回到 Launcher 的同步返回链；它可以与后续进程初始化和绘制重叠，故不在异步主线末尾画“返回”。启动请求的结果检查在这一返回链上完成，不能等待首帧才当作 startActivity 返回。
+`IActivityTaskManager.startActivity()` 还有一条回到 `Instrumentation.execStartActivity()`、再回到 Launcher 的同步返回链；它可以与后续进程初始化和绘制重叠，故不在异步主线末尾画“返回”。
 
-这张图采用 **`expediteActivityLaunchOnColdStart()` 关闭、`mEnableWaitForFinishAttachApplication` 开启**的 attach 路径。前者开启时，AMS 在 `attachApplicationLocked()` 中、发出 `bindApplication()` 后提前通知 ATMS；前者关闭时则由 `finishAttachApplicationInner()` 通知。后者关闭时，AMS 在 attach 内直接调用这个 Inner 方法，稍后的客户端 `finishAttachApplication()` 被忽略，而非等待 `Application.onCreate()` 回报。**提前发送启动事务不表示 Activity 回调可以越过主线程中的应用初始化**；Binder 接收与主线程执行要分开阅读。[AMS attach 与 finishAttach 分支](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/am/ActivityManagerService.java#L4826)
+启动请求的结果检查在这一返回链上完成，不能等待首帧才当作 startActivity 返回。
+
+这张图采用 **`expediteActivityLaunchOnColdStart()` 关闭、`mEnableWaitForFinishAttachApplication` 开启**的 attach 路径。
+
+前者开启时，AMS 在 `attachApplicationLocked()` 中、发出 `bindApplication()` 后提前通知 ATMS；前者关闭时则由 `finishAttachApplicationInner()` 通知。
+
+后者关闭时，AMS 在 attach 内直接调用这个 Inner 方法，稍后的客户端 `finishAttachApplication()` 被忽略，而非等待 `Application.onCreate()` 回报。
+
+**提前发送启动事务不表示 Activity 回调可以越过主线程中的应用初始化**；Binder 接收与主线程执行要分开阅读。[AMS attach 与 finishAttach 分支](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/am/ActivityManagerService.java#L4826)
 
 **启动身份与任务参数**：此普通图标路径的 `startActivitySafely()` 会加入 `FLAG_ACTIVITY_NEW_TASK`，不保证每次都新建 Task。`Instrumentation.execStartActivity()` 传递 Launcher 的 `IApplicationThread`、包名 / attribution tag、来源 Activity token 等信息；服务端保存真实 Binder PID/UID，并结合 caller 对应进程核验来源，目标应用的 UID 由解析结果决定，不能把 Intent 内自报字段当作身份。深层快捷方式与跨用户图标会经 `LauncherApps` 的其他入口，未画成同一条调用链。[Launcher3 入口](https://android.googlesource.com/platform/packages/apps/Launcher3/+/refs/tags/android-16.0.0_r1/src/com/android/launcher3/views/ActivityContext.java#418)、[Instrumentation](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/Instrumentation.java#L1992)、[ActivityStarter.Request.resolveActivity](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityStarter.java#L560)
 
-主线程在 `ActivityThread.main()` 中已经存在，先准备 Looper，再 attach，随后进入消息循环；不能画成“Application.onCreate 后才创建主线程”。Zygote 回复 PID 与子进程 attach 可以并发推进，图中排列不表示两端严格串行。USAP 是否启用取决于系统配置。[ActivityThread.main](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ActivityThread.java#L9018)、[Zygote 进程机制](https://source.android.com/docs/core/runtime/zygote)
+主线程在 `ActivityThread.main()` 中已经存在，先准备 Looper，再 attach，随后进入消息循环；不能画成“Application.onCreate 后才创建主线程”。
+
+Zygote 回复 PID 与子进程 attach 可以并发推进，图中排列不表示两端严格串行。USAP 是否启用取决于系统配置。[ActivityThread.main](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ActivityThread.java#L9018)、[Zygote 进程机制](https://source.android.com/docs/core/runtime/zygote)
 
 ## 复用、时序和完成边界 {#launch-branches}
 
@@ -444,9 +474,13 @@ sequenceDiagram
 
 图中的绘制后半程按普通 View、硬件加速路径展开；SurfaceView、软件绘制、多窗口和厂商实现有额外分支。WMS 管理窗口和绘制同步，**SurfaceFlinger 负责显示合成**；`finishDrawing()` 回报不是物理屏幕已经呈现的证明。[启动耗时与 TTID / TTFD](https://developer.android.com/topic/performance/issues/launch-time)、[SurfaceFlinger 与 VSYNC](../../framework/surfaceflinger-vsync.html)
 
-`ViewRootImpl` 的同步完成回调可从渲染相关线程调用 `reportDrawFinished()`；对跨进程 WMS 不要求先切回应用主线程。`finishDrawing()` 可把待合并的 SurfaceControl 事务送到服务端，不能读成“缓冲区已经独立提交，主线程随后只发一个通知”。启动窗口移除与过渡也可能涉及 WM Shell，图中合并为窗口协作阶段。[ViewRootImpl 同步回调](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java#L4569)、[WindowState.finishDrawing](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowState.java#L5645)、[ActivityRecord.onFirstWindowDrawn](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java#L6472)
+`ViewRootImpl` 的同步完成回调可从渲染相关线程调用 `reportDrawFinished()`；对跨进程 WMS 不要求先切回应用主线程。`finishDrawing()` 可把待合并的 SurfaceControl 事务送到服务端，不能读成“缓冲区已经独立提交，主线程随后只发一个通知”。
 
-TTID 的框架 `Displayed` / windows-drawn 计时属于初始显示指标，不能直接当成显示面板扫描完成时间；需要物理呈现证据时，还要关联 SurfaceFlinger、present fence 和显示管线时间。TTFD 依赖应用在达到可用状态后正确报告 `reportFullyDrawn()`，系统不会自动判断所有业务数据是否加载完毕。[ActivityRecord.onWindowsDrawn](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java#L6545)、[TTID / TTFD 定义与报告](https://developer.android.com/topic/performance/issues/launch-time#time-initial)
+启动窗口移除与过渡也可能涉及 WM Shell，图中合并为窗口协作阶段。[ViewRootImpl 同步回调](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java#L4569)、[WindowState.finishDrawing](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowState.java#L5645)、[ActivityRecord.onFirstWindowDrawn](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java#L6472)
+
+TTID 的框架 `Displayed` / windows-drawn 计时属于初始显示指标，不能直接当成显示面板扫描完成时间；需要物理呈现证据时，还要关联 SurfaceFlinger、present fence 和显示管线时间。
+
+TTFD 依赖应用在达到可用状态后正确报告 `reportFullyDrawn()`，系统不会自动判断所有业务数据是否加载完毕。[ActivityRecord.onWindowsDrawn](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java#L6545)、[TTID / TTFD 定义与报告](https://developer.android.com/topic/performance/issues/launch-time#time-initial)
 
 ## 沿源码复核这条链 {#launch-source-map}
 

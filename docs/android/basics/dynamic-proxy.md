@@ -88,7 +88,9 @@ handler.after hello
 Hello, Android
 ```
 
-核心调用链是 `proxy.hello("Android")` → `InvocationHandler.invoke()` → `method.invoke(target, methodArgs)` → `target.hello("Android")`，结果再沿原路返回。Lambda 就是 `InvocationHandler` 的实现：本次 `method` 对应 `Greeter.hello(String)`，`methodArgs` 包含字符串 `"Android"`，`proxyObject` 则是生成的代理对象。
+核心调用链是 `proxy.hello("Android")` → `InvocationHandler.invoke()` → `method.invoke(target, methodArgs)` → `target.hello("Android")`，结果再沿原路返回。
+
+Lambda 就是 `InvocationHandler` 的实现：本次 `method` 对应 `Greeter.hello(String)`，`methodArgs` 包含字符串 `"Android"`，`proxyObject` 则是生成的代理对象。
 
 转发时应将真实对象 `target` 传给 `method.invoke()`；若传入 `proxyObject`，会再次进入处理器，形成递归。本例的 `handler.after` 只在成功返回时打印，若需无论成功失败都执行清理，应使用 `finally`。[InvocationHandler API](https://developer.android.com/reference/java/lang/reflect/InvocationHandler)
 

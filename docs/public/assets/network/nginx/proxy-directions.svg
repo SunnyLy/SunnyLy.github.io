@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="900" viewBox="0 0 680 900" role="img" aria-labelledby="title desc">
+  <title id="title">正向代理替客户端出门，反向代理替服务端接待</title>
+  <desc id="desc">上图把客户端和正向代理放进客户端管理的一侧，下图把反向代理和应用放进服务端管理的一侧。蓝色实线按请求方向编号，绿色虚线按响应方向编号，两者都经过代理。</desc>
+  <defs><marker id="req" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#356fbb"/></marker><marker id="res" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#21806b"/></marker></defs>
+  <rect width="680" height="900" rx="18" fill="#f7f9fc"/>
+  <g font-family="system-ui,Microsoft YaHei,sans-serif" fill="#16324f" text-anchor="middle">
+    <text x="340" y="38" font-size="25" font-weight="700">关键：代理代表哪一方？</text>
+    <text x="340" y="73" font-size="18">蓝实线＝请求；绿虚线＝响应。两种代理都双向转发。</text>
+    <text x="340" y="121" font-size="23" font-weight="700">正向代理：我指定代理，替我访问目标</text>
+    <rect x="22" y="143" width="416" height="220" rx="16" fill="#eaf2ff" stroke="#9dbff0"/>
+    <text x="230" y="175" font-size="19" font-weight="600">客户端一侧：由用户 / 组织选择代理</text>
+    <rect x="42" y="199" width="168" height="115" rx="12" fill="white" stroke="#9dbff0"/>
+    <rect x="252" y="199" width="168" height="115" rx="12" fill="white" stroke="#9dbff0"/>
+    <rect x="462" y="199" width="176" height="115" rx="12" fill="#eaf7f2" stroke="#99ccba"/>
+    <text x="126" y="233" font-size="21" font-weight="600">客户端</text><text x="126" y="263" font-size="18">浏览器 / curl</text>
+    <text x="336" y="233" font-size="21" font-weight="600">正向代理</text><text x="336" y="263" font-size="18">公司统一出口</text>
+    <text x="550" y="233" font-size="21" font-weight="600">目标网站</text><text x="550" y="263" font-size="18">客户端指定目标</text>
+    <path d="M210 219H249" stroke="#356fbb" stroke-width="2.5" fill="none" marker-end="url(#req)"/>
+    <path d="M420 219H459" stroke="#356fbb" stroke-width="2.5" fill="none" marker-end="url(#req)"/>
+    <path d="M462 293H423" stroke="#21806b" stroke-width="2.5" stroke-dasharray="5 4" fill="none" marker-end="url(#res)"/>
+    <path d="M252 293H213" stroke="#21806b" stroke-width="2.5" stroke-dasharray="5 4" fill="none" marker-end="url(#res)"/>
+    <text x="231" y="207" font-size="16">①</text><text x="442" y="207" font-size="16">②</text>
+    <text x="442" y="320" font-size="16">③</text><text x="231" y="320" font-size="16">④</text>
+    <text x="340" y="397" font-size="19">网址仍是目标网站；额外告诉客户端“通过谁访问”。</text>
+    <text x="340" y="459" font-size="23" font-weight="700">反向代理：网站部署入口，替应用接收请求</text>
+    <rect x="236" y="480" width="422" height="220" rx="16" fill="#eaf7f2" stroke="#99ccba"/>
+    <text x="447" y="512" font-size="19" font-weight="600">服务端一侧：由网站方配置路由与上游</text>
+    <rect x="42" y="536" width="168" height="115" rx="12" fill="white" stroke="#b9c8d8"/>
+    <rect x="252" y="536" width="168" height="115" rx="12" fill="white" stroke="#99ccba"/>
+    <rect x="462" y="536" width="176" height="115" rx="12" fill="white" stroke="#99ccba"/>
+    <text x="126" y="570" font-size="21" font-weight="600">客户端</text><text x="126" y="600" font-size="18">正常打开网站</text>
+    <text x="336" y="570" font-size="21" font-weight="600">反向代理</text><text x="336" y="600" font-size="18">Nginx 网站入口</text>
+    <text x="550" y="570" font-size="21" font-weight="600">应用实例</text><text x="550" y="600" font-size="18">Nginx 配置上游</text>
+    <path d="M210 556H249" stroke="#356fbb" stroke-width="2.5" fill="none" marker-end="url(#req)"/>
+    <path d="M420 556H459" stroke="#356fbb" stroke-width="2.5" fill="none" marker-end="url(#req)"/>
+    <path d="M462 630H423" stroke="#21806b" stroke-width="2.5" stroke-dasharray="5 4" fill="none" marker-end="url(#res)"/>
+    <path d="M252 630H213" stroke="#21806b" stroke-width="2.5" stroke-dasharray="5 4" fill="none" marker-end="url(#res)"/>
+    <text x="231" y="544" font-size="16">①</text><text x="442" y="544" font-size="16">②</text>
+    <text x="442" y="657" font-size="16">③</text><text x="231" y="657" font-size="16">④</text>
+    <text x="340" y="735" font-size="19">网址是服务入口；客户端无需配置显式代理。</text>
+    <rect x="30" y="774" width="620" height="93" rx="14" fill="#fff5e9" stroke="#edc18f"/>
+    <text x="340" y="807" font-size="20" font-weight="600">区别不在箭头朝哪边，也不在机器放哪儿</text>
+    <text x="340" y="839" font-size="19">看：谁选代理？目标由谁决定？TLS 在哪里结束？</text>
+  </g>
+</svg>

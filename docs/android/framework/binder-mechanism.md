@@ -167,13 +167,17 @@ public void onServiceConnected(android.content.ComponentName name,
     android:exported="false" android:process=":adder" />
 ```
 
-同进程时，接口对象是 `AdderImpl`，`add()` 日志的 PID、TID 与工作线程调用方相同。独立进程时，客户端通常拿到 `BinderProxy`，接口对象是生成的 `IAdder.Stub.Proxy`；`add()` 在服务端 Binder 线程执行，PID 与客户端不同。**进程配置改变了实际执行路径，客户端的 `api.add(3, 4)` 写法没有改变。**
+同进程时，接口对象是 `AdderImpl`，`add()` 日志的 PID、TID 与工作线程调用方相同。独立进程时，客户端通常拿到 `BinderProxy`，接口对象是生成的 `IAdder.Stub.Proxy`；`add()` 在服务端 Binder 线程执行，PID 与客户端不同。
+
+**进程配置改变了实际执行路径，客户端的 `api.add(3, 4)` 写法没有改变。**
 
 ### asInterface 为什么能返回原对象
 
 **本地 Binder 是当前进程拥有的 Binder 实体。** 在这个 Java AIDL 例子里，它就是 `new AdderImpl()` 创建的对象：`AdderImpl` 继承生成的 `IAdder.Stub`，`Stub` 又继承 `android.os.Binder` 并实现 `IAdder`。因此，同一个对象既能作为 `IAdder` 调用业务方法，也能作为 `IBinder` 交给 Binder 框架。“本地”描述实体所在的位置，不要求类名叫 `LocalBinder`。
 
-对照上方完整生成代码，Stub 构造时调用 `attachInterface(this, DESCRIPTOR)`。这里的 `this` 是正在构造的 **AdderImpl 对象本身**，不会因为执行父类构造器就变成另一个 Stub 或 Binder 对象。随后 `Stub.asBinder()` 返回 `this`，`Stub.asInterface()` 查询本地接口并判断是否需要创建 Proxy。
+对照上方完整生成代码，Stub 构造时调用 `attachInterface(this, DESCRIPTOR)`。这里的 `this` 是正在构造的 **AdderImpl 对象本身**，不会因为执行父类构造器就变成另一个 Stub 或 Binder 对象。
+
+随后 `Stub.asBinder()` 返回 `this`，`Stub.asInterface()` 查询本地接口并判断是否需要创建 Proxy。
 
 **`attachInterface()` 的实现就是保存两个字段。** 它继承自 `Binder`，没有注册 ServiceManager，也没有发送驱动事务。下面是 `frameworks/base/core/java/android/os/Binder.java` 的源码节选，省略空值注解：
 
@@ -197,7 +201,9 @@ public IInterface queryLocalInterface(String descriptor) {
 }
 ```
 
-所以，`implementation.asBinder()` 返回原对象；随后对它调用 `queryLocalInterface()`，根据描述取回 `mOwner`，仍然是原对象；`asInterface()` 再确认它实现了 `IAdder`，就把这个引用转换为 `IAdder` 返回。前面例子的 `local == implementation` 因而为 `true`，调用 `local.add()` 就是普通 Java 方法调用。
+所以，`implementation.asBinder()` 返回原对象；随后对它调用 `queryLocalInterface()`，根据描述取回 `mOwner`，仍然是原对象；`asInterface()` 再确认它实现了 `IAdder`，就把这个引用转换为 `IAdder` 返回。
+
+前面例子的 `local == implementation` 因而为 `true`，调用 `local.add()` 就是普通 Java 方法调用。
 
 `mOwner` 是每个 Binder 实例自己的字段，不是全局服务表。接口描述也不是内存地址，更不承担调用方认证。通用的 `attachInterface(owner, descriptor)` 允许 `owner` 是另一个实现 `IInterface` 的对象；本例中它与 Binder 是同一对象，是因为生成的 Stub 传入了 `this`。
 
@@ -210,7 +216,9 @@ public IInterface queryLocalInterface(String descriptor) {
 }
 ```
 
-于是 `asInterface()` 创建 `IAdder.Stub.Proxy`，后续业务调用经 Parcel 和 Binder 事务到达服务端。**同一个 AdderImpl，对服务端是本地实体，对其他进程则由远端引用和代理表示。** 当 Java Binder 需要交给 Native 层时，JNI 的 `ibinderForJavaObject()` 经 `JavaBBinderHolder` 获取适配对象 `JavaBBinder`；它继承 Native `BBinder`，并持有指向原 Java Binder 的全局引用，供远端事务回调。这个适配过程与仅赋值两个 Java 字段的 `attachInterface()` 是不同步骤。
+于是 `asInterface()` 创建 `IAdder.Stub.Proxy`，后续业务调用经 Parcel 和 Binder 事务到达服务端。**同一个 AdderImpl，对服务端是本地实体，对其他进程则由远端引用和代理表示。** 当 Java Binder 需要交给 Native 层时，JNI 的 `ibinderForJavaObject()` 经 `JavaBBinderHolder` 获取适配对象 `JavaBBinder`；它继承 Native `BBinder`，并持有指向原 Java Binder 的全局引用，供远端事务回调。
+
+这个适配过程与仅赋值两个 Java 字段的 `attachInterface()` 是不同步骤。
 
 源码位置：[`Binder` 实例字段 L307](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java#307)、[`attachInterface()` L753](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java#753)、[`queryLocalInterface()` L788](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java#788)、[`BinderProxy` 查询 L509](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/BinderProxy.java#509)、[`JavaBBinder` L338](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/jni/android_util_Binder.cpp#338)、[`ibinderForJavaObject()` L985](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/jni/android_util_Binder.cpp#985)。
 
@@ -218,7 +226,9 @@ public IInterface queryLocalInterface(String descriptor) {
 
 ### 远端多出来的编码、分派与回复
 
-`api.add()` 进入完整生成代码中的 `Proxy.add()` 后，先写接口 token，再依次写 `a`、`b`，最后调用 `mRemote.transact(TRANSACTION_add, ..., 0)`。`mRemote` 跨进程时通常是 `BinderProxy`，它随后进入 JNI、Native 与驱动。同步回复回来后，Proxy 先 `readException()`，再 `readInt()`，所以传输标志 `_status` 与业务结果 `_result` 是两回事。
+`api.add()` 进入完整生成代码中的 `Proxy.add()` 后，先写接口 token，再依次写 `a`、`b`，最后调用 `mRemote.transact(TRANSACTION_add, ..., 0)`。
+
+`mRemote` 跨进程时通常是 `BinderProxy`，它随后进入 JNI、Native 与驱动。同步回复回来后，Proxy 先 `readException()`，再 `readInt()`，所以传输标志 `_status` 与业务结果 `_result` 是两回事。
 
 服务端收到事务，`Stub.onTransact()` 先核对接口 token，再按 `TRANSACTION_add` 分派，以相同顺序读出两个整数。`this.add()` 虚方法调用落到 `AdderImpl.add()`，服务端将异常头与返回值写入回复 Parcel，客户端才读到结果。事务码由生成器分配；不要另外手写一套协议与生成类并存。
 
@@ -253,7 +263,9 @@ public IInterface queryLocalInterface(String descriptor) {
 
 ### 服务发现与业务调用是两个阶段
 
-在这一基线中，原生 ServiceManager 建立 context object，并通过 `becomeContextManager()` 向驱动注册为当前 Binder context 的管理者。`ProcessState::getContextObject()` 获取 handle 0 对应的入口。**handle 0 是当前 context manager 的特殊入口，不是每个系统服务统一使用的 handle。**
+在这一基线中，原生 ServiceManager 建立 context object，并通过 `becomeContextManager()` 向驱动注册为当前 Binder context 的管理者。
+
+`ProcessState::getContextObject()` 获取 handle 0 对应的入口。**handle 0 是当前 context manager 的特殊入口，不是每个系统服务统一使用的 handle。**
 
 一次典型注册与查找可分为四步：
 
@@ -282,7 +294,9 @@ IAdder adder = IAdder.Stub.asInterface(binder);
 int result = adder.add(3, 4); // 所在方法处理 RemoteException；这一笔发往服务进程。
 ```
 
-`addService()` 发布的是 Binder 引用，**不会替你创建服务进程、启动 Android Service 或执行 `onCreate()`**。`getService()` 是目录查找；`adder.add()` 是后续业务调用。二者使用的目标 Binder 不同：前者找 ServiceManager，后者找 `AdderImpl` 所在进程。
+`addService()` 发布的是 Binder 引用，**不会替你创建服务进程、启动 Android Service 或执行 `onCreate()`**。`getService()` 是目录查找；`adder.add()` 是后续业务调用。
+
+二者使用的目标 Binder 不同：前者找 ServiceManager，后者找 `AdderImpl` 所在进程。
 
 ### Java 包装层如何找到目录入口
 
@@ -326,7 +340,9 @@ final IBinder binder =
 return checkService2(name);
 ```
 
-Java `sCache` 主要由启动阶段预装，普通查找未命中后不会自动执行 `sCache.put()`。它与 Native ServiceManager 的完整注册表不同；native backend 还可能有自己的缓存。这里的 Java `getService()` 经兼容代理走 `checkService2()`，不能仅凭名字把它理解成“没找到就启动服务并一直等待”。需要等待的系统代码应按相应的 `waitForService()` 契约处理。
+Java `sCache` 主要由启动阶段预装，普通查找未命中后不会自动执行 `sCache.put()`。它与 Native ServiceManager 的完整注册表不同；native backend 还可能有自己的缓存。
+
+这里的 Java `getService()` 经兼容代理走 `checkService2()`，不能仅凭名字把它理解成“没找到就启动服务并一直等待”。需要等待的系统代码应按相应的 `waitForService()` 契约处理。
 
 核对入口：[`ServiceManager.getIServiceManager()`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#149)、[`getService()`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#169)、[`addService()`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#250)、[`rawGetService()`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#426)、[兼容代理的 `getService2()`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManagerNative.java#68)。
 
@@ -514,7 +530,9 @@ sequenceDiagram
 
 原生 `ProcessState` 管理进程中的 Binder 运行时状态，`IPCThreadState` 保存参与调用的线程状态。服务端方法应按可能被不同调用线程并发进入来设计，不能依赖“系统会固定派给同一条线程”。
 
-`maxThreads` 也不能机械解释为进程总 Binder 线程上限。该版本 NDK 头文件明确区分：内核按需启动的线程、`startThreadPool()` 主动启动的线程，以及调用 `joinThreadPool()` 加入的线程。它给出的配置 3、再启动 1 条并由主线程加入 1 条的例子，可形成 5 条线程；这不是所有 Java 或原生服务的统一配置。
+`maxThreads` 也不能机械解释为进程总 Binder 线程上限。该版本 NDK 头文件明确区分：内核按需启动的线程、`startThreadPool()` 主动启动的线程，以及调用 `joinThreadPool()` 加入的线程。
+
+它给出的配置 3、再启动 1 条并由主线程加入 1 条的例子，可形成 5 条线程；这不是所有 Java 或原生服务的统一配置。
 
 遇到拥塞，先区分业务耗时、锁等待、嵌套调用和队列积压，再考虑线程池设置。增加线程不能修复持锁跨进程调用的死锁。依据：[`binder_process.h` 的线程池契约](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/ndk/include_platform/android/binder_process.h)。
 
@@ -545,7 +563,9 @@ sequenceDiagram
 
 典型场景是“告诉对方一个状态”：例如服务向另一个进程的观察者通知进度、播放状态或配置变化。发送方不应因为某个观察者处理得慢，就一直等在这次回调上。通知类接口可以考虑 `oneway`；需要立即取得结果、知道校验是否通过或确认写入是否成功的接口，应保留同步结果，或另外设计明确的完成协议。
 
-AOSP 中会直接遇到的例子是 `IApplicationThread`：`frameworks/base/core/java/android/app/IApplicationThread.aidl` 在 **L71** 将整个接口声明为 `oneway interface`，**L167** 定义 `scheduleTransaction(in ClientTransaction transaction)`。阅读 App 启动流程时，要把“系统已经发出生命周期调度请求”和“应用已经执行完生命周期回调”分开看，不能把这次发送返回当作 Activity 已启动完成。[接口声明与调度方法](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/IApplicationThread.aidl#71)
+AOSP 中会直接遇到的例子是 `IApplicationThread`：`frameworks/base/core/java/android/app/IApplicationThread.aidl` 在 **L71** 将整个接口声明为 `oneway interface`，**L167** 定义 `scheduleTransaction(in ClientTransaction transaction)`。
+
+阅读 App 启动流程时，要把“系统已经发出生命周期调度请求”和“应用已经执行完生命周期回调”分开看，不能把这次发送返回当作 Activity 已启动完成。[接口声明与调度方法](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/IApplicationThread.aidl#71)
 
 `IAdder.add()` 需要返回加法结果，因此不能直接加上 `oneway`。另建一个只报告进度的接口更合适：
 
@@ -581,7 +601,9 @@ interface IProgressListener {
 
 <<< @/public/attachments/android/binder-study/ProgressDemoActivity.java
 
-观察 `BinderStudy` 日志中的 `send returned` 与 `received`：两条日志来自不同进程，它们的观察顺序取决于调度，不能假定返回日志一定先出现。`send returned` 只说明发送方法返回；示例接收方甚至可以拒绝非法进度并直接返回，发送方也不会自动得到这个业务校验结果。去掉 Service 的 `android:process` 后，本地 `onProgress()` 会在 `progress-sender` 线程直接执行，`oneway` 不会另外创建线程。
+观察 `BinderStudy` 日志中的 `send returned` 与 `received`：两条日志来自不同进程，它们的观察顺序取决于调度，不能假定返回日志一定先出现。
+
+`send returned` 只说明发送方法返回；示例接收方甚至可以拒绝非法进度并直接返回，发送方也不会自动得到这个业务校验结果。去掉 Service 的 `android:process` 后，本地 `onProgress()` 会在 `progress-sender` 线程直接执行，`oneway` 不会另外创建线程。
 
 这个例子采用“App 向接收 Service 发通知”的方向；实际的跨进程进度回调通常由 App 把 `IProgressListener.Stub` 通过注册接口交给服务，服务随后调用它。谁提供 Stub，谁就拥有这次回调的接收实体，底层处理方式相同。
 
@@ -654,7 +676,9 @@ case BR_TRANSACTION_COMPLETE:
     break;
 ```
 
-`BR_TRANSACTION_COMPLETE` 不是“服务端已执行成功”。等待函数还处理死亡、失败、冻结等通知；提交仍可能失败，对端被冻结时业务通知也可能留在队列，不能据发送返回认定接收方已经运行。接收端 `IPCThreadState::executeCommand()` 在 **L1503** 检查事务标志，仅非 `oneway` 路径调用 `sendReply()`。
+`BR_TRANSACTION_COMPLETE` 不是“服务端已执行成功”。等待函数还处理死亡、失败、冻结等通知；提交仍可能失败，对端被冻结时业务通知也可能留在队列，不能据发送返回认定接收方已经运行。
+
+接收端 `IPCThreadState::executeCommand()` 在 **L1503** 检查事务标志，仅非 `oneway` 路径调用 `sendReply()`。
 
 Java 本体抛异常时同样没有普通回复可用。`frameworks/base/core/java/android/os/Binder.java` 的 `Binder.execTransactInternal()`（方法起点 **L1376**）在 **L1435–1450** 区分处理：
 
@@ -719,7 +743,9 @@ if (!w) {
 }
 ```
 
-这个节点对应具体 Stub 实体，**不是 AIDL 接口类，更不是整个服务进程**。不同 Stub 实例可以并行接收；多个发送线程同时提交时，也不能拿它们各自的业务时间假定一个全局发送顺序。如果 `onProgress()` 只是把工作扔给另一个 Executor 就返回，Binder 保证的是接收方法的串行分派，后续业务完成顺序由那个 Executor 决定。
+这个节点对应具体 Stub 实体，**不是 AIDL 接口类，更不是整个服务进程**。不同 Stub 实例可以并行接收；多个发送线程同时提交时，也不能拿它们各自的业务时间假定一个全局发送顺序。
+
+如果 `onProgress()` 只是把工作扔给另一个 Executor 就返回，Binder 保证的是接收方法的串行分派，后续业务完成顺序由那个 Executor 决定。
 
 源码：[节点排队逻辑 L3029](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder.c#3029)、[节点异步队列入队 L3095](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder.c#3095)、[释放后推进 L4255](https://android.googlesource.com/kernel/common/+/refs/tags/android16-6.12-2025-06_r1/drivers/android/binder.c#4255)。
 
@@ -779,7 +805,9 @@ try {
 
 还要区分下一跳远程调用与本进程内的检查：A 调用 B，B 再发起到 C 的普通 Binder 事务时，C 看到的发送方是 B；这并不以 B 先调用 `clearCallingIdentity()` 为前提。B 线程上仍保留的入站身份，会影响 B 的本地调用和身份查询，正是需要谨慎处理的上下文。
 
-接口 token/descriptor 用于核对协议，不等同于授权；ServiceManager 的服务发现准入、SELinux 的 Binder 策略与具体业务方法的权限检查也各有职责，拿到引用不能代替业务鉴权。核对入口：[`Binder.java`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java)、[`IPCThreadState::clearCallingIdentity()` 与 `clearCaller()`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp)。
+接口 token/descriptor 用于核对协议，不等同于授权；ServiceManager 的服务发现准入、SELinux 的 Binder 策略与具体业务方法的权限检查也各有职责，拿到引用不能代替业务鉴权。
+
+核对入口：[`Binder.java`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/Binder.java)、[`IPCThreadState::clearCallingIdentity()` 与 `clearCaller()`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp)。
 
 ## 8. 引用计数、死亡通知与业务可靠性
 
@@ -1017,7 +1045,9 @@ static int getSuggestedMaxIpcSizeBytes() {
 
 Android 8 的相关文档介绍了 `/dev/binder`、`/dev/hwbinder` 与 `/dev/vndbinder` 等历史分域，每个 context 有自己的服务管理入口。它们不是可以任意互通、共享 handle 的同一个命名空间。
 
-但不能把“Framework 永远用 binder，所有 vendor 服务永远用 hwbinder/vndbinder”当作现代规则。Stable AIDL 自 Android 10 提供接口稳定性支持，Android 11 引入 AIDL HAL；现代跨 system/vendor 的 Stable AIDL 使用 `/dev/binder`，并对后端与运行库有具体要求。`vndservicemanager` 自 Android 11 被弃用，不表示所有存量设备立刻移除。
+但不能把“Framework 永远用 binder，所有 vendor 服务永远用 hwbinder/vndbinder”当作现代规则。Stable AIDL 自 Android 10 提供接口稳定性支持，Android 11 引入 AIDL HAL；现代跨 system/vendor 的 Stable AIDL 使用 `/dev/binder`，并对后端与运行库有具体要求。
+
+`vndservicemanager` 自 Android 11 被弃用，不表示所有存量设备立刻移除。
 
 跨 system/vendor 的 HAL 接口还涉及 `@VintfStability`、构建中的 `stability: "vintf"`、接口版本冻结与 VINTF 清单等约束。写了 `.aidl` 文件并不自动获得跨版本兼容；不能把本地 Java AIDL、平台内部 C++ ABI 和稳定 HAL 接口当成同一层保证。
 
@@ -1040,7 +1070,7 @@ adb shell dumpsys -l
 
 `service list` 列出服务名称及可获取的接口描述；`dumpsys -l` 只列出服务，不执行各服务的完整 dump。它们反映当前上下文中可见的服务，不是所有内核 Binder 节点或 handle 的清单。命令语义可核对固定版本的 [`service.cpp`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/cmds/service/service.cpp) 与 [`dumpsys.cpp`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/cmds/dumpsys/dumpsys.cpp)。
 
-即使设备显示 Android 16，也不能由版本字符串单独推出它与本文源码标签完全一致。进一步分析应使用与设备构建匹配的源码、符号和厂商修改信息。
+Android 版本字符串不能证明设备与某个源码标签完全一致；分析时应匹配设备构建、源码、符号和厂商修改。
 
 ### 再构造能区分机制的观察
 

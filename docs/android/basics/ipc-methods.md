@@ -282,7 +282,9 @@ public final class IpcDemoActivity extends Activity {
 }
 ```
 
-绑定返回 true 仅表示已接受连接请求；接口只能在 onServiceConnected 后使用。onServiceDisconnected 不等于所有业务都未执行；系统可能保留绑定并重新连接。onBindingDied / onNullBinding 应释放对应绑定，由拥有者决定是否重新发起。线程中断也不能自动取消已经发出的同步 Binder 事务。[绑定生命周期](https://developer.android.com/develop/background-work/services/bound-services)
+绑定返回 true 仅表示已接受连接请求；接口只能在 onServiceConnected 后使用。onServiceDisconnected 不等于所有业务都未执行；系统可能保留绑定并重新连接。
+
+onBindingDied / onNullBinding 应释放对应绑定，由拥有者决定是否重新发起。线程中断也不能自动取消已经发出的同步 Binder 事务。[绑定生命周期](https://developer.android.com/develop/background-work/services/bound-services)
 
 ## Messenger：简单串行消息协议
 
@@ -307,7 +309,9 @@ request.replyTo = replies; // 客户端自己的 Messenger，由回复 Handler �
 remote.send(request);     // 调用方捕获 RemoteException，业务另设超时
 ```
 
-此处 Handler 选择主 Looper，只适合快速处理。耗时工作要选专用执行位置；把业务转发到线程池后，也不能再宣称业务完成顺序天然串行。replyTo 只提供回复通道，不自动匹配请求、重试或保证处理成功。Handler 回调中用 Message.sendingUid 识别入口记录的 UID，不能用此时的 Binder.getCallingUid 恢复原调用者。
+此处 Handler 选择主 Looper，只适合快速处理。耗时工作要选专用执行位置；把业务转发到线程池后，也不能再宣称业务完成顺序天然串行。replyTo 只提供回复通道，不自动匹配请求、重试或保证处理成功。
+
+Handler 回调中用 Message.sendingUid 识别入口记录的 UID，不能用此时的 Binder.getCallingUid 恢复原调用者。
 
 ## Intent / Broadcast：组件入口与小事件
 
@@ -463,7 +467,9 @@ Intent share = new Intent(Intent.ACTION_SEND)
 startActivity(Intent.createChooser(share, "分享笔记"));
 ```
 
-通用文件分享优先采用配置范围收敛的 FileProvider，不发送 file:// 或任意文件路径。文件共享本身也不保证读写一致：示例仅演示一次写完后读取，生产环境需快照、原子发布或统一事务。SharedPreferences 的 MODE_MULTI_PROCESS 已弃用且不可靠，不能当作跨进程数据库；需要观察变更时使用 Provider 通知并重新查询。[Provider 基础](https://developer.android.com/guide/topics/providers/content-provider-basics)、[文件安全分享](https://developer.android.com/training/secure-file-sharing)、[MODE_MULTI_PROCESS](https://developer.android.com/reference/android/content/Context#MODE_MULTI_PROCESS)
+通用文件分享优先采用配置范围收敛的 FileProvider，不发送 file:// 或任意文件路径。文件共享本身也不保证读写一致：示例仅演示一次写完后读取，生产环境需快照、原子发布或统一事务。
+
+SharedPreferences 的 MODE_MULTI_PROCESS 已弃用且不可靠，不能当作跨进程数据库；需要观察变更时使用 Provider 通知并重新查询。[Provider 基础](https://developer.android.com/guide/topics/providers/content-provider-basics)、[文件安全分享](https://developer.android.com/training/secure-file-sharing)、[MODE_MULTI_PROCESS](https://developer.android.com/reference/android/content/Context#MODE_MULTI_PROCESS)
 
 ## SharedMemory：大块快照与 Binder 控制面配合
 
@@ -518,7 +524,9 @@ public final class SharedPayload {
 
 ### LocalSocket 最小双端协议
 
-LocalSocket 是设备本地 Unix domain socket；LocalServerSocket 的字符串构造方式使用 abstract namespace。这里限制为同 UID 双端，并定义“大端长度 + 内容”的有界帧，防止把一次 read 误当成一条完整消息。Socket 名称本身不代表身份，两端都校验内核提供的 peer credentials。[LocalSocket](https://developer.android.com/reference/android/net/LocalSocket)、[LocalServerSocket](https://developer.android.com/reference/android/net/LocalServerSocket)
+LocalSocket 是设备本地 Unix domain socket；LocalServerSocket 的字符串构造方式使用 abstract namespace。
+
+这里限制为同 UID 双端，并定义“大端长度 + 内容”的有界帧，防止把一次 read 误当成一条完整消息。Socket 名称本身不代表身份，两端都校验内核提供的 peer credentials。[LocalSocket](https://developer.android.com/reference/android/net/LocalSocket)、[LocalServerSocket](https://developer.android.com/reference/android/net/LocalServerSocket)
 
 `LocalChannel.java` 的构造、serveOnce 和 request 都由工作线程调用。先在服务端进程构造监听对象，再通知客户端可以连接；示例一次只接受一个连接，长期服务还需有界连接池和退出管理。
 
@@ -588,7 +596,9 @@ public final class LocalChannel implements Closeable {
 }
 ```
 
-服务端在后台使用 `try (LocalChannel server = new LocalChannel()) { server.serveOnce(); }`，客户端在另一进程的后台调用 `LocalChannel.request("ping".getBytes(StandardCharsets.UTF_8))`。不能用“启动线程后 sleep 一下”代替监听就绪协议；服务拥有者应保留监听器引用以便取消 accept，取消已接受的连接则要关闭相应 LocalSocket。
+服务端在后台使用 `try (LocalChannel server = new LocalChannel()) { server.serveOnce(); }`，客户端在另一进程的后台调用 `LocalChannel.request("ping".getBytes(StandardCharsets.UTF_8))`。
+
+不能用“启动线程后 sleep 一下”代替监听就绪协议；服务拥有者应保留监听器引用以便取消 accept，取消已接受的连接则要关闭相应 LocalSocket。
 
 这里的 SO_TIMEOUT 是读超时，不等于连接、写入和整次业务请求都有同一个总时限。生产协议还需总截止时间、写端拥塞处理、版本、限流和失败重连；固定名称也可能被抢先占用，不能仅靠名称选择可信端点。跨应用 UID 不同，不能照搬这个同 UID 策略。
 
@@ -605,7 +615,9 @@ try (java.net.Socket socket = new java.net.Socket()) {
 }
 ```
 
-匿名管道适合单向字节流，例如 Native 子进程 I/O；Android 可用 ParcelFileDescriptor.createPipe 创建读写两端，再借 Binder 或其他机制分发 FD。它不是让普通 Java 对象跨进程共享的手段，写端不关闭时读端可能一直等 EOF。信号、POSIX 共享内存等 Linux 能力更多见于 Native / 系统场景，不应直接替代普通应用的稳定 SDK 接口。[管道 API](https://developer.android.com/reference/android/os/ParcelFileDescriptor#createPipe())
+匿名管道适合单向字节流，例如 Native 子进程 I/O；Android 可用 ParcelFileDescriptor.createPipe 创建读写两端，再借 Binder 或其他机制分发 FD。
+
+它不是让普通 Java 对象跨进程共享的手段，写端不关闭时读端可能一直等 EOF。信号、POSIX 共享内存等 Linux 能力更多见于 Native / 系统场景，不应直接替代普通应用的稳定 SDK 接口。[管道 API](https://developer.android.com/reference/android/os/ParcelFileDescriptor#createPipe())
 
 ## 统一的工程检查点
 

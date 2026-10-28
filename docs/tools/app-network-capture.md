@@ -46,7 +46,9 @@ flowchart TD
 
 HTTPS 抓包涉及两条 TLS 连接：App 与代理建立一条，代理与服务器另建一条。代理用自己的 CA 签发站点证书，App 信任这个 CA 后才可能接受代理这一端的握手；代理仍需校验真实服务器的证书。仅把流量路由到代理不会自动得到明文。[mitmproxy 证书机制](https://docs.mitmproxy.org/stable/concepts/certificates/)
 
-查看 HTTPS 明文前，需要在测试环境安装 mitmproxy 的 CA 证书，并确认目标 App 信任它。在支持 Network Security Configuration 的 Android 7.0 及以后平台，面向 API 24 及以上的应用默认仅信任系统 CA；面向 API 23 及以下的应用默认还信任用户 CA。应用显式配置、自定义 TLS 实现或证书固定仍可能改变结果。自有测试应用可按官方文档配置 `debug-overrides`，不能把安装用户 CA 当作所有 App 都能解密的充分条件。[Android 证书信任默认值与调试配置](https://developer.android.com/privacy-and-security/security-config)
+查看 HTTPS 明文前，需要在测试环境安装 mitmproxy 的 CA 证书，并确认目标 App 信任它。在支持 Network Security Configuration 的 Android 7.0 及以后平台，面向 API 24 及以上的应用默认仅信任系统 CA；面向 API 23 及以下的应用默认还信任用户 CA。
+
+应用显式配置、自定义 TLS 实现或证书固定仍可能改变结果。自有测试应用可按官方文档配置 `debug-overrides`，不能把安装用户 CA 当作所有 App 都能解密的充分条件。[Android 证书信任默认值与调试配置](https://developer.android.com/privacy-and-security/security-config)
 
 自有 App 的调试构建优先使用上述 `debug-overrides` 配置受信测试 CA，避免改变生产版的信任配置。[mitmproxy 系统证书指南](https://docs.mitmproxy.org/stable/howto/install-system-trusted-ca-android/)讨论的是 Android 模拟器，实体设备需按自身证书存储与应用配置判断。
 
@@ -60,7 +62,9 @@ HTTPS 抓包涉及两条 TLS 连接：App 与代理建立一条，代理与服�
 mitmweb --set http2=true --listen-port 8080 --web-host 127.0.0.1 --web-port 8081
 ```
 
-优先使用 mitmweb 启动后自动打开或在终端显示的完整 Web 界面地址。当前 stable 文档描述的版本未配置 `web_password` 时会生成随机访问令牌，仅打开裸地址 `http://127.0.0.1:8081` 可能仍需认证；旧版行为可能不同，应以实际版本的启动输出为准，不要将令牌复制到公开笔记。`--web-host` 只控制 Web 界面绑定，不控制手机连接的代理监听地址；代理监听由 `listen_host` 等选项控制。[Web 界面认证与监听选项](https://docs.mitmproxy.org/stable/concepts/options/)
+优先使用 mitmweb 启动后自动打开或在终端显示的完整 Web 界面地址。当前 stable 文档描述的版本未配置 `web_password` 时会生成随机访问令牌，仅打开裸地址 `http://127.0.0.1:8081` 可能仍需认证；旧版行为可能不同，应以实际版本的启动输出为准，不要将令牌复制到公开笔记。
+
+`--web-host` 只控制 Web 界面绑定，不控制手机连接的代理监听地址；代理监听由 `listen_host` 等选项控制。[Web 界面认证与监听选项](https://docs.mitmproxy.org/stable/concepts/options/)
 
 ::: info 可选脚本
 `-s` 用于加载本地 addon 脚本；需要自定义处理时再添加实际存在的脚本路径。本站附件只有 YAML 配置，不含原命令引用的 `mitmproxy.py`。

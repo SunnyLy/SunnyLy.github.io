@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="470" viewBox="0 0 520 470" role="img" aria-labelledby="title desc">
+  <title id="title">100个合成请求：均值、p99与最大值不是同一件事</title>
+  <desc id="desc">100个方块按延迟排序，前99个请求为10毫秒，最后一个为1000毫秒。最近秩p99取第99个，仍为10毫秒；均值是19.9毫秒，最大值1000毫秒。该小样本仅用于教学。</desc>
+  <rect width="520" height="470" rx="16" fill="#f6f8fc"/>
+  <g font-family="system-ui, sans-serif" fill="#172b4d">
+    <text x="24" y="36" font-size="22" font-weight="700">把100次请求按耗时排好</text>
+    <text x="24" y="65" font-size="18">每格一次请求 · 从左到右、从上到下</text>
+    <text x="24" y="94" font-size="18">前99格：10ms　最后1格：1000ms</text>
+  </g>
+  <defs>
+    <g id="ten"><rect width="32" height="16" rx="3"/><rect x="47" width="32" height="16" rx="3"/><rect x="94" width="32" height="16" rx="3"/><rect x="141" width="32" height="16" rx="3"/><rect x="188" width="32" height="16" rx="3"/><rect x="235" width="32" height="16" rx="3"/><rect x="282" width="32" height="16" rx="3"/><rect x="329" width="32" height="16" rx="3"/><rect x="376" width="32" height="16" rx="3"/><rect x="423" width="32" height="16" rx="3"/></g>
+  </defs>
+  <g fill="#127f92" transform="translate(24 116)">
+    <use href="#ten"/><use href="#ten" y="23"/><use href="#ten" y="46"/><use href="#ten" y="69"/><use href="#ten" y="92"/><use href="#ten" y="115"/><use href="#ten" y="138"/><use href="#ten" y="161"/><use href="#ten" y="184"/><use href="#ten" y="207"/>
+    <rect x="423" y="207" width="32" height="16" rx="3" fill="#b35513"/>
+    <rect x="373" y="204" width="38" height="22" rx="4" fill="none" stroke="#172b4d" stroke-width="3"/>
+  </g>
+  <g font-family="system-ui, sans-serif" fill="#172b4d" font-size="19">
+    <text x="24" y="373">p99 → 第99格 = 10ms（框出的格子）</text>
+    <text x="24" y="404">平均 = 19.9ms　最大值 = 1000ms</text>
+    <text x="24" y="440" font-size="17">最近秩定义 · 合成样本 · 不代表线上稳定性</text>
+  </g>
+</svg>

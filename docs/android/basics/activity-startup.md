@@ -16,7 +16,9 @@ outline: [2, 3]
 
 `ActivityThread` 是应用进程的框架调度入口，不是 `Thread` 子类。它准备主线程消息循环，通过内部 `ApplicationThread` Binder 接口接收系统命令，再在主线程完成应用绑定、Activity/Service/Receiver/Provider 等组件相关工作。
 
-启动 Activity 时，客户端事务最终进入 `handleLaunchActivity()` 与 `performLaunchActivity()` 等路径；后者取得 `LoadedApk`、准备组件 Context、创建 Activity、执行 attach 和生命周期调用。系统侧 `ActivityRecord` 与应用侧实例通过 Token 对应，不是跨进程共享同一个 Java 对象。[ActivityThread 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ActivityThread.java)
+启动 Activity 时，客户端事务最终进入 `handleLaunchActivity()` 与 `performLaunchActivity()` 等路径；后者取得 `LoadedApk`、准备组件 Context、创建 Activity、执行 attach 和生命周期调用。
+
+系统侧 `ActivityRecord` 与应用侧实例通过 Token 对应，不是跨进程共享同一个 Java 对象。[ActivityThread 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ActivityThread.java)
 
 **进程启动与 Activity 创建是两个阶段。** 冷启动需要先创建进程、完成运行时与应用绑定；进程已存在时可以直接调度组件。也可能只是复用已有 Activity，此时不会再次构造实例。
 
@@ -66,7 +68,9 @@ try {
 
 ### ApplicationThread 是什么，与 ActivityThread 有什么区别
 
-`ApplicationThread` 是 `ActivityThread` 的非静态内部类，继承 AIDL 生成的 `IApplicationThread.Stub`，承担**应用进程向系统暴露的 Binder 命令接收端**。它既不是 `android.app.Application`，也不继承 `java.lang.Thread`，创建它不会启动一条新线程。
+`ApplicationThread` 是 `ActivityThread` 的非静态内部类，继承 AIDL 生成的 `IApplicationThread.Stub`，承担**应用进程向系统暴露的 Binder 命令接收端**。
+
+它既不是 `android.app.Application`，也不继承 `java.lang.Thread`，创建它不会启动一条新线程。
 
 两者是**包含与委托关系**：`ActivityThread` 持有 `mAppThread`，负责进程内的组件管理与生命周期调度；`ApplicationThread` 实现跨进程接口，接到命令后调用外部 `ActivityThread` 的方法。可以把前者理解为应用端的框架协调者，后者理解为它对系统开放的通信入口，不能把这两个对象等同于两条线程。
 
@@ -88,13 +92,17 @@ public ApplicationThread getApplicationThread()
 }
 ```
 
-前面的 `attachApplication(mAppThread, startSeq)` 将这个 Binder 接口注册到 AMS。对于普通应用与 `system_server` 之间的远程通信，系统侧持有的是 `IApplicationThread` **代理**，应用侧才持有真正的 `ApplicationThread` Stub；系统不会取得应用中整个 `ActivityThread` 对象。`Instrumentation.execStartActivity()` 也通过 `getApplicationThread()` 提供调用方的应用接口，供系统识别请求来源。
+前面的 `attachApplication(mAppThread, startSeq)` 将这个 Binder 接口注册到 AMS。对于普通应用与 `system_server` 之间的远程通信，系统侧持有的是 `IApplicationThread` **代理**，应用侧才持有真正的 `ApplicationThread` Stub；系统不会取得应用中整个 `ActivityThread` 对象。
+
+`Instrumentation.execStartActivity()` 也通过 `getApplicationThread()` 提供调用方的应用接口，供系统识别请求来源。
 
 源码定位：[内部类定义](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#1143)、[scheduleTransaction](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#2192)、[getApplicationThread](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#3200)。
 
 ### 从 Binder 接收线程到应用主线程
 
-`IApplicationThread.aidl` 声明的是 `oneway interface IApplicationThread`。跨进程调用通常由应用的 **Binder 线程池**接收，不会自动在主线程执行。以 Activity 启动事务为例，`ApplicationThread.scheduleTransaction()` 委托给外部对象继承自 `ClientTransactionHandler` 的方法，先执行 `preExecute()`，再投递 `H.EXECUTE_TRANSACTION`；主线程 Looper 取出消息后，才执行事务中的生命周期操作。
+`IApplicationThread.aidl` 声明的是 `oneway interface IApplicationThread`。跨进程调用通常由应用的 **Binder 线程池**接收，不会自动在主线程执行。
+
+以 Activity 启动事务为例，`ApplicationThread.scheduleTransaction()` 委托给外部对象继承自 `ClientTransactionHandler` 的方法，先执行 `preExecute()`，再投递 `H.EXECUTE_TRANSACTION`；主线程 Looper 取出消息后，才执行事务中的生命周期操作。
 
 ```mermaid
 sequenceDiagram
@@ -117,7 +125,9 @@ sequenceDiagram
 
 这里区分的是**调用所在线程**，不是把类固定绑定到某条线程：`ActivityThread.this.scheduleTransaction()` 在此仍运行于接收调用的 Binder 线程；真正的切换发生在消息投递与主线程分发之间。[后文的执行链](#binder-到主线程的执行链)给出入队、`H.handleMessage()` 与事务执行器的源码。
 
-其他代表方法也体现了这种分工：`bindApplication()` 整理应用绑定数据后发送 `H.BIND_APPLICATION`，`scheduleReceiver()` 整理广播数据后发送 `H.RECEIVER`。但不能据此认为所有方法都只是转发消息：接收端可先更新状态、完成预处理，也有直接处理的操作。具体线程行为必须逐个方法核对，不能根据类名推断。
+其他代表方法也体现了这种分工：`bindApplication()` 整理应用绑定数据后发送 `H.BIND_APPLICATION`，`scheduleReceiver()` 整理广播数据后发送 `H.RECEIVER`。
+
+但不能据此认为所有方法都只是转发消息：接收端可先更新状态、完成预处理，也有直接处理的操作。具体线程行为必须逐个方法核对，不能根据类名推断。
 
 ::: tip oneway 的准确含义
 远程调用方不等待接收端方法执行完成，更不等待 `Activity.onCreate()` 或首帧完成；这不等于 Binder 传输没有开销，也不保证主线程不会阻塞或发生 ANR。如果是同进程的本地接口调用，AIDL 方法直接运行在调用者线程，`oneway` 不会自动创建异步任务。
@@ -165,7 +175,9 @@ if (r.isPersistable()) {
 // ... 检查是否调用了 super.onCreate()，更新客户端状态
 ```
 
-这里的 `activity.attach()` 将 Context、Application、Token 和窗口等关联到实例；它与前面的 `ActivityThread.attach()` 是两个不同方法。`onStart()`、`onResume()` 由后续生命周期推进完成，不能加进这段代码就声称它们都由 `performLaunchActivity()` 直接执行。
+这里的 `activity.attach()` 将 Context、Application、Token 和窗口等关联到实例；它与前面的 `ActivityThread.attach()` 是两个不同方法。
+
+`onStart()`、`onResume()` 由后续生命周期推进完成，不能加进这段代码就声称它们都由 `performLaunchActivity()` 直接执行。
 
 源码定位：[Launch 调用处](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#214)、[handleLaunchActivity](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4437)、[performLaunchActivity](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4116)。
 
@@ -182,7 +194,9 @@ public class Instrumentation {
 }
 ```
 
-核心方法：`execStartActivity()` 提交启动请求；`newActivity()` 通过组件工厂创建实例；`callActivityOnCreate()` 转入 Activity 的创建回调。跨应用进程启动时，两端分别使用各自进程中的 Instrumentation；同进程启动仍要经 ATMS 决策，可由该进程的同一 Instrumentation 参与请求和实例化。
+核心方法：`execStartActivity()` 提交启动请求；`newActivity()` 通过组件工厂创建实例；`callActivityOnCreate()` 转入 Activity 的创建回调。
+
+跨应用进程启动时，两端分别使用各自进程中的 Instrumentation；同进程启动仍要经 ATMS 决策，可由该进程的同一 Instrumentation 参与请求和实例化。
 
 ### 请求入口：execStartActivity
 
@@ -233,7 +247,9 @@ public void callActivityOnCreate(Activity activity, Bundle icicle) {
 }
 ```
 
-默认工厂 `AppComponentFactory.instantiateActivity()` 的核心返回语句是 `(Activity) cl.loadClass(className).newInstance()`；应用配置的组件工厂可以改变实例化行为。`Activity.performCreate()` 会根据是否有持久化状态调用相应的 `onCreate()` 重载，并执行周边框架工作。
+默认工厂 `AppComponentFactory.instantiateActivity()` 的核心返回语句是 `(Activity) cl.loadClass(className).newInstance()`；应用配置的组件工厂可以改变实例化行为。
+
+`Activity.performCreate()` 会根据是否有持久化状态调用相应的 `onCreate()` 重载，并执行周边框架工作。
 
 源码定位：[newActivity](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/Instrumentation.java#1437)、[callActivityOnCreate](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/Instrumentation.java#1519)、[默认组件工厂](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/AppComponentFactory.java#92)、[Activity.performCreate](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/Activity.java#9132)。
 
@@ -304,7 +320,9 @@ mRootWindowContainer.resumeFocusedTasksTopActivities(
 
 `Task` 表达系统侧的一组活动及其返回导航、组织和显示关系。它不是 Linux 进程，也不是一个 Java 调用栈；同一任务可包含不同应用的 Activity，同一应用的 Activity 也可能处于多个任务。
 
-`launchMode`、Intent flags、task affinity 和启动来源共同影响新建、复用、移动与清栈。`singleTop` 仅在目标位于相应任务顶部且满足复用条件时复用；`singleTask` 等模式也必须结合任务位置与 flags 分析。实例复用通常通过 `onNewIntent()` 交付新请求，不应期待再次 `onCreate()`。[任务与返回栈](https://developer.android.com/guide/components/activities/tasks-and-back-stack)
+`launchMode`、Intent flags、task affinity 和启动来源共同影响新建、复用、移动与清栈。`singleTop` 仅在目标位于相应任务顶部且满足复用条件时复用；`singleTask` 等模式也必须结合任务位置与 flags 分析。
+
+实例复用通常通过 `onNewIntent()` 交付新请求，不应期待再次 `onCreate()`。[任务与返回栈](https://developer.android.com/guide/components/activities/tasks-and-back-stack)
 
 配置变化重建、进程死亡后恢复和已有实例收到新 Intent 是不同场景。保存状态不能替代任务身份，静态变量也不能作为跨进程重启的可靠状态源。
 
@@ -358,7 +376,9 @@ resumed[0] |= topFragment.resumeTopActivity(prev, options, deferPause);
 mTaskSupervisor.startSpecificActivity(next, true, true);
 ```
 
-这里必须经过 **TaskFragment 的恢复逻辑**，不能把 `Task.startActivityLocked()` 画成直接调用 `ActivityThread.handleLaunchActivity()`。已有可恢复客户端实例时，TaskFragment 可发送恢复事务；需要启动或重启实例时，才进入上面的 `startSpecificActivity()` 分支。
+这里必须经过 **TaskFragment 的恢复逻辑**，不能把 `Task.startActivityLocked()` 画成直接调用 `ActivityThread.handleLaunchActivity()`。
+
+已有可恢复客户端实例时，TaskFragment 可发送恢复事务；需要启动或重启实例时，才进入上面的 `startSpecificActivity()` 分支。
 
 源码定位：[RootWindowContainer](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/RootWindowContainer.java#2452)、[Task 外层恢复](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/Task.java#5142)、[Task 内层恢复](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/Task.java#5217)、[TaskFragment 调用处](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/TaskFragment.java#1740)。
 
@@ -539,9 +559,11 @@ final ActivityClientRecord r = new ActivityClientRecord(mActivityToken, mIntent,
 client.handleLaunchActivity(r, pendingActions, mDeviceId, null /* customIntent */);
 ```
 
-至此回到本文第一节的 `ActivityThread.handleLaunchActivity()`。后续 Resume item 会按生命周期路径补齐 Start 等中间状态，再执行恢复阶段；Launch 完成不能作为 Resume 完成或首帧呈现的证据。
+回到 `ActivityThread.handleLaunchActivity()`：后续 Resume item 会补齐 Start 等中间状态，再执行恢复阶段。Launch 完成不代表 Resume 完成或首帧已呈现。
 
-具体补齐发生在 `TransactionExecutor.executeLifecycleItem()`：先根据客户端记录的当前状态调用 `cycleToPath(..., targetState, true, ...)`，最后再执行目标 item 的 `execute()` 与 `postExecute()`。例如 Activity 已完成创建、目标是 Resume，路径会先进入 `handleStartActivity()`，再由 Resume item 完成恢复。`excludeLastState = true` 让最后一步交给带有该次参数的 item，避免通用路径先执行一次、item 又执行一次；因此不能只搜索 `LaunchActivityItem` 就认定 `onStart()` 缺失。[生命周期推进实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java#L146)
+具体补齐发生在 `TransactionExecutor.executeLifecycleItem()`：先根据客户端记录的当前状态调用 `cycleToPath(..., targetState, true, ...)`，最后再执行目标 item 的 `execute()` 与 `postExecute()`。
+
+例如 Activity 已完成创建、目标是 Resume，路径会先进入 `handleStartActivity()`，再由 Resume item 完成恢复。`excludeLastState = true` 让最后一步交给带有该次参数的 item，避免通用路径先执行一次、item 又执行一次；因此不能只搜索 `LaunchActivityItem` 就认定 `onStart()` 缺失。[生命周期推进实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java#L146)
 
 源码定位：[ApplicationThread](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#2192)、[客户端入队](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ClientTransactionHandler.java#55)、[H 消息分发](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#2817)、[执行器](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java#95)、[LaunchActivityItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#214)。
 

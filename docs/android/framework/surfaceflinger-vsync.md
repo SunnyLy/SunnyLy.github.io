@@ -351,7 +351,9 @@ AidlIComposerCallbackWrapper::onVsync
 
 应用经 `DisplayEventReceiver` 建立显示事件连接，并请求后续 VSYNC。连接管理涉及 Binder；事件数据通过 **BitTube 的 Unix 域 socket 通道**传递，它不是共享内存，也不是“每一帧都直接调用应用的 Java Binder 方法”。
 
-SF 中的 EventThread 接收调度回调，将事件交给连接；应用侧的 `DisplayEventDispatcher` 监听接收 FD，在对应 Looper 中读取。JNI 的 `NativeDisplayEventReceiver` 衔接 Java 接收器，`Choreographer.FrameDisplayEventReceiver.onVsync()` 再投递异步 Handler 消息，随后进入 `doFrame()`。
+SF 中的 EventThread 接收调度回调，将事件交给连接；应用侧的 `DisplayEventDispatcher` 监听接收 FD，在对应 Looper 中读取。
+
+JNI 的 `NativeDisplayEventReceiver` 衔接 Java 接收器，`Choreographer.FrameDisplayEventReceiver.onVsync()` 再投递异步 Handler 消息，随后进入 `doFrame()`。
 
 ```mermaid
 sequenceDiagram
@@ -405,13 +407,17 @@ SF 的 `commit()` 处理待提交状态、Layer 关系与快照、可锁存的 b
 
 `validate` 用于协商合成策略，`present` 用于提交呈现；存在 `presentOrValidate` 和跳过某些验证工作的优化，不能写成每一帧必然完整执行固定流程。
 
-更需要区分接口层次：在 composer3 AIDL 中，SF 的包装层把 validate/present 操作编码到 `DisplayCommand`，由 **`IComposerClient.executeCommands()`** 批量发送并解析 `CommandResultPayload`。不要把包装函数名误写成并不存在的 `IComposerClient.validateDisplay()`、`IComposerClient.presentDisplay()` 独立 AIDL 方法。
+更需要区分接口层次：在 composer3 AIDL 中，SF 的包装层把 validate/present 操作编码到 `DisplayCommand`，由 **`IComposerClient.executeCommands()`** 批量发送并解析 `CommandResultPayload`。
+
+不要把包装函数名误写成并不存在的 `IComposerClient.validateDisplay()`、`IComposerClient.presentDisplay()` 独立 AIDL 方法。
 
 可对照 [`AidlComposerHal.cpp`](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/DisplayHardware/AidlComposerHal.cpp)、[`DisplayCommand.aidl`](https://android.googlesource.com/platform/hardware/interfaces/+/refs/tags/android-16.0.0_r1/graphics/composer/aidl/android/hardware/graphics/composer3/DisplayCommand.aidl) 和 [CompositionEngine 源码](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/CompositionEngine/src/)。
 
 ##### present 也有按帧选择的线程分支 {#present-worker}
 
-`Output` 的呈现路径检查 `mOffloadPresent`：需要卸载时调用 `presentFrameAndReleaseLayersAsync()`，否则直接执行 `presentFrameAndReleaseLayers()`。卸载标志只对当前帧生效，之后重置，下一帧重新决策；不能把所有 present 都归到同一线程，也不能看到异步分支就推断 SF 不再等待其结果。[Output 呈现分支](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/CompositionEngine/src/Output.cpp#487)
+`Output` 的呈现路径检查 `mOffloadPresent`：需要卸载时调用 `presentFrameAndReleaseLayersAsync()`，否则直接执行 `presentFrameAndReleaseLayers()`。
+
+卸载标志只对当前帧生效，之后重置，下一帧重新决策；不能把所有 present 都归到同一线程，也不能看到异步分支就推断 SF 不再等待其结果。[Output 呈现分支](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/services/surfaceflinger/CompositionEngine/src/Output.cpp#487)
 
 #### 9. 用 fence 区分“已提交”和“可安全使用”
 
@@ -423,7 +429,9 @@ Fence 表达异步工作依赖，可以随缓冲区传递。拿到一个 fence F
 | release fence | 旧 buffer 何时不再被相应消费者读取，可按生命周期复用 | 释放回调到达时就能无条件覆盖该 buffer |
 | present fence | 按显示类型约定标记呈现或输出完成的时点 | 所有物理像素都已经完成发光或扫描 |
 
-在 composer3 的约束中，物理视频模式面板与命令模式面板的 present 时点并不完全相同；后者可对应开始向面板存储传输。虚拟显示又有输出 buffer 可读取的语义。因此，不能统一把 present fence 定义为“整屏扫描结束”。精确定义以 [`CommandResultPayload.aidl`](https://android.googlesource.com/platform/hardware/interfaces/+/refs/tags/android-16.0.0_r1/graphics/composer/aidl/android/hardware/graphics/composer3/CommandResultPayload.aidl) 为准，输入依赖见 [`Buffer.aidl`](https://android.googlesource.com/platform/hardware/interfaces/+/refs/tags/android-16.0.0_r1/graphics/composer/aidl/android/hardware/graphics/composer3/Buffer.aidl)。
+在 composer3 的约束中，物理视频模式面板与命令模式面板的 present 时点并不完全相同；后者可对应开始向面板存储传输。虚拟显示又有输出 buffer 可读取的语义。
+
+因此，不能统一把 present fence 定义为“整屏扫描结束”。精确定义以 [`CommandResultPayload.aidl`](https://android.googlesource.com/platform/hardware/interfaces/+/refs/tags/android-16.0.0_r1/graphics/composer/aidl/android/hardware/graphics/composer3/CommandResultPayload.aidl) 为准，输入依赖见 [`Buffer.aidl`](https://android.googlesource.com/platform/hardware/interfaces/+/refs/tags/android-16.0.0_r1/graphics/composer/aidl/android/hardware/graphics/composer3/Buffer.aidl)。
 
 SF 归还旧缓冲区时，仍可能需要合并或继续传递依赖。应用重新获取缓冲区后，也须遵守返回的同步约束。把“函数返回、提交成功、fence 已 signal、buffer 可重用”合并为一个完成状态，会同时误判性能与生命周期问题。
 
@@ -471,7 +479,9 @@ adb shell perfetto --query
 
 记录实际构建、内核与显示信息后，再确认 Composer 实现、面板模式和可用的追踪能力。设备输出不能单独证明它采用本文源码标签；厂商内核与 HAL 的实现细节仍需对应源码或额外证据。
 
-使用 Perfetto 时，先通过帮助与数据源查询确认该设备支持的功能，再围绕一次可复现操作对齐应用、SF、CPU 调度与 FrameTimeline。官方 [FrameTimeline 指南](https://perfetto.dev/docs/data-sources/frametimeline)说明了应用与 SF 的 Expected/Actual 轨道及关联方式；需根据设备实际暴露的数据补充 GPU、fence 或驱动事件。不要预设所有设备都提供同一组 tracepoint，也不要把 `dumpsys` 的某一瞬间状态当作整段帧时间线。
+使用 Perfetto 时，先通过帮助与数据源查询确认该设备支持的功能，再围绕一次可复现操作对齐应用、SF、CPU 调度与 FrameTimeline。官方 [FrameTimeline 指南](https://perfetto.dev/docs/data-sources/frametimeline)说明了应用与 SF 的 Expected/Actual 轨道及关联方式；需根据设备实际暴露的数据补充 GPU、fence 或驱动事件。
+
+不要预设所有设备都提供同一组 tracepoint，也不要把 `dumpsys` 的某一瞬间状态当作整段帧时间线。
 
 #### 12. 按问题阅读源码
 
@@ -493,7 +503,7 @@ adb shell perfetto --query
 
 ### 先明确：公开结果不能反推出私有探测算法
 
-**截至 2026-10-26，所查 Google 官方资料公开了完整性与环境风险的返回含义，没有披露直接探测 SurfaceFlinger 的调用链。** 因此，本节不能把“GP 一定查询 SF 的某个接口”写成已证实原理。
+**截至 2026-10-26，Google 官方资料未披露 Play Integrity 直接探测 SurfaceFlinger 的调用链。**
 
 先把两类问题分开：
 

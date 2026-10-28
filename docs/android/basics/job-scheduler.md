@@ -109,9 +109,13 @@ Android 14 / API 34 引入的 **用户发起数据传输任务 UIDT** 是 JobSch
 
 ### 示例约定与 Manifest
 
-下面三个部分使用同一包名 `com.example.notes`，面向 **minSdk 21+**，使用 Java 8 语言功能和公开平台 API，不依赖 WorkManager。应用将私有 `filesDir/notes/` 下的 Markdown 文件名写入 `notes-index.json`；目录由应用维护，示例不读取用户任意路径，也不需要网络或共享存储权限。
+下面三个部分使用同一包名 `com.example.notes`，面向 **minSdk 21+**，使用 Java 8 语言功能和公开平台 API，不依赖 WorkManager。
 
-示例选择充电且提交至少五分钟后才具备执行资格，并允许跨设备重启保留调度。`BIND_JOB_SERVICE` 放在 **service 的 android:permission 属性**，限制绑定者；不是让普通应用通过 uses-permission 取得该签名权限。`RECEIVE_BOOT_COMPLETED` 则是 `setPersisted(true)` 的声明要求，不必为这项机制另写一个重复提交任务的开机 Receiver。
+应用将私有 `filesDir/notes/` 下的 Markdown 文件名写入 `notes-index.json`；目录由应用维护，示例不读取用户任意路径，也不需要网络或共享存储权限。
+
+示例选择充电且提交至少五分钟后才具备执行资格，并允许跨设备重启保留调度。`BIND_JOB_SERVICE` 放在 **service 的 android:permission 属性**，限制绑定者；不是让普通应用通过 uses-permission 取得该签名权限。
+
+`RECEIVE_BOOT_COMPLETED` 则是 `setPersisted(true)` 的声明要求，不必为这项机制另写一个重复提交任务的开机 Receiver。
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -167,7 +171,9 @@ public final class NoteIndexJobs {
 }
 ```
 
-页面中调用 `boolean accepted = NoteIndexJobs.schedule(this)`，根据返回值处理提交结果；用户明确取消时调用 `NoteIndexJobs.cancel(this)`。`RESULT_FAILURE` 不应触发紧密循环重试；权限、组件或参数错误抛出的异常属于配置问题，应修正原因。成功提交也不等于索引生成成功。[schedule 契约](https://developer.android.com/reference/android/app/job/JobScheduler#schedule(android.app.job.JobInfo))
+页面中调用 `boolean accepted = NoteIndexJobs.schedule(this)`，根据返回值处理提交结果；用户明确取消时调用 `NoteIndexJobs.cancel(this)`。
+
+`RESULT_FAILURE` 不应触发紧密循环重试；权限、组件或参数错误抛出的异常属于配置问题，应修正原因。成功提交也不等于索引生成成功。[schedule 契约](https://developer.android.com/reference/android/app/job/JobScheduler#schedule(android.app.job.JobInfo))
 
 ### JobService：异步执行与停止竞态
 
@@ -314,7 +320,7 @@ public final class NoteIndexJobService extends JobService {
 
 ### 版本与配额
 
-- **API 21 起**：JobScheduler 基础能力；本文示例只使用这一基线及更早 API。
+- **API 21 起**：JobScheduler 基础能力；示例使用 API 21 基线。
 - **API 24 起**：周期 flex 等能力；**API 31 起**：expedited job；**API 34 起**：namespace、UIDT、停止和等待原因相关能力需逐项检查具体 API 版本。
 - **Android 14，targetSdk 34+**：回调不及时返回可能触发明确的 ANR；网络约束权限要求也要同步适配。[行为变化](https://developer.android.com/about/versions/14/behavior-changes-14#jobscheduler)
 - **Android 16，所有运行其上的应用**：普通与 expedited job 的执行配额进一步考虑应用待机桶、可见状态及与前台服务并行执行等因素。开启一个前台服务不能让 Job 自动获得无限运行时间。[Android 16 配额变化](https://developer.android.com/about/versions/16/behavior-changes-all#job-scheduler)

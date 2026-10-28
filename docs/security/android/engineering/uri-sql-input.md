@@ -75,13 +75,17 @@ fun parseNoteRoute(raw: String): NoteRoute {
 
 [`URLDecoder`](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/net/URLDecoder.html) 面向 `application/x-www-form-urlencoded`：`+` 会变成空格，百分号转义按字符集解码。它不适合直接对整条 URL 使用，也不应该再处理已经由 `Uri` 解码的参数。
 
-若业务输入明确是原始表单字段，可在限定长度后使用 `URLDecoder.decode(rawField, "UTF-8")`，并在入口处理非法转义导致的 `IllegalArgumentException`。Android 的字符串字符集重载自 API 1 可用，而 `Charset` 重载自 API 33 引入；不能把 Java SE 中的所有重载默认视为所有 Android 版本可用。[Android URLDecoder API](https://developer.android.com/reference/java/net/URLDecoder)
+若业务输入明确是原始表单字段，可在限定长度后使用 `URLDecoder.decode(rawField, "UTF-8")`，并在入口处理非法转义导致的 `IllegalArgumentException`。
+
+Android 的字符串字符集重载自 API 1 可用，而 `Charset` 重载自 API 33 引入；不能把 Java SE 中的所有重载默认视为所有 Android 版本可用。[Android URLDecoder API](https://developer.android.com/reference/java/net/URLDecoder)
 
 “多解码几遍直到没有 `%`”会引入新的语义：校验时的 `%2F` 与再次解码后的 `/` 不是同一数据。设计协议时固定编码方式与解码次数，后续消费者不得偷偷增加另一轮解码。签名验证还需定义精确字节和规范化规则，不能先随意重排参数再验证签名。
 
 ## 5. SQL 注入：值参数化，结构允许列表 {#sql-injection}
 
-SQLite 先编译语句，再把绑定值放入参数位置；值里的引号或运算符不会重新变成 SQL 语法。表、列、排序方向和整段条件属于语法结构，只能由应用固定映射选择；账户资源条件还需独立加入查询。Provider 使用 `SQLiteQueryBuilder` 时可设置列映射，并在 API 30+ 显式启用严格列与语法检查，不能假定默认开启。[SQLiteQueryBuilder](https://developer.android.com/reference/android/database/sqlite/SQLiteQueryBuilder)
+SQLite 先编译语句，再把绑定值放入参数位置；值里的引号或运算符不会重新变成 SQL 语法。表、列、排序方向和整段条件属于语法结构，只能由应用固定映射选择；账户资源条件还需独立加入查询。
+
+Provider 使用 `SQLiteQueryBuilder` 时可设置列映射，并在 API 30+ 显式启用严格列与语法检查，不能假定默认开启。[SQLiteQueryBuilder](https://developer.android.com/reference/android/database/sqlite/SQLiteQueryBuilder)
 
 SQL 注入的前提是外部数据进入 SQL 语法结构。例如把用户输入拼进 `WHERE` 字符串，会让引号、运算符等参与 SQL 解释。Android 的 [SQL 注入风险说明](https://developer.android.com/privacy-and-security/risks/sql-injection)建议使用绑定参数并限制不可信查询结构。
 

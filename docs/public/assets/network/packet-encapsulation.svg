@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="680" viewBox="0 0 680 680" role="img" aria-labelledby="title desc">
+  <title id="title">一个 HTTP 请求片段怎样逐层封装为以太网帧</title>
+  <desc id="desc">示例省略 TLS。HTTP 字节外加 TCP 头，TCP 段外加 IP 头，IP 包外加当前链路的以太网头与校验尾。接收端反向处理，路由器转发时更换当前链路封装。图表示一个片段，不表示一条消息恰好对应一帧。</desc>
+  <defs><style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:30px;font-weight:700}.label{font-size:23px;font-weight:650}.small{font-size:20px;fill:#4b5c77}.arrow{fill:none;stroke:#9aacbf;stroke-width:2;marker-end:url(#a)}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4 0 8" fill="#9aacbf"/></marker></defs>
+  <rect width="680" height="680" rx="24" fill="#f5f8fd"/>
+  <text class="title" x="28" y="48">封装：给数据逐层加“投递信息”</text>
+  <text class="small" x="28" y="85">用明文 HTTP / TCP / IPv4 / Ethernet 举例</text>
+  <text class="label" x="28" y="137">① 应用：说清要什么</text>
+  <rect x="28" y="155" width="624" height="55" rx="10" fill="#e7edff"/><text class="label" x="340" y="190" text-anchor="middle">GET /cat.png HTTP/1.1 …</text>
+  <path class="arrow" d="M340 214v24"/>
+  <text class="label" x="28" y="270">② TCP：端口、序号、确认</text>
+  <rect x="28" y="288" width="170" height="55" rx="8" fill="#c7e7ff"/><rect x="202" y="288" width="450" height="55" rx="8" fill="#e7edff"/>
+  <text class="label" x="113" y="323" text-anchor="middle">TCP 头</text><text class="label" x="427" y="323" text-anchor="middle">这一段应用字节</text>
+  <path class="arrow" d="M340 347v24"/>
+  <text class="label" x="28" y="403">③ IP：从哪个地址，到哪个地址</text>
+  <rect x="28" y="421" width="130" height="55" rx="8" fill="#c5e9df"/><rect x="162" y="421" width="150" height="55" rx="8" fill="#c7e7ff"/><rect x="316" y="421" width="336" height="55" rx="8" fill="#e7edff"/>
+  <text class="label" x="93" y="456" text-anchor="middle">IP 头</text><text class="label" x="237" y="456" text-anchor="middle">TCP 头</text><text class="label" x="484" y="456" text-anchor="middle">应用字节</text>
+  <path class="arrow" d="M340 480v24"/>
+  <text class="label" x="28" y="536">④ 链路：把 IP 包送到本跳对端</text>
+  <rect x="28" y="554" width="122" height="55" rx="8" fill="#ffe4ba"/><rect x="154" y="554" width="430" height="55" rx="8" fill="#def3ee"/><rect x="588" y="554" width="64" height="55" rx="8" fill="#ffe4ba"/>
+  <text class="label" x="89" y="589" text-anchor="middle">链路头</text><text class="label" x="369" y="589" text-anchor="middle">上面完整的 IP 包</text><text x="620" y="589" font-size="20" text-anchor="middle">FCS</text>
+  <text class="small" x="28" y="650">FCS：帧校验；图示一个片段，不代表一条消息只有一帧。</text>
+</svg>

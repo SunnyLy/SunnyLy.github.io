@@ -26,7 +26,9 @@ ContentProvider 是用 URI 暴露数据操作与访问控制的应用组件；Co
 
 访问远端 authority 时，ContentResolver 需要取得对应的 Provider 接口。AMS 中的 `ContentProviderHelper` 参与查找、权限/用户检查、进程协调与引用管理；目标进程尚未就绪时，系统可能先启动进程并等待 Provider 发布。
 
-应用侧 `ActivityThread.installProvider()` 使用相应包信息和 ClassLoader 创建 Provider，完成 attach 并执行初始化，再把可供外部调用的接口发布给系统。普通应用绑定初始化路径中，初始 Provider 的安装可能早于 `Application.onCreate()`，因此不能在 Provider 初始化时假设后者已经完成。[ContentProviderHelper](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/am/ContentProviderHelper.java)、[ActivityThread](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ActivityThread.java)
+应用侧 `ActivityThread.installProvider()` 使用相应包信息和 ClassLoader 创建 Provider，完成 attach 并执行初始化，再把可供外部调用的接口发布给系统。
+
+普通应用绑定初始化路径中，初始 Provider 的安装可能早于 `Application.onCreate()`，因此不能在 Provider 初始化时假设后者已经完成。[ContentProviderHelper](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/am/ContentProviderHelper.java)、[ActivityThread](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ActivityThread.java)
 
 这不表示所有 Provider 都在任意启动场景无条件提前实例化；实际取决于进程、绑定数据、初始化路径及组件配置。
 
@@ -59,7 +61,9 @@ Provider 不必使用 SQLite；也可以封装文件、内存或其他数据来�
 
 查询时明确 projection、筛选和结果范围，避免不必要的全列读取或一次读取过多数据。取消、远端死亡、权限变化与无匹配数据是不同结果，不能统一吞掉后当成空列表。[ContentProvider API](https://developer.android.com/reference/android/content/ContentProvider)
 
-`ContentResolver.query()` 的默认远程查询路径也管理引用生命周期：先取得 unstable Provider，若查询时遭遇 `DeadObjectException`，会报告死亡并尝试重新取得 stable Provider。成功返回的 Cursor 由包装对象持有 stable 引用，关闭 Cursor 才释放它；调用结束不等于引用已经释放。该重试是查询实现中的特定分支，不能据此自动重试所有有副作用的写入。[query 与 CursorWrapperInner](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/ContentResolver.java)
+`ContentResolver.query()` 的默认远程查询路径也管理引用生命周期：先取得 unstable Provider，若查询时遭遇 `DeadObjectException`，会报告死亡并尝试重新取得 stable Provider。
+
+成功返回的 Cursor 由包装对象持有 stable 引用，关闭 Cursor 才释放它；调用结束不等于引用已经释放。该重试是查询实现中的特定分支，不能据此自动重试所有有副作用的写入。[query 与 CursorWrapperInner](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/ContentResolver.java)
 
 ### 线程边界
 

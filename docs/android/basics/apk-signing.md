@@ -166,7 +166,9 @@ ApkSigningBlockUtils.verifyIntegrity(contentDigests, apk, signatureInfo);
 
 **找不到相应签名块**与**找到但验证失败**是两回事。平台会结合支持的方案、最低方案要求和防剥离标记决定是否继续检查旧方案，不能理解为“v3 验不过，就换 v2/v1 试到通过”。
 
-Android 16 的 `ApkSignatureVerifier.verifyV3AndBelowSignatures()` 在 L201 / L220 / L238 串起 v3、v2、v1；回退分支针对 `SignatureNotFoundException` 并检查最低方案要求。v3.1 在 v3 验证器中处理；v3.2 属于更新平台的扩展，不能套用这份 Android 16 调用链。
+Android 16 的 `ApkSignatureVerifier.verifyV3AndBelowSignatures()` 在 L201 / L220 / L238 串起 v3、v2、v1；回退分支针对 `SignatureNotFoundException` 并检查最低方案要求。
+
+v3.1 在 v3 验证器中处理；v3.2 属于更新平台的扩展，不能套用这份 Android 16 调用链。
 
 [验证器源码](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/util/apk/ApkSignatureVerifier.java#196)
 
@@ -189,7 +191,9 @@ debug 与 release 通常使用不同密钥，不能直接互相覆盖。单纯�
 
 ## 6. 实操：对齐、签名、验证 {#sign-apk}
 
-以下在 **Android 应用工程**执行。Android Studio 可用 **Generate Signed App Bundle / APK**；自动化构建则配置 Gradle 的 release 签名。手工签名需要 JDK 的 `keytool` 和 SDK Build Tools 的 `zipalign`、`apksigner` 在 PATH 中。
+以下在 **Android 应用工程**执行。Android Studio 可用 **Generate Signed App Bundle / APK**；自动化构建则配置 Gradle 的 release 签名。
+
+手工签名需要 JDK 的 `keytool` 和 SDK Build Tools 的 `zipalign`、`apksigner` 在 PATH 中。
 
 ### 第一步：生成密钥，确认它保存在哪里
 

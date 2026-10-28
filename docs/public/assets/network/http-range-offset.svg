@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="400" viewBox="0 0 680 400" role="img" aria-labelledby="title desc">
+<title id="title">Range 从字节编号开始，不是字符位置</title>
+<desc id="desc">十字节资源编号0到9，本地已保存0到3，Range bytes等于4减号请求4到9共六字节。必须验证表示版本和响应Content-Range后才能追加，不可把不同版本拼接。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="400" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">Range 从字节编号开始，不是字符位置</text>
+<text x="28" y="94" class="strong" text-anchor="start">同一版本的文件：共 10 字节，编号从 0 开始</text>
+<rect x="28" y="134" width="57" height="71" rx="4" fill="#bce5d5"/>
+<text x="56" y="178" class="strong" text-anchor="middle">0</text>
+<rect x="91" y="134" width="57" height="71" rx="4" fill="#bce5d5"/>
+<text x="119" y="178" class="strong" text-anchor="middle">1</text>
+<rect x="154" y="134" width="57" height="71" rx="4" fill="#bce5d5"/>
+<text x="182" y="178" class="strong" text-anchor="middle">2</text>
+<rect x="217" y="134" width="57" height="71" rx="4" fill="#bce5d5"/>
+<text x="245" y="178" class="strong" text-anchor="middle">3</text>
+<rect x="280" y="134" width="57" height="71" rx="4" fill="#c7dbff"/>
+<text x="308" y="178" class="strong" text-anchor="middle">4</text>
+<rect x="343" y="134" width="57" height="71" rx="4" fill="#c7dbff"/>
+<text x="371" y="178" class="strong" text-anchor="middle">5</text>
+<rect x="406" y="134" width="57" height="71" rx="4" fill="#c7dbff"/>
+<text x="434" y="178" class="strong" text-anchor="middle">6</text>
+<rect x="469" y="134" width="57" height="71" rx="4" fill="#c7dbff"/>
+<text x="497" y="178" class="strong" text-anchor="middle">7</text>
+<rect x="532" y="134" width="57" height="71" rx="4" fill="#c7dbff"/>
+<text x="560" y="178" class="strong" text-anchor="middle">8</text>
+<rect x="595" y="134" width="57" height="71" rx="4" fill="#c7dbff"/>
+<text x="623" y="178" class="strong" text-anchor="middle">9</text>
+<path d="M28 218v17H274v-17 M280 218v17H652v-17" fill="none" stroke="#5b7297" stroke-width="3"/>
+<text x="150" y="269" class="small" text-anchor="middle">本地已有 4 字节</text>
+<text x="466" y="269" class="small" text-anchor="middle">还缺 6 字节</text>
+<text x="340" y="318" class="mono" text-anchor="middle">Range: bytes=4-</text>
+<text x="340" y="352" class="mono" text-anchor="middle">206: Content-Range: bytes 4-9/10</text>
+<text x="340" y="385" class="small" text-anchor="middle">先校验版本和范围，再追加；200 要从头写</text>
+</svg>

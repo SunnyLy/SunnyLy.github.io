@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="850" viewBox="0 0 560 850" role="img" aria-labelledby="title desc">
+  <title id="title">信任从本地锚点开始，证书签名逐级验证</title>
+  <desc id="desc">上方根证书位于客户端本地信任配置，下方中间和叶子通常由服务器提供。蓝色虚线从叶子向签发者追溯构建候选路径，绿色实线从本地根公钥验证中间签名，再用中间公钥验证叶子签名。根的自签名不使其自动可信，还必须检查时间、名称、用途等条件。</desc>
+  <defs><marker id="green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#23735c"/></marker><marker id="blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#346dbe"/></marker></defs>
+  <style>text{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;fill:#19324e}.title{font-size:24px;font-weight:700}.body{font-size:21px}.small{font-size:19px;fill:#456078}.verify{fill:none;stroke:#23735c;stroke-width:3;marker-end:url(#green)}.build{fill:none;stroke:#346dbe;stroke-width:2;stroke-dasharray:6 4;marker-end:url(#blue)}</style>
+  <rect width="560" height="850" rx="16" fill="#f7f9fc"/>
+  <text x="24" y="38" class="title">验证：信任不是服务器自己宣布的</text>
+  <text x="24" y="77" class="body" fill="#346dbe">蓝虚线：从叶子追溯签发者，构建候选路径</text>
+  <text x="24" y="108" class="body" fill="#23735c">绿实线：用上级公钥验证下级证书签名</text>
+  <rect x="60" y="140" width="440" height="168" rx="14" fill="#eef8f3" stroke="#a8d1be"/>
+  <text x="80" y="175" class="body">客户端本地：已信任的锚点</text>
+  <rect x="80" y="190" width="400" height="80" rx="10" fill="white" stroke="#a8d1be"/>
+  <text x="280" y="222" text-anchor="middle" class="body"><tspan x="280">根 CA 公钥（示例以根证书保存）</tspan><tspan x="280" dy="29">可信源于本地策略，不是因为自签名</tspan></text>
+  <rect x="60" y="342" width="440" height="355" rx="14" fill="#edf4ff" stroke="#b5cdea"/>
+  <text x="80" y="376" class="body">服务器通常发送：中间证书 + 叶子</text>
+  <rect x="80" y="390" width="400" height="80" rx="10" fill="white" stroke="#a9c4e5"/>
+  <text x="280" y="422" text-anchor="middle" class="body"><tspan x="280">中间 CA 证书</tspan><tspan x="280" dy="29">带中间公钥，由根 CA 签发</tspan></text>
+  <rect x="80" y="590" width="400" height="80" rx="10" fill="white" stroke="#a9c4e5"/>
+  <text x="280" y="622" text-anchor="middle" class="body"><tspan x="280">站点叶子证书</tspan><tspan x="280" dy="29">带站点公钥，由中间 CA 签发</tspan></text>
+  <path d="M80 630H36V430H80" class="build"/>
+  <path d="M80 430H16V230H80" class="build"/>
+  <path d="M350 270V390" class="verify"/>
+  <text x="366" y="326" class="small"><tspan x="366">根公钥</tspan><tspan x="366" dy="26">验签</tspan></text>
+  <path d="M350 470V590" class="verify"/>
+  <text x="366" y="522" class="small"><tspan x="366">中间公钥</tspan><tspan x="366" dy="26">验签</tspan></text>
+  <rect x="24" y="728" width="512" height="98" rx="12" fill="#fff4e7" stroke="#e5c49d"/>
+  <text x="280" y="759" text-anchor="middle" class="body"><tspan x="280">签名链有效，还要检查名字、时间、用途等</tspan><tspan x="280" dy="28">这不是证书传输顺序，也不是完整 TLS 握手</tspan><tspan x="280" dy="28">本图画一条路径；交叉签名可能有其他路径</tspan></text>
+</svg>

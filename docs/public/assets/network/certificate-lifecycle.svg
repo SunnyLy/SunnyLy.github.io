@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="764" viewBox="0 0 560 764" role="img" aria-labelledby="title desc">
+  <title id="title">正常续期与私钥泄露处置是两条不同轨道</title>
+  <desc id="desc">正常续期轨道包括核验申请新证书、部署匹配私钥与链、切换并验证实际对外证书。泄露处置要求新密钥与新证书、撤销旧证书并替换部署，具体顺序取决于事件策略；删除本地文件不等于撤销，换证不必然换密钥。</desc>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#47617d"/></marker></defs>
+  <style>text{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;fill:#19324e}.title{font-size:24px;font-weight:700}.body{font-size:21px}.small{font-size:19px;fill:#456078}.line{fill:none;stroke:#47617d;stroke-width:2;marker-end:url(#a)}</style>
+  <rect width="560" height="764" rx="16" fill="#f7f9fc"/>
+  <text x="24" y="38" class="title">续期：换上新证书，不是延长旧文件</text>
+  <rect x="24" y="72" width="512" height="319" rx="14" fill="#eef8f3" stroke="#a8d1be"/>
+  <text x="44" y="109" class="title">正常轨道：在到期前完成</text>
+  <rect x="44" y="131" width="472" height="64" rx="10" fill="white" stroke="#a8d1be"/>
+  <text x="280" y="170" text-anchor="middle" class="body">重新申请 → 核验/签发 → 得到新证书</text>
+  <path d="M280 195V222" class="line"/>
+  <rect x="44" y="222" width="472" height="64" rx="10" fill="white" stroke="#a8d1be"/>
+  <text x="280" y="261" text-anchor="middle" class="body">部署匹配的私钥 + 叶子证书 + 中间链</text>
+  <path d="M280 286V313" class="line"/>
+  <rect x="44" y="313" width="472" height="64" rx="10" fill="white" stroke="#a8d1be"/>
+  <text x="280" y="352" text-anchor="middle" class="body">切换/重载 → 检查实际对外呈现的证书</text>
+  <rect x="24" y="418" width="512" height="199" rx="14" fill="#fff0ed" stroke="#dfa997"/>
+  <text x="44" y="455" class="title">私钥泄露：需要一组应急动作</text>
+  <text x="44" y="498" class="body"><tspan x="44">生成新密钥 + 取得新证书</tspan><tspan x="44" dy="32">撤销旧证书 + 替换部署 + 核实切换结果</tspan><tspan x="44" dy="32">动作顺序与应急隔离，按事件策略决定</tspan><tspan x="44" dy="32">只删除磁盘文件，不会使外部副本失效</tspan></text>
+  <rect x="24" y="644" width="512" height="98" rx="12" fill="#edf4ff" stroke="#b5cdea"/>
+  <text x="280" y="676" text-anchor="middle" class="body"><tspan x="280">换证不必然换密钥；撤销也不是“提前到期”</tspan><tspan x="280" dy="29">客户端怎样检查撤销，取决于具体实现与策略</tspan><tspan x="280" dy="29">CT 记录可见，不代表证书尚未撤销</tspan></text>
+</svg>

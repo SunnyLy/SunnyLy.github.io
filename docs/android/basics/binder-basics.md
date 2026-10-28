@@ -45,7 +45,9 @@ Java `Binder` 是本地 `IBinder` 实现，也是 Java AIDL 服务端 `Stub` 的
 
 这张图表示跨进程 Java Binder 的**请求方向**。第 6 → 7 步是客户端提交 ioctl；第 12 → 13 步是驱动把命令返回给服务端的 ioctl。第 11 → 12 步表示工作队列交接，**不是 `binder_transaction()` 直接调用接收线程的 `binder_thread_read()`**。编号表示这次请求的数据处理顺序，不表示全系统线程执行的绝对时间。
 
-服务端线程通常已沿 `joinThreadPool()` → `getAndExecuteCommand()` → `talkWithDriver()` 进入驱动读取工作，可能先阻塞等待；第 13 步表示其读取调用返回，随后才读取 `mIn` 并执行命令。驱动不直接调用 Java/C++ 业务方法；同步回复见后文时序图。本地接口被 `asInterface()` 识别后可直接返回实现对象，跳过代理编解码与驱动传输。
+服务端线程通常已沿 `joinThreadPool()` → `getAndExecuteCommand()` → `talkWithDriver()` 进入驱动读取工作，可能先阻塞等待；第 13 步表示其读取调用返回，随后才读取 `mIn` 并执行命令。
+
+驱动不直接调用 Java/C++ 业务方法；同步回复见后文时序图。本地接口被 `asInterface()` 识别后可直接返回实现对象，跳过代理编解码与驱动传输。
 
 ### IInterface 接口
 
@@ -150,7 +152,9 @@ else
     err = -errno;
 ```
 
-服务端线程池则沿 `joinThreadPool()` → `getAndExecuteCommand()` → `talkWithDriver()` 取工作，读取命令后进入 `executeCommand()`；调用线程等待同步回复时也可能进入命令分派。因此“不在 App 主线程”不等于“固定由某一条 Binder 线程处理”。源码：[transact](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#868)、[writeTransactionData](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1298)、[talkWithDriver](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1179)、[线程池循环](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#788)。
+服务端线程池则沿 `joinThreadPool()` → `getAndExecuteCommand()` → `talkWithDriver()` 取工作，读取命令后进入 `executeCommand()`；调用线程等待同步回复时也可能进入命令分派。
+
+因此“不在 App 主线程”不等于“固定由某一条 Binder 线程处理”。源码：[transact](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#868)、[writeTransactionData](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1298)、[talkWithDriver](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1179)、[线程池循环](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#788)。
 
 ## 中间的 Binder 驱动具体做什么 {#binder-driver-flow}
 
@@ -172,7 +176,9 @@ case BC_REPLY: {
 }
 ```
 
-`binder_transaction()` 在校验目标、引用、调用权限及事务数据后，为接收进程分配事务缓冲区，复制数据并处理嵌入对象：Binder 引用需转换为接收端可使用的表示，FD 也需做受约束的跨进程转移，不能把 Parcel 一概看作普通字节数组。随后将工作投递给适合的线程或进程待办队列，按需唤醒等待线程；同步嵌套调用和 `oneway` 有各自的路由、排队规则。
+`binder_transaction()` 在校验目标、引用、调用权限及事务数据后，为接收进程分配事务缓冲区，复制数据并处理嵌入对象：Binder 引用需转换为接收端可使用的表示，FD 也需做受约束的跨进程转移，不能把 Parcel 一概看作普通字节数组。
+
+随后将工作投递给适合的线程或进程待办队列，按需唤醒等待线程；同步嵌套调用和 `oneway` 有各自的路由、排队规则。
 
 目标进程已建立的 Binder 内存映射使用户态可读取接收缓冲区，**不代表发送端与接收端共享同一个 Java 对象或任意地址空间**。内存映射、数据复制、对象转换和命令返回是不同步骤；缓冲区引用释放后还会通过 `BC_FREE_BUFFER` 通知驱动回收，不能长期保存接收 Parcel 的裸数据地址。
 
@@ -217,7 +223,9 @@ sequenceDiagram
     Note over P: 上层业务代理再解码异常状态与业务返回值
 ```
 
-服务端执行完同步事务后，`executeCommand()` 调用 `sendReply()`；后者写出 `BC_REPLY`。回复使用已有同步事务关系找到原调用线程，不需要服务端重新按客户端 handle 发起一次业务请求。客户端 `waitForResponse()` 收到 `BR_REPLY` 后，将数据关联到回复 Parcel，再由上层代理按业务协议解码。
+服务端执行完同步事务后，`executeCommand()` 调用 `sendReply()`；后者写出 `BC_REPLY`。回复使用已有同步事务关系找到原调用线程，不需要服务端重新按客户端 handle 发起一次业务请求。
+
+客户端 `waitForResponse()` 收到 `BR_REPLY` 后，将数据关联到回复 Parcel，再由上层代理按业务协议解码。
 
 ```cpp
 // IPCThreadState::sendReply() 节选：-1 是此回复封装中的参数，
@@ -227,7 +235,9 @@ if (err < NO_ERROR) return err;
 return waitForResponse(nullptr, nullptr);
 ```
 
-Native `transact()` 的 `status_t` 是事务/分派状态，不等于业务函数返回值；例如 Java AIDL 代理还会按协议读取异常信息和返回字段。`BR_DEAD_REPLY`、`BR_FAILED_REPLY` 等错误分支也会终止等待，不能把“等待 BR_REPLY”理解为永远不返回的唯一分支。[sendReply](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1064)、[waitForResponse](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1074)
+Native `transact()` 的 `status_t` 是事务/分派状态，不等于业务函数返回值；例如 Java AIDL 代理还会按协议读取异常信息和返回字段。
+
+`BR_DEAD_REPLY`、`BR_FAILED_REPLY` 等错误分支也会终止等待，不能把“等待 BR_REPLY”理解为永远不返回的唯一分支。[sendReply](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1064)、[waitForResponse](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/IPCThreadState.cpp#1074)
 
 ### oneway 与驱动完成通知
 
@@ -237,7 +247,9 @@ Native `transact()` 的 `status_t` 是事务/分派状态，不等于业务函�
 
 普通本地接口调用与远程调用在线程、参数共享和异常路径上存在差别。不要用本地测试通过推导跨进程线程安全；也不要把远程 `oneway` 的行为套到本地调用。相关约束见 [AIDL 线程与 oneway 语义](https://developer.android.com/develop/background-work/services/aidl)。
 
-同步嵌套事务还会带来**重入**：A 调 B，B 再回调 A，内核可能复用 A 中正在等待的那条调用线程。因此即使服务只有一条 Binder 线程，也不能假设当前方法返回之前本进程状态不会被另一段 Binder 回调修改。不要持有业务锁发起 Binder 调用；可先在锁内生成状态快照，释放锁后调用远端，返回后重新校验状态，再提交结果。[官方嵌套事务与死锁说明](https://source.android.com/docs/core/architecture/ipc/binder-threading#avoid-deadlocks)
+同步嵌套事务还会带来**重入**：A 调 B，B 再回调 A，内核可能复用 A 中正在等待的那条调用线程。因此即使服务只有一条 Binder 线程，也不能假设当前方法返回之前本进程状态不会被另一段 Binder 回调修改。
+
+不要持有业务锁发起 Binder 调用；可先在锁内生成状态快照，释放锁后调用远端，返回后重新校验状态，再提交结果。[官方嵌套事务与死锁说明](https://source.android.com/docs/core/architecture/ipc/binder-threading#avoid-deadlocks)
 
 ## 学习检查点
 

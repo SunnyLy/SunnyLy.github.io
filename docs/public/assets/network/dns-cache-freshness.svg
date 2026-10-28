@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="500" viewBox="0 0 680 500" role="img" aria-labelledby="title desc">
+<title id="title">改了 DNS，旧地址为什么还会出现</title>
+<desc id="desc">示例缓存持有旧地址，在正常TTL新鲜期内继续可用，即使权威记录已更新。到期通常刷新；刷新失败时支持serve-stale的解析器可按规则临时使用过期数据。已建立网站连接不受DNS TTL强制关闭。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="500" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">改了 DNS，旧地址为什么还会出现</text>
+<text x="28" y="91" class="strong" text-anchor="start">同一份缓存记录：从收到答案开始计时</text>
+<path d="M46 145 L626 145" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<text x="46" y="125" class="small" text-anchor="start">收到旧 IP</text>
+<text x="337" y="125" class="small" text-anchor="start">权威改为新 IP</text>
+<text x="542" y="125" class="small" text-anchor="start">TTL 到期</text>
+<rect x="46" y="174" width="500" height="67" rx="12" fill="#c7e8dc"/>
+<text x="296" y="216" class="strong" text-anchor="middle">旧缓存仍新鲜：可继续回答旧 IP</text>
+<path d="M546 241 L546 280" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<text x="368" y="278" class="small" text-anchor="start">通常应刷新</text>
+<rect x="28" y="306" width="295" height="90" rx="12" fill="#dceaff"/>
+<text x="175" y="340" class="strong" text-anchor="middle">刷新成功</text>
+<text x="175" y="374" class="small" text-anchor="middle">保存新值与新的有效期</text>
+<rect x="352" y="306" width="300" height="90" rx="12" fill="#ffe7c4"/>
+<text x="502" y="340" class="strong" text-anchor="middle">刷新失败</text>
+<text x="502" y="374" class="small" text-anchor="middle">serve-stale 是有条件例外</text>
+<path d="M538 281 L194 303" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<path d="M546 281 L509 303" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<text x="340" y="444" class="small" text-anchor="middle">每处缓存收到答案的时刻不同，不会全网同时换地址</text>
+<text x="340" y="478" class="small" text-anchor="middle">已有 TCP/HTTP 连接不会因这条 TTL 到期被强制断开</text>
+</svg>

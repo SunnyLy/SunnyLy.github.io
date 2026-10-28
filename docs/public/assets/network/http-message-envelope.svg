@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="650" viewBox="0 0 680 650" role="img" aria-labelledby="title desc">
+<title id="title">拆信封：HTTP/1.1 报文分四块</title>
+<desc id="desc">请求示意包含GET /health HTTP/1.1首行、Host和Accept字段、空行，无正文。响应示意包含200首行、Content-Type与Content-Length11字段、空行、11字节JSON正文ok为true。只表示结构，不保证实验输出逐字一致。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="650" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">拆信封：HTTP/1.1 报文分四块</text>
+<text x="28" y="91" class="strong" text-anchor="start">请求：我要 /health</text>
+<rect x="28" y="109" width="624" height="49" rx="3" fill="#c7dbff"/>
+<text x="48" y="141" class="mono" text-anchor="start">GET /health HTTP/1.1</text>
+<rect x="28" y="162" width="624" height="80" rx="3" fill="#e6efff"/>
+<text x="48" y="193" class="mono" text-anchor="start">Host: notes.example</text>
+<text x="48" y="223" class="mono" text-anchor="start">Accept: application/json</text>
+<rect x="28" y="246" width="624" height="35" rx="3" fill="#ffe2b0"/>
+<text x="48" y="272" class="small" text-anchor="start">空行：字段到这里结束；本例请求无 Body</text>
+<text x="28" y="333" class="strong" text-anchor="start">响应：状态 + 内容说明 + 内容</text>
+<rect x="28" y="351" width="624" height="49" rx="3" fill="#bce5d5"/>
+<text x="48" y="383" class="mono" text-anchor="start">HTTP/1.1 200 OK</text>
+<rect x="28" y="404" width="624" height="80" rx="3" fill="#e0f2ec"/>
+<text x="48" y="435" class="mono" text-anchor="start">Content-Type: application/json</text>
+<text x="48" y="465" class="mono" text-anchor="start">Content-Length: 11</text>
+<rect x="28" y="488" width="624" height="35" rx="3" fill="#ffe2b0"/>
+<text x="48" y="514" class="small" text-anchor="start">空行</text>
+<rect x="28" y="527" width="624" height="49" rx="3" fill="#fff"/>
+<text x="48" y="560" class="mono" text-anchor="start">{"ok":true}</text>
+<text x="628" y="560" class="small" text-anchor="end">Body：11 字节</text>
+<text x="340" y="619" class="small" text-anchor="middle">线上行结束是 CRLF；空行是边界，不是装饰性留白</text>
+</svg>

@@ -171,7 +171,9 @@ Java 队列经 JNI 的 `NativeMessageQueue::pollOnce()` 进入 Native Looper；�
 <details>
 <summary>源码深一层：Android 16 的队列实现差异</summary>
 
-AOSP `android-16.0.0_r1` 包含 Legacy、Concurrent、Combined 队列实现。Combined 的 `next()`（L1021）、`enqueueMessage()`（L1392）按 `mUseConcurrent` 选择分支。不能把某一版的单链表、锁与唤醒细节当成所有版本的固定实现；上面的消息去向与线程模型仍成立。
+AOSP `android-16.0.0_r1` 包含 Legacy、Concurrent、Combined 队列实现。Combined 的 `next()`（L1021）、`enqueueMessage()`（L1392）按 `mUseConcurrent` 选择分支。
+
+不能把某一版的单链表、锁与唤醒细节当成所有版本的固定实现；上面的消息去向与线程模型仍成立。
 
 [CombinedMessageQueue 源码](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/CombinedMessageQueue/MessageQueue.java#1021)
 

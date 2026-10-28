@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="650" viewBox="0 0 680 650" role="img" aria-labelledby="title desc">
+<title id="title">收消息像拼字节：先头，再正文</title>
+<desc id="desc">长度帧为4字节大端无符号长度00000006，正文你好的UTF8为E4BDA0E5A5BD。示意三次读取可切开长度头或字符；接收状态从头未齐到校验长度、正文未齐，最后完整解码。读取次数不等于TCP分段次数。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="650" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">收消息像拼字节：先头，再正文</text>
+<text x="28" y="91" class="strong" text-anchor="start">发送帧：“你好” → 6 字节 UTF-8 正文</text>
+<rect x="28" y="114" width="254" height="72" rx="4" fill="#c7dbff"/>
+<rect x="288" y="114" width="364" height="72" rx="4" fill="#bce5d5"/>
+<text x="155" y="144" class="small" text-anchor="middle">长度头：4 字节</text>
+<text x="155" y="174" class="mono" text-anchor="middle">00 00 00 06</text>
+<text x="470" y="144" class="small" text-anchor="middle">正文：6 字节</text>
+<text x="470" y="174" class="mono" text-anchor="middle">E4 BD A0 E5 A5 BD</text>
+<text x="28" y="229" class="strong" text-anchor="start">假设 recv 恰好这样返回：</text>
+<rect x="28" y="249" width="624" height="73" rx="12" fill="#fff"/>
+<text x="48" y="278" class="mono" text-anchor="start">① 00 00</text>
+<text x="48" y="309" class="small" text-anchor="start">头只有 2/4 字节：继续收头</text>
+<path d="M340 322 L340 351" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<rect x="28" y="354" width="624" height="94" rx="12" fill="#fff"/>
+<text x="48" y="383" class="mono" text-anchor="start">② 00 06</text>
+<text x="48" y="415" class="small" text-anchor="start">头收齐：读出 6，检查 0 ≤ 6 ≤ MAX_FRAME</text>
+<text x="48" y="439" class="small" text-anchor="start">进入正文状态；不要把不可信长度直接当分配命令</text>
+<path d="M340 448 L340 477" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<rect x="28" y="480" width="624" height="105" rx="12" fill="#fff"/>
+<text x="48" y="510" class="mono" text-anchor="start">③ E4 BD …  →  直到正文收满 6 字节</text>
+<text x="48" y="542" class="small" text-anchor="start">正文未齐：累计进度；收齐后 decode('utf-8')</text>
+<text x="48" y="572" class="small" text-anchor="start">字符可以跨读取，不能每个碎片单独解码</text>
+<text x="340" y="625" class="small" text-anchor="middle">仅是读取示例；实际 recv 可以更碎，绝不保证次数</text>
+</svg>

@@ -498,7 +498,9 @@ public final class DynamicLoadingExample {
 
 </details>
 
-内存示例的 `ByteBuffer.wrap()` 已将 `position` 设为 0、`limit` 设为字节数组长度；如果改成手动 `put()`，交给加载器前通常需要 `flip()`，确保剩余区间恰好覆盖 DEX。文件示例使用私有 `codeCacheDir` 中的新文件，避免覆盖已加载的文件；重复演示会产生多个缓存文件，应由应用在不再需要这些加载器与代码文件时统一管理。
+内存示例的 `ByteBuffer.wrap()` 已将 `position` 设为 0、`limit` 设为字节数组长度；如果改成手动 `put()`，交给加载器前通常需要 `flip()`，确保剩余区间恰好覆盖 DEX。
+
+文件示例使用私有 `codeCacheDir` 中的新文件，避免覆盖已加载的文件；重复演示会产生多个缓存文件，应由应用在不再需要这些加载器与代码文件时统一管理。
 
 这两个示例的字节来源是随宿主发布的 asset。若改成其他来源，必须在创建加载器前验证可信签名或与可信预期值核对完整性，不能仅计算当前文件的哈希就声称已验证可信。[官方动态代码加载安全说明](https://developer.android.com/privacy-and-security/risks/dynamic-code-loading)
 
@@ -514,7 +516,9 @@ String fromFile = DynamicLoadingExample.runFromFile(context);
 
 调用方需处理上述方法声明的 `IOException` 和 `ReflectiveOperationException`；若反射调用抛出 `InvocationTargetException`，应检查其 `cause` 中的目标方法异常。
 
-`loadClass()` 先按委派规则返回 `Class`；`getMethod()` 找到公开方法；`invoke(null, "Android")` 执行静态方法，并在需要时触发类初始化。若改成实例方法，需先通过 `getDeclaredConstructor().newInstance()` 创建实例，再将实例传给 `invoke()`。仅创建加载器不会自动调用插件的入口方法。
+`loadClass()` 先按委派规则返回 `Class`；`getMethod()` 找到公开方法；`invoke(null, "Android")` 执行静态方法，并在需要时触发类初始化。
+
+若改成实例方法，需先通过 `getDeclaredConstructor().newInstance()` 创建实例，再将实例传给 `invoke()`。仅创建加载器不会自动调用插件的入口方法。
 
 验证时除了输出字符串，还应保留代码中对**定义加载器**的检查。分别创建的内存加载器和文件加载器即使加载同名类，也不会因此共享类身份；如果要通过接口调用插件，应将共享接口放在宿主可见的父加载器中，插件单独编译时引用它，不再打包另一份接口定义。
 
@@ -549,4 +553,4 @@ Android 14 及以上、且 `targetSdkVersion >= 34` 的应用动态加载 DEX、
 - [ART DexFile_defineClassNative](https://android.googlesource.com/platform/art/+/refs/tags/android-16.0.0_r1/runtime/native/dalvik_system_DexFile.cc#471)：查 DEX 类定义、注册 DEX、接入 ClassLinker。
 - [ClassLoader 官方 API](https://developer.android.com/reference/java/lang/ClassLoader)、[Java 生命周期规范 §12](https://docs.oracle.com/javase/specs/jls/se17/html/jls-12.html)：类型与初始化契约。
 
-结构参考：[JVM（类的加载与 ClassLoader、双亲委派机制）](https://cloud.tencent.com/developer/article/2293749)。其中 JDK 8 的扩展加载器、rt.jar 等环境描述，阅读 Android 时应换成本文的 DEX / ART 与加载器实现。
+结构参考：[JVM 类加载与双亲委派](https://cloud.tencent.com/developer/article/2293749)。Android 使用 DEX / ART，不能直接套用 JDK 8 的扩展加载器或 `rt.jar`。

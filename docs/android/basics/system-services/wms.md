@@ -40,11 +40,15 @@ sequenceDiagram
   S->>W: finishDrawingWindow
 ```
 
-`ViewRootImpl` 在客户端发起调用；跨进程请求由 `Session` 的 Binder 入口接收，再进入 WMS。WMS 在自己的锁与状态约束下处理窗口树，而不是把请求直接转成应用主线程上的 View 操作。窗口属性中的 Token 是校验输入之一，窗口类型、父窗口和目标显示也会改变校验分支。[客户端添加入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java#1633)、[Session 转发](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/Session.java#248)、[WMS 添加窗口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#1534)
+`ViewRootImpl` 在客户端发起调用；跨进程请求由 `Session` 的 Binder 入口接收，再进入 WMS。WMS 在自己的锁与状态约束下处理窗口树，而不是把请求直接转成应用主线程上的 View 操作。
+
+窗口属性中的 Token 是校验输入之一，窗口类型、父窗口和目标显示也会改变校验分支。[客户端添加入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java#1633)、[Session 转发](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/Session.java#248)、[WMS 添加窗口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#1534)
 
 ## relayout、绘制完成与真正显示 {#window-relayout-draw}
 
-`relayoutWindow()` 根据当前窗口与显示状态计算结果，通过 `WindowRelayoutResult` 返回窗口帧、配置、SurfaceControl、Insets 等数据。应用据此继续测量、布局和绘制；内容绘制与 Buffer 提交还需要应用渲染和图形管线参与，WMS 不在 Binder 线程上替应用运行 `View.onDraw()`。[relayoutWindow](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#2348)
+`relayoutWindow()` 根据当前窗口与显示状态计算结果，通过 `WindowRelayoutResult` 返回窗口帧、配置、SurfaceControl、Insets 等数据。
+
+应用据此继续测量、布局和绘制；内容绘制与 Buffer 提交还需要应用渲染和图形管线参与，WMS 不在 Binder 线程上替应用运行 `View.onDraw()`。[relayoutWindow](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#2348)
 
 `finishDrawing()` 携带窗口端点、绘制事务与序列信息回到 WMS，用于推进窗口绘制状态和关联事务。它不是“面板已经扫描到这帧”的回执；SurfaceFlinger 的合成、HWC 提交及 fence 完成仍有各自边界。[绘制完成转发](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/Session.java#315)、[WMS 处理](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#2879)
 

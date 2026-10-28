@@ -23,7 +23,11 @@ Service 是由系统管理的无界面组件。它可以处于 started 状态、
 3. 应用收到创建命令，`ActivityThread.handleCreateService()` 使用包的 ClassLoader 与组件工厂创建实例，完成 attach 后调用 `onCreate()`。
 4. 启动参数经后续调度进入 `handleServiceArgs()`，再交给 `onStartCommand(intent, flags, startId)`。
 
-创建命令先到应用进程的 `ApplicationThread.scheduleCreateService()`，再投递 `H.CREATE_SERVICE`，由主线程进入 `handleCreateService()`。后者先取得 `LoadedApk` 与 Application，使用组件工厂实例化 Service，创建 Context 并 `attach()`，才调用 `onCreate()`；最后把实例按 token 放入 `mServices`。后续启动、绑定、停止命令据此找到同一个对象。**Binder 负责传命令，主线程消息队列负责生命周期串行化**。[ActivityThread 实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ActivityThread.java)
+创建命令先到应用进程的 `ApplicationThread.scheduleCreateService()`，再投递 `H.CREATE_SERVICE`，由主线程进入 `handleCreateService()`。
+
+后者先取得 `LoadedApk` 与 Application，使用组件工厂实例化 Service，创建 Context 并 `attach()`，才调用 `onCreate()`；最后把实例按 token 放入 `mServices`。
+
+后续启动、绑定、停止命令据此找到同一个对象。**Binder 负责传命令，主线程消息队列负责生命周期串行化**。[ActivityThread 实现](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ActivityThread.java)
 
 多次启动同一服务通常不会创建多个 Service 实例，但会交付多次启动请求。`onCreate()` 负责实例初始化，不能拿它代替逐次处理启动参数。started 状态也不是“所有任务已经完成”的业务计数器。[Service 官方概览](https://developer.android.com/develop/background-work/services)
 
@@ -54,7 +58,9 @@ sequenceDiagram
 
 连接清理不能仅由这个布尔值决定：SDK 契约要求正常返回 `false` 或抛出 `SecurityException` 时也调用 `unbindService()` 释放连接。绑定尝试、实际拿到 Binder 与已经清理是三个状态。[Context.bindService 契约](https://developer.android.com/reference/android/content/Context#bindService(android.content.Intent,%20android.content.ServiceConnection,%20int))
 
-还需区分登记前的参数错误：固定版本在 `conn == null` 或同时提供 Handler/Executor 时先抛 `IllegalArgumentException`，尚未登记连接，不应盲目解绑。但隐式 Intent 等校验可在登记之后抛出同类异常，不能把所有 `IllegalArgumentException` 都当作“未登记”。[ContextImpl.bindServiceCommon](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ContextImpl.java#L2201)
+还需区分登记前的参数错误：固定版本在 `conn == null` 或同时提供 Handler/Executor 时先抛 `IllegalArgumentException`，尚未登记连接，不应盲目解绑。
+
+但隐式 Intent 等校验可在登记之后抛出同类异常，不能把所有 `IllegalArgumentException` 都当作“未登记”。[ContextImpl.bindServiceCommon](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ContextImpl.java#L2201)
 
 ### onBind 返回值与缓存
 
@@ -101,9 +107,11 @@ flowchart TB
 
 ### 原理与弃用状态
 
-`IntentService` 继承 Service，在 `onCreate()` 创建一个 HandlerThread 和对应 Handler；每次启动把 Intent 与 startId 封装为消息，由工作线程**逐个**调用 `onHandleIntent()`。回调返回后执行 `stopSelf(startId)`，在后面还有更新的启动请求时不会直接结束服务。生命周期回调仍在主线程，只有 onHandleIntent 等工作消息运行在该专用线程。
+`IntentService` 继承 Service，在 `onCreate()` 创建一个 HandlerThread 和对应 Handler；每次启动把 Intent 与 startId 封装为消息，由工作线程**逐个**调用 `onHandleIntent()`。
 
-下面是 AOSP `android-16.0.0_r1` 的核心逻辑节选，省略声明和其他方法，注释为本文补充：
+回调返回后执行 `stopSelf(startId)`，在后面还有更新的启动请求时不会直接结束服务。生命周期回调仍在主线程，只有 onHandleIntent 等工作消息运行在该专用线程。
+
+AOSP `android-16.0.0_r1` 核心逻辑节选，注释为补充说明：
 
 ```java
 // onCreate：一个实例使用一个串行消息循环
@@ -528,7 +536,9 @@ final class NoteZip {
 
 还应覆盖通知权限拒绝、渠道关闭、后台启动被拒、进程被杀、I/O 失败及 API 35 时限处理。进入前台失败要检查启动资格、type / 权限、通知渠道、smallIcon 和非零通知 ID；不要只捕获异常后无限重启服务。
 
-`stopForeground(STOP_FOREGROUND_REMOVE)` 退出前台并移除关联通知，**不会单独停止服务**；`STOP_FOREGROUND_DETACH` 则解除关联并保留通知，用于确实需要留下结果通知的场景。任务完成还需适当 stopSelf / stopService；通知上的 ongoing 也不保证用户或系统无法终止应用。[Service 停止 API](https://developer.android.com/reference/android/app/Service#stopForeground(int))
+`stopForeground(STOP_FOREGROUND_REMOVE)` 退出前台并移除关联通知，**不会单独停止服务**；`STOP_FOREGROUND_DETACH` 则解除关联并保留通知，用于确实需要留下结果通知的场景。
+
+任务完成还需适当 stopSelf / stopService；通知上的 ongoing 也不保证用户或系统无法终止应用。[Service 停止 API](https://developer.android.com/reference/android/app/Service#stopForeground(int))
 
 ## 排查与阅读路线
 

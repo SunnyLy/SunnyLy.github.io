@@ -33,6 +33,10 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 [ServiceManager 与 AIDL：系统服务和应用绑定的两条路径](./framework/service-manager-aidl.html)对照系统服务注册、目录查找与应用绑定，解释 Stub / Proxy、本地优化、线程、权限和断连处理。
 
+## 三方开源库
+
+[OkHttp：版本演进、设计模式与 Retrofit 实战](./libraries/okhttp.html)从版本优化与设计模式进入 Android 集成，完整串起泛型请求、业务 Code、JSON 与 Bean 映射，再图解调度、连接复用、缓存及重试。更多库笔记见[三方开源库目录](./libraries/index.html)。
+
 ## Kotlin
 
 从 Kotlin 语法与 Android 开发中的实际机制出发，区分语言能力、状态模型和库运行时。
@@ -47,6 +51,6 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 ## 笔记的组织方式
 
-基础篇解释组件与应用 API，Framework 篇追踪系统服务、运行时与内核协作，Kotlin 篇分析 Compose 状态和渲染。
+基础篇解释组件与应用 API，Framework 篇追踪系统服务、运行时与内核协作，三方开源库篇拆解常用库的使用与内部实现，Kotlin 篇分析 Compose 状态和渲染。
 
 分类入口与维护方法见[阅读与写作指南](/guide.html)。

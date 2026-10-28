@@ -90,7 +90,11 @@ flowchart TB
     Default -->|是| Result["newResult<br/>结合包与用户状态生成 ResolveInfo"]
 ```
 
-`matchData()` 内部按声明处理 scheme、scheme-specific part、authority、path 与 MIME 等条件，存在分支，并非每次依次匹配全部字段。`MATCH_DEFAULT_ONLY` 的检查位于 `IntentResolver`，不是 `IntentFilter.match()` 自身自动添加的条件；没有这个 flag 时不能把缺少 `CATEGORY_DEFAULT` 一概判为查询失败。源码见 [IntentFilter.match](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/IntentFilter.java#L2423)、[IntentResolver.buildResolveList](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/IntentResolver.java#L785)。
+`matchData()` 内部按声明处理 scheme、scheme-specific part、authority、path 与 MIME 等条件，存在分支，并非每次依次匹配全部字段。
+
+`MATCH_DEFAULT_ONLY` 的检查位于 `IntentResolver`，不是 `IntentFilter.match()` 自身自动添加的条件；没有这个 flag 时不能把缺少 `CATEGORY_DEFAULT` 一概判为查询失败。
+
+源码见 [IntentFilter.match](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/IntentFilter.java#L2423)、[IntentResolver.buildResolveList](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/IntentResolver.java#L785)。
 
 <details>
 <summary>原笔记图附件</summary>
@@ -117,7 +121,9 @@ flowchart TB
 
 清数据不是清缓存，通常会影响账户、设置、数据库和当前进程，必须作为明确的破坏性用户操作设计。[ActivityManager API](https://developer.android.com/reference/android/app/ActivityManager#clearApplicationUserData())
 
-服务端 `IPackageManagerImpl.clearApplicationUserData()` 先检查清数据权限、跨用户权限、调用者可见的已安装包和受保护包，再把耗时操作投递到 `mHandler`。后台操作通过 `freezePackage()` 协调进程，在安装锁下执行 `clearApplicationUserDataLIF()`；调用返回与数据清理完成之间存在异步边界，应以结果回调判断完成，而非立即重新打开旧数据库。[权限检查与异步清理](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/PackageManagerService.java#4792)
+服务端 `IPackageManagerImpl.clearApplicationUserData()` 先检查清数据权限、跨用户权限、调用者可见的已安装包和受保护包，再把耗时操作投递到 `mHandler`。
+
+后台操作通过 `freezePackage()` 协调进程，在安装锁下执行 `clearApplicationUserDataLIF()`；调用返回与数据清理完成之间存在异步边界，应以结果回调判断完成，而非立即重新打开旧数据库。[权限检查与异步清理](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/PackageManagerService.java#4792)
 
 ## getPackageInstaller：取得安装器客户端 {#s191}
 

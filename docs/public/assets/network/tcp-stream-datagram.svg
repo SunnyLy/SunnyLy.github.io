@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="500" viewBox="0 0 680 500" role="img" aria-labelledby="title desc">
+<title id="title">TCP 留住字节顺序，UDP 留住报文边界</title>
+<desc id="desc">同样发送HELLO和WORLD。TCP接收可读成HE、LLOWOR、LD等片段，次序仍为HELLOWORLD但不保留写入边界。UDP分别提交两个报文，保持数据报边界，但不保证到达或顺序；应用缓冲过小可能截断报文。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="500" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">TCP 留住字节顺序，UDP 留住报文边界</text>
+<text x="28" y="94" class="strong" text-anchor="start">应用两次发送：HELLO  /  WORLD</text>
+<rect x="28" y="124" width="624" height="140" rx="12" fill="#e6efff"/>
+<text x="48" y="160" class="strong" text-anchor="start">TCP：一条连续字节带</text>
+<rect x="48" y="179" width="110" height="47" rx="4" fill="#b5d0ff"/>
+<rect x="163" y="179" width="280" height="47" rx="4" fill="#b5d0ff"/>
+<rect x="448" y="179" width="184" height="47" rx="4" fill="#b5d0ff"/>
+<text x="103" y="211" class="mono" text-anchor="middle">HE</text>
+<text x="303" y="211" class="mono" text-anchor="middle">LLOWOR</text>
+<text x="540" y="211" class="mono" text-anchor="middle">LD</text>
+<text x="48" y="252" class="small" text-anchor="start">只是一次可能的读取划分，不是固定分段方式</text>
+<rect x="28" y="292" width="624" height="140" rx="12" fill="#e0f2ec"/>
+<text x="48" y="328" class="strong" text-anchor="start">UDP：两个独立信封</text>
+<rect x="48" y="346" width="246" height="47" rx="4" fill="#b4dfd0"/>
+<rect x="386" y="346" width="246" height="47" rx="4" fill="#b4dfd0"/>
+<text x="171" y="378" class="mono" text-anchor="middle">HELLO</text>
+<text x="509" y="378" class="mono" text-anchor="middle">WORLD</text>
+<text x="48" y="420" class="small" text-anchor="start">可能丢失、乱序；缓冲过小可能截断一个报文</text>
+<text x="340" y="475" class="small" text-anchor="middle">TCP 消息要自己分帧；UDP 可靠性要由上层按需补齐</text>
+</svg>

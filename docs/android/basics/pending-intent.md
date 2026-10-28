@@ -10,7 +10,9 @@ outline: [2, 3]
 
 ## IntentSender：凭据背后的 Binder {#s227}
 
-公开 `PendingIntent` 包装 `IIntentSender` 引用，`getIntentSender()` 可以取得公开的 `IntentSender` 包装对象。创建或取得凭据时，框架经 AMS 与 PendingIntent 管理逻辑查找或建立系统记录；之后的 `send()` 请求由系统解析这份记录，派发 Activity、广播或服务操作。
+公开 `PendingIntent` 包装 `IIntentSender` 引用，`getIntentSender()` 可以取得公开的 `IntentSender` 包装对象。
+
+创建或取得凭据时，框架经 AMS 与 PendingIntent 管理逻辑查找或建立系统记录；之后的 `send()` 请求由系统解析这份记录，派发 Activity、广播或服务操作。
 
 `IntentSender` 不是 Activity 或 Receiver 的实例，不代表调用者获得创建者的全部权限。能力范围还受记录的操作类型、目标、Intent 内容、可变性以及系统启动策略约束。不能直接把系统内部 `IIntentSender` 当作普通应用应调用的 SDK。[PendingIntent 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/PendingIntent.java)、[IntentSender API](https://developer.android.com/reference/android/content/IntentSender)
 
@@ -41,7 +43,9 @@ sequenceDiagram
 
 匹配涉及操作类型、创建者、requestCode，以及 Intent 的匹配身份字段等。Intent 的这部分匹配采用 `filterEquals()` 语义，包括 action、data、type、component、categories 等，**extras 不参与这种 Intent 身份匹配**。只改 extras 而继续使用相同 requestCode，常会取回已有凭据。
 
-记录自身的 flags 也参与匹配，例如 `FLAG_ONE_SHOT`、`FLAG_IMMUTABLE`。查询或更新既有凭据时，必须保留原有的这些身份标志；查找一次性凭据应组合 `FLAG_ONE_SHOT | FLAG_NO_CREATE`，若原记录还带 `FLAG_IMMUTABLE`，查询时也须保留它。`FLAG_NO_CREATE`、`FLAG_UPDATE_CURRENT`、`FLAG_CANCEL_CURRENT` 是此次获取操作的控制标志，不能把它们与记录身份标志混为一谈。[PendingIntent 匹配契约](https://developer.android.com/reference/android/app/PendingIntent)、[固定版本 Key.equals](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/am/PendingIntentRecord.java)
+记录自身的 flags 也参与匹配，例如 `FLAG_ONE_SHOT`、`FLAG_IMMUTABLE`。查询或更新既有凭据时，必须保留原有的这些身份标志；查找一次性凭据应组合 `FLAG_ONE_SHOT | FLAG_NO_CREATE`，若原记录还带 `FLAG_IMMUTABLE`，查询时也须保留它。
+
+`FLAG_NO_CREATE`、`FLAG_UPDATE_CURRENT`、`FLAG_CANCEL_CURRENT` 是此次获取操作的控制标志，不能把它们与记录身份标志混为一谈。[PendingIntent 匹配契约](https://developer.android.com/reference/android/app/PendingIntent)、[固定版本 Key.equals](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/services/core/java/com/android/server/am/PendingIntentRecord.java)
 
 - `FLAG_UPDATE_CURRENT`：存在匹配记录时，更新创建者保存的附加数据。即使同时使用 `FLAG_IMMUTABLE`，创建者仍可更新；不可变约束的是后续发送方修改操作。
 - `FLAG_CANCEL_CURRENT`：取消匹配的旧凭据并创建新的，旧持有者不能继续依赖旧记录。
@@ -58,7 +62,11 @@ API 23 起可使用 `FLAG_IMMUTABLE`；面向 Android 12 / API 31 及以上的�
 
 ### PackageInstaller 回调的例外
 
-不要机械地将所有 PendingIntent 改成不可变：`PackageInstaller.Session.commit(IntentSender)` 的回调需要系统填入结果。公开文档规定，当应用 target SDK 为 35 或更高时，使用来自不可变 PendingIntent 的状态接收器会抛出 `IllegalArgumentException`。应按安装 API 的契约配置明确指向本应用接收组件的可变凭据，并处理用户确认及最终状态，详见[安装会话流程](./system-services/package-installer-service.html#installer-flow)。
+不要机械地将所有 PendingIntent 改成不可变：`PackageInstaller.Session.commit(IntentSender)` 的回调需要系统填入结果。
+
+公开文档规定，当应用 target SDK 为 35 或更高时，使用来自不可变 PendingIntent 的状态接收器会抛出 `IllegalArgumentException`。
+
+应按安装 API 的契约配置明确指向本应用接收组件的可变凭据，并处理用户确认及最终状态，详见[安装会话流程](./system-services/package-installer-service.html#installer-flow)。
 
 ## 取消、失败与业务完成
 

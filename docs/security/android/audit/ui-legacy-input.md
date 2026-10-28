@@ -59,7 +59,9 @@ flowchart TD
 
 ### API 与 target SDK 必须分别看
 
-`isValidFragment()` 从 API 19 提供。官方契约及固定源码表明：默认实现对 target SDK 小于 19 的应用返回 true，对 target SDK 大于等于 19 的未覆盖实现抛异常；类名校验通过后才调用 `Fragment.instantiate()`。仅升级运行系统或提高 target，并不能证明应用自定义覆盖也正确。[API 契约](https://developer.android.com/reference/android/preference/PreferenceActivity#isValidFragment(java.lang.String))、[固定源码校验](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/preference/PreferenceActivity.java#998)、[实例化入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/preference/PreferenceActivity.java#1278)
+`isValidFragment()` 从 API 19 提供。官方契约及固定源码表明：默认实现对 target SDK 小于 19 的应用返回 true，对 target SDK 大于等于 19 的未覆盖实现抛异常；类名校验通过后才调用 `Fragment.instantiate()`。
+
+仅升级运行系统或提高 target，并不能证明应用自定义覆盖也正确。[API 契约](https://developer.android.com/reference/android/preference/PreferenceActivity#isValidFragment(java.lang.String))、[固定源码校验](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/preference/PreferenceActivity.java#998)、[实例化入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/preference/PreferenceActivity.java#1278)
 
 `PreferenceActivity` 在 API 29 弃用。维护旧代码时既要看运行平台是否有该校验，也要看 target 和子类覆盖；不能把 API 19 才存在的回调当成更旧平台的完整防护。新代码优先采用维护中的设置组件，并重新设计输入与授权。[PreferenceActivity 版本说明](https://developer.android.com/reference/android/preference/PreferenceActivity)
 

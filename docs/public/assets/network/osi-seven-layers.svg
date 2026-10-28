@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="850" viewBox="0 0 680 850" role="img" aria-labelledby="title desc">
+  <title id="title">用请求一张图片理解 OSI 七层及 Internet 四层的功能对应</title>
+  <desc id="desc">OSI 从应用层到物理层依次处理业务语义、数据表示、对话控制、端点传输、跨网转发、本跳成帧和信号。右侧显示常用 Internet 四层的教学映射，上三层相关功能归入应用层，下两层归入链路层。这是功能对照，不表示每个请求都独立经过七段程序。</desc>
+  <defs><style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:30px;font-weight:700}.label{font-size:24px;font-weight:650}.small{font-size:20px;fill:#4b5c77}.num{font-size:25px;font-weight:700;fill:#fff}.map{fill:none;stroke:#a8b7cd;stroke-width:2}</style></defs>
+  <rect width="680" height="850" rx="24" fill="#f5f8fd"/>
+  <text class="title" x="28" y="48">请求一张图片，七层各管什么？</text>
+  <text class="small" x="28" y="83">沿着“内容 → 传输 → 信号”从上往下看</text>
+  <text class="small" x="28" y="128">OSI 七层：拆开理解职责</text>
+  <text class="small" x="466" y="128">Internet 四层</text>
+  <g transform="translate(24 150)">
+    <rect width="396" height="72" rx="12" fill="#e7edff"/><rect width="48" height="72" rx="12" fill="#576ed1"/>
+    <text class="num" x="16" y="44">7</text><text class="label" x="66" y="29">应用层：要什么内容</text><text class="small" x="66" y="56">请求图片 · HTTP / DNS</text>
+  </g>
+  <g transform="translate(24 234)">
+    <rect width="396" height="72" rx="12" fill="#e7edff"/><rect width="48" height="72" rx="12" fill="#576ed1"/>
+    <text class="num" x="16" y="44">6</text><text class="label" x="66" y="29">表示层：数据怎么表示</text><text class="small" x="66" y="56">约定编码、格式与转换</text>
+  </g>
+  <g transform="translate(24 318)">
+    <rect width="396" height="72" rx="12" fill="#e7edff"/><rect width="48" height="72" rx="12" fill="#576ed1"/>
+    <text class="num" x="16" y="44">5</text><text class="label" x="66" y="29">会话层：对话怎么协调</text><text class="small" x="66" y="56">对话控制、同步与恢复</text>
+  </g>
+  <g transform="translate(24 402)">
+    <rect width="396" height="72" rx="12" fill="#e2f2ff"/><rect width="48" height="72" rx="12" fill="#2584ba"/>
+    <text class="num" x="16" y="44">4</text><text class="label" x="66" y="29">传输层：交给哪个端点</text><text class="small" x="66" y="56">端口 · TCP / UDP</text>
+  </g>
+  <g transform="translate(24 486)">
+    <rect width="396" height="72" rx="12" fill="#def3ee"/><rect width="48" height="72" rx="12" fill="#228774"/>
+    <text class="num" x="16" y="44">3</text><text class="label" x="66" y="29">网络层：跨网络去哪里</text><text class="small" x="66" y="56">IP 地址 · 路由转发</text>
+  </g>
+  <g transform="translate(24 570)">
+    <rect width="396" height="72" rx="12" fill="#fff0dc"/><rect width="48" height="72" rx="12" fill="#b67828"/>
+    <text class="num" x="16" y="44">2</text><text class="label" x="66" y="29">链路层：先送过这一跳</text><text class="small" x="66" y="56">帧 · Ethernet / Wi-Fi</text>
+  </g>
+  <g transform="translate(24 654)">
+    <rect width="396" height="72" rx="12" fill="#fff0dc"/><rect width="48" height="72" rx="12" fill="#b67828"/>
+    <text class="num" x="16" y="44">1</text><text class="label" x="66" y="29">物理层：真正传出信号</text><text class="small" x="66" y="56">电信号 / 光脉冲 / 无线电波</text>
+  </g>
+  <path class="map" d="M430 152h18v236h-18 M448 270h16 M430 404h34 M430 488h34 M430 572h18v152h-18 M448 648h16"/>
+  <rect x="466" y="150" width="190" height="240" rx="14" fill="#e7edff"/>
+  <text class="label" x="561" y="244" text-anchor="middle">应用层</text><text class="small" x="561" y="280" text-anchor="middle">相关功能常由</text><text class="small" x="561" y="310" text-anchor="middle">应用与库完成</text>
+  <rect x="466" y="402" width="190" height="72" rx="14" fill="#e2f2ff"/><text class="label" x="561" y="446" text-anchor="middle">传输层</text>
+  <rect x="466" y="486" width="190" height="72" rx="14" fill="#def3ee"/><text class="label" x="561" y="530" text-anchor="middle">网际层</text>
+  <rect x="466" y="570" width="190" height="156" rx="14" fill="#fff0dc"/><text class="label" x="561" y="640" text-anchor="middle">链路层</text><text class="small" x="561" y="678" text-anchor="middle">包含物理传输</text>
+  <text class="small" x="28" y="779">这是职责的教学对照，不是七段独立程序。</text>
+  <text class="small" x="28" y="815">DNS 也需要下层传输；查名字与取图片是不同交互。</text>
+</svg>

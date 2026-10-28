@@ -297,7 +297,9 @@ Binder 接口的接收入口负责转交工作，真正业务回调是 `Broadcas
 
 同步 `onReceive()` 返回后，如果结果仍由框架持有，框架结束本次接收。调用 `goAsync()` 会把 PendingResult 交给应用，应用须在处理完毕后调用它的 `finish()`；重复 finish 也是错误。
 
-对于需要向系统确认的交付，`PendingResult.finish()` 通过 `sendFinished()` 等内部路径调用 AMS 的 `finishReceiver()`，再交给当前广播队列更新接收状态。基线中 `BroadcastQueueImpl.finishReceiverLocked()` 还处理有序广播结果和中止信息。**完成的是当前接收步骤，不等于整条广播、所有接收者或业务持久化都完成。** [BroadcastReceiver 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/BroadcastReceiver.java)
+对于需要向系统确认的交付，`PendingResult.finish()` 通过 `sendFinished()` 等内部路径调用 AMS 的 `finishReceiver()`，再交给当前广播队列更新接收状态。
+
+基线中 `BroadcastQueueImpl.finishReceiverLocked()` 还处理有序广播结果和中止信息。**完成的是当前接收步骤，不等于整条广播、所有接收者或业务持久化都完成。** [BroadcastReceiver 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/BroadcastReceiver.java)
 
 并非所有交付都必须发生完全相同的回报调用；基线中还存在 `assumeDelivered` 等路径。分析 finish 时必须结合接收类型与该次交付状态，不能把一个旧截图推广成所有广播的固定链路。
 
@@ -313,7 +315,9 @@ Binder 接口的接收入口负责转交工作，真正业务回调是 `Broadcas
 
 有序广播以系统确定的接收列表协调逐项交付。接收器使用 `getResultCode/Data/Extras()` 读取上一阶段结果，使用 `setResultCode/Data/Extras()` 或 `setResult()` 写入下一阶段结果；它们与最初 Intent 的 extras 不是同一套数据，不能靠修改原 Intent 实现结果传递。
 
-`abortBroadcast()` 请求跳过后续常规接收器，普通广播不支持这个操作；发送方可通过 `Intent.FLAG_RECEIVER_NO_ABORT` 禁止中止。作为发送参数提供的最终 `resultReceiver` 仍会收到结果，它不是通过 IntentFilter 匹配出来的业务接收器，不需要单独注册。[BroadcastReceiver API](https://developer.android.com/reference/android/content/BroadcastReceiver)、[禁止中止标志](https://developer.android.com/reference/android/content/Intent#FLAG_RECEIVER_NO_ABORT)
+`abortBroadcast()` 请求跳过后续常规接收器，普通广播不支持这个操作；发送方可通过 `Intent.FLAG_RECEIVER_NO_ABORT` 禁止中止。
+
+作为发送参数提供的最终 `resultReceiver` 仍会收到结果，它不是通过 IntentFilter 匹配出来的业务接收器，不需要单独注册。[BroadcastReceiver API](https://developer.android.com/reference/android/content/BroadcastReceiver)、[禁止中止标志](https://developer.android.com/reference/android/content/Intent#FLAG_RECEIVER_NO_ABORT)
 
 ::: warning Android 16 的顺序边界
 **运行在 Android 16 时，不论 target SDK，跨进程广播优先级不再保证全局排序。** 优先级只在同一应用进程内受尊重；同一 APK 的多个进程也不能依靠优先级协调。不要将“逐项交付”理解为“某个其他应用一定先执行”，也不要依赖相同优先级的先后关系。[Android 16 行为变化](https://developer.android.com/about/versions/16/behavior-changes-all#ordered-broadcast-priority-scope-no-longer-global)
@@ -408,7 +412,9 @@ second
 final: code=-1, data=first>second, steps=2
 ```
 
-调用 `sendExample(true)` 时，第二个接收器被跳过，最终结果为 `data=first, steps=1`。若给发送 Intent 添加 `Intent.FLAG_RECEIVER_NO_ABORT`，第一个接收器的中止请求不会截断链路。发送方法返回时，这些回调还不一定发生；最终回调也不是业务事务提交证明。此处日志是正常路径的预期值，不是设备执行记录。
+调用 `sendExample(true)` 时，第二个接收器被跳过，最终结果为 `data=first, steps=1`。若给发送 Intent 添加 `Intent.FLAG_RECEIVER_NO_ABORT`，第一个接收器的中止请求不会截断链路。
+
+发送方法返回时，这些回调还不一定发生；最终回调也不是业务事务提交证明。此处日志是正常路径的预期值，不是设备执行记录。
 
 ### AOSP 为什么能等待前一个接收器
 
@@ -483,7 +489,9 @@ sequenceDiagram
     Note over Q,F: 异常、超时、进程死亡另有处理，不保证业务成功
 ```
 
-调用 `goAsync()` 后，返回 `onReceive()` 本身不足以推进这次有序交付，需在允许时限内调用保存结果的 `PendingResult.finish()`。若异步阶段修改有序结果，应操作该 PendingResult 的 `setResultCode/Data/Extras()` 等方法，不能继续依赖已移交结果的接收器对象。超时可能触发 ANR，并由系统按失败策略继续处理。
+调用 `goAsync()` 后，返回 `onReceive()` 本身不足以推进这次有序交付，需在允许时限内调用保存结果的 `PendingResult.finish()`。
+
+若异步阶段修改有序结果，应操作该 PendingResult 的 `setResultCode/Data/Extras()` 等方法，不能继续依赖已移交结果的接收器对象。超时可能触发 ANR，并由系统按失败策略继续处理。
 
 普通广播不应被用来建立接收者之间的执行依赖；有序广播也不提供持久化、自动业务重试或跨应用全局事务。需要可靠流程、低延迟确认或明确跨进程顺序时，应选择带业务状态和确认机制的通信/任务方案。
 
@@ -512,7 +520,11 @@ public void onReceive(Context context, Intent intent) {
 
 `goAsync()` 不取消广播时限，也不提供无限运行权。排队等待也消耗处理预算；长任务应把必要状态交给合适的任务调度器。处理异常仍须有明确业务失败记录，`finally` 只保证释放广播完成责任。
 
-`goAsync()` 会取出本次 `mPendingResult`，同时将 Receiver 中的字段清空；异步阶段的结果读写和完成操作都应使用返回的 `PendingResult`。例如有序广播需要异步设置结果时，调用 `pending.setResultCode()`、`pending.setResultData()` 后再 `pending.finish()`，不要继续调用 Receiver 自身的结果方法。这个对象属于本次交付，不能缓存到下一次广播复用。[goAsync 与 PendingResult 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/BroadcastReceiver.java)
+`goAsync()` 会取出本次 `mPendingResult`，同时将 Receiver 中的字段清空；异步阶段的结果读写和完成操作都应使用返回的 `PendingResult`。
+
+例如有序广播需要异步设置结果时，调用 `pending.setResultCode()`、`pending.setResultData()` 后再 `pending.finish()`，不要继续调用 Receiver 自身的结果方法。
+
+这个对象属于本次交付，不能缓存到下一次广播复用。[goAsync 与 PendingResult 源码](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/content/BroadcastReceiver.java)
 
 广播超时不是统一的“10 秒”：系统会根据前台优先级标志、平台版本及 CPU 饥饿等条件采用不同窗口。`Intent.FLAG_RECEIVER_FOREGROUND` 指广播调度优先级，不等于应用界面在前台，也不会启动前台服务。冷启动、接收线程积压和异步执行器等待都可能导致广播超时，不应把超时窗口当作可用的业务耗时预算。[官方广播 ANR 排查](https://developer.android.com/topic/performance/anrs/diagnose-and-fix-anrs#broadcast-receiver-timeout)
 

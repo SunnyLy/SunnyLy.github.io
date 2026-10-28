@@ -25,7 +25,9 @@ Activity Token 把服务端的活动记录、客户端的生命周期调度与�
 
 在此基线中，`ActivityRecord` 继承 `WindowToken`，构造时将 `new Token()` 传给父类；内部 `private static class Token extends Binder` 保存 `WeakReference<ActivityRecord>`。因此，`ActivityRecord.token` 的本地 Binder 对象位于 `system_server`。[源码：ActivityRecord](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java#1746)
 
-这份引用经 Binder 传给应用后，应用通常得到 `BinderProxy`。再把引用传回拥有者进程时，Binder 对象转换能找回原本的本地 Java Binder；`ActivityRecord.forToken()` 因而能将它识别为内部 `Token` 并取出弱引用。`forTokenLocked()` 还检查记录仍处于 root task 层级。[源码：Java Binder 对象转换](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/jni/android_util_Binder.cpp#949)
+这份引用经 Binder 传给应用后，应用通常得到 `BinderProxy`。再把引用传回拥有者进程时，Binder 对象转换能找回原本的本地 Java Binder；`ActivityRecord.forToken()` 因而能将它识别为内部 `Token` 并取出弱引用。
+
+`forTokenLocked()` 还检查记录仍处于 root task 层级。[源码：Java Binder 对象转换](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/jni/android_util_Binder.cpp#949)
 
 ```mermaid
 flowchart TD
@@ -78,21 +80,33 @@ Activity.startActivity / startActivityForResult
   → ActivityStarter.executeRequest
 ```
 
-`Instrumentation` 参与应用侧的启动代理；ATMS 入口检查调用包与 UID 等条件，并转入启动器。`ActivityStarter` 解析 Intent、目标组件、权限、启动模式与 Task 选择，通过 Builder 构造候选 `ActivityRecord`。其后的复用决策可能向已有实例投递新 Intent，不能把每次 `startActivity()` 都理解成创建一个最终保留的新记录和 Java 实例。[源码：Instrumentation](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/Instrumentation.java#1992)、[ATMS](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskManagerService.java#1303)、[ActivityStarter](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityStarter.java#1471)
+`Instrumentation` 参与应用侧的启动代理；ATMS 入口检查调用包与 UID 等条件，并转入启动器。`ActivityStarter` 解析 Intent、目标组件、权限、启动模式与 Task 选择，通过 Builder 构造候选 `ActivityRecord`。
+
+其后的复用决策可能向已有实例投递新 Intent，不能把每次 `startActivity()` 都理解成创建一个最终保留的新记录和 Java 实例。[源码：Instrumentation](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/Instrumentation.java#1992)、[ATMS](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskManagerService.java#1303)、[ActivityStarter](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityStarter.java#1471)
 
 ### 已有进程与冷启动在哪里分流
 
-`ActivityTaskSupervisor.startSpecificActivity()` 查询目标 `WindowProcessController`，已有进程且具有应用线程接口时尝试 `realStartActivityLocked()`。若进程不存在或远端线程失效，则需要启动或重新启动进程；“进程存在”也不等于目标 Activity 实例已经存在。
+`ActivityTaskSupervisor.startSpecificActivity()` 查询目标 `WindowProcessController`，已有进程且具有应用线程接口时尝试 `realStartActivityLocked()`。
 
-冷启动涉及 ATMS 请求、AMS/ProcessList、Zygote 派生进程，以及 `ActivityThread.main()` / `attach()`。应用向 AMS 注册 `IApplicationThread` 后，系统才能回调目标进程。在此标签中，`RootWindowContainer.attachApplication()` 遍历 `mStartingProcessActivities`，核对 UID、进程名和可见性等条件，再继续真实启动。AMS 在 attach 或 finish-attach 阶段推进启动取决于相关 flag，不能固定为唯一同步时序。[源码：启动分流](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#1129)、[进程 attach 后继续启动](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/RootWindowContainer.java#1768)
+若进程不存在或远端线程失效，则需要启动或重新启动进程；“进程存在”也不等于目标 Activity 实例已经存在。
+
+冷启动涉及 ATMS 请求、AMS/ProcessList、Zygote 派生进程，以及 `ActivityThread.main()` / `attach()`。应用向 AMS 注册 `IApplicationThread` 后，系统才能回调目标进程。
+
+在此标签中，`RootWindowContainer.attachApplication()` 遍历 `mStartingProcessActivities`，核对 UID、进程名和可见性等条件，再继续真实启动。
+
+AMS 在 attach 或 finish-attach 阶段推进启动取决于相关 flag，不能固定为唯一同步时序。[源码：启动分流](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#1129)、[进程 attach 后继续启动](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/RootWindowContainer.java#1768)
 
 ## 5. ClientTransaction 传的是数据和引用
 
-`realStartActivityLocked()` 准备 Intent、ActivityInfo、配置和恢复状态等数据，创建 `LaunchActivityItem(r.token, …)`，再根据目标状态配合 Resume、Pause 或 Stop item。此版本各 Activity item 携带自己的 Token，`ClientLifecycleManager` 以 `new ClientTransaction(client)` 和 `addTransactionItem()` 组织调度。[源码：事务生成](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#1021)、[事务调度](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ClientLifecycleManager.java#155)
+`realStartActivityLocked()` 准备 Intent、ActivityInfo、配置和恢复状态等数据，创建 `LaunchActivityItem(r.token, …)`，再根据目标状态配合 Resume、Pause 或 Stop item。
+
+此版本各 Activity item 携带自己的 Token，`ClientLifecycleManager` 以 `new ClientTransaction(client)` 和 `addTransactionItem()` 组织调度。[源码：事务生成](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityTaskSupervisor.java#1021)、[事务调度](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ClientLifecycleManager.java#155)
 
 `ClientTransaction` 与 item 是可序列化的数据载体，不是跨进程共享的原 Java 对象，也不是 Activity 的 Binder 服务本身。Binder 调用传输序列化的数据，并保持其中 Binder 引用的身份；应用侧反序列化得到自己的事务对象。**系统没有把整个 ActivityRecord 复制到应用。**
 
-`ApplicationThread.scheduleTransaction()` 接收调度后，通过 `ClientTransactionHandler` 投递 `H.EXECUTE_TRANSACTION`，由应用主线程中的 `TransactionExecutor` 执行。接收 Binder 调用与执行 Activity 生命周期之间存在 Handler 调度边界，不应把 `onCreate()` 画在 Binder 线程上。
+`ApplicationThread.scheduleTransaction()` 接收调度后，通过 `ClientTransactionHandler` 投递 `H.EXECUTE_TRANSACTION`，由应用主线程中的 `TransactionExecutor` 执行。
+
+接收 Binder 调用与执行 Activity 生命周期之间存在 Handler 调度边界，不应把 `onCreate()` 画在 Binder 线程上。
 
 ```mermaid
 sequenceDiagram
@@ -120,9 +134,13 @@ sequenceDiagram
 
 ## 6. 从客户端记录到 Activity.attach
 
-`LaunchActivityItem.execute()` 使用自己的 `mActivityToken` 创建新的 `ActivityClientRecord`，随后进入 `ActivityThread.handleLaunchActivity()` / `performLaunchActivity()`。后者准备 `LoadedApk`、资源和 ClassLoader，通过 `Instrumentation.newActivity()` 创建 Java Activity，再准备或取得 Application。[源码：LaunchActivityItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#214)、[ActivityThread](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4173)
+`LaunchActivityItem.execute()` 使用自己的 `mActivityToken` 创建新的 `ActivityClientRecord`，随后进入 `ActivityThread.handleLaunchActivity()` / `performLaunchActivity()`。
 
-框架将 `r.token → r` 放进 `mActivities`，调用 `activity.attach(..., r.token, ...)`，并在执行 `onCreate()` 前让 `r.activity` 指向该实例。`attach()` 把 Token 保存为 `mToken`，设置 Context、Instrumentation、Application 和窗口关联，最后通过 Instrumentation 进入 Activity 的创建回调。
+后者准备 `LoadedApk`、资源和 ClassLoader，通过 `Instrumentation.newActivity()` 创建 Java Activity，再准备或取得 Application。[源码：LaunchActivityItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#214)、[ActivityThread](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4173)
+
+框架将 `r.token → r` 放进 `mActivities`，调用 `activity.attach(..., r.token, ...)`，并在执行 `onCreate()` 前让 `r.activity` 指向该实例。
+
+`attach()` 把 Token 保存为 `mToken`，设置 Context、Instrumentation、Application 和窗口关联，最后通过 Instrumentation 进入 Activity 的创建回调。
 
 可以用下面这份**关系示意，非可编译代码**定位源码：
 
@@ -139,7 +157,9 @@ ActivityRecord.token                         [system_server 本地 Binder]
 
 ### 同一个 Token 在两端查的是不同记录 {#token-lookup-tables}
 
-客户端 `ActivityThread` 以 `r.token` 为键把 `ActivityClientRecord` 放入 `mActivities`；服务端则由 `ActivityRecord.forTokenLocked()` 解析本地 Token 指向的服务端记录。客户端查不到记录，不等于这个 Binder 引用从未存在：启动尚未执行、客户端已销毁与服务端记录已移除是不同阶段。排查时先确认出错的是哪一端的表，再对照事务和销毁时序。[客户端入表位置](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4204)
+客户端 `ActivityThread` 以 `r.token` 为键把 `ActivityClientRecord` 放入 `mActivities`；服务端则由 `ActivityRecord.forTokenLocked()` 解析本地 Token 指向的服务端记录。
+
+客户端查不到记录，不等于这个 Binder 引用从未存在：启动尚未执行、客户端已销毁与服务端记录已移除是不同阶段。排查时先确认出错的是哪一端的表，再对照事务和销毁时序。[客户端入表位置](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4204)
 
 ## 7. 从 Activity Token 到窗口校验
 
@@ -147,7 +167,9 @@ ActivityRecord.token                         [system_server 本地 Binder]
 
 `Activity.attach()` 将 `mToken` 交给 `Window.setWindowManager()`；`Window` 保存 `mAppToken`，再通过 `WindowManagerImpl.createLocalWindowManager(parentWindow)` 建立与父 Window 的关联。这里不能套用旧资料中的 `Window.LocalWindowManager` 类名。
 
-常见窗口添加路径为 `WindowManagerImpl.addView → WindowManagerGlobal.addView → ViewRootImpl.setView → IWindowSession.addToDisplayAsUser → Session.addToDisplayAsUser → WMS.addWindow`。`Window.adjustLayoutParamsForSubWindow()` 会根据类型和父窗口设置参数：普通应用窗口在 Token 未设置时可取 `mAppToken`；子窗口则使用父 DecorView 的 `getWindowToken()`，即父窗口的 `IWindow` 身份。[源码：Window](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/Window.java#888)、[WindowManagerImpl](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/WindowManagerImpl.java#131)、[ViewRootImpl](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java)
+常见窗口添加路径为 `WindowManagerImpl.addView → WindowManagerGlobal.addView → ViewRootImpl.setView → IWindowSession.addToDisplayAsUser → Session.addToDisplayAsUser → WMS.addWindow`。
+
+`Window.adjustLayoutParamsForSubWindow()` 会根据类型和父窗口设置参数：普通应用窗口在 Token 未设置时可取 `mAppToken`；子窗口则使用父 DecorView 的 `getWindowToken()`，即父窗口的 `IWindow` 身份。[源码：Window](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/Window.java#888)、[WindowManagerImpl](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/WindowManagerImpl.java#131)、[ViewRootImpl](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java)
 
 ```mermaid
 flowchart TD
@@ -171,11 +193,15 @@ flowchart TD
 
 WMS 先处理窗口类型、调用 Session、显示和父窗口等约束，再解析 `WindowToken`。普通 Activity 应用窗口需要关联到 `ActivityRecord`；不是活动记录或记录已脱离父层级时会被拒绝。子窗口需要找到有效父窗口，系统窗口和窗口上下文另有类型及权限规则。[源码：WindowManagerService.addWindow](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#1565)
 
-应用侧 `ViewRootImpl` 会将部分添加失败结果转换为 `WindowManager.BadTokenException` 等异常。该异常还可能覆盖重复添加、窗口类型权限拒绝或无效用户；显示错误则可能表现为 `InvalidDisplayException`。具体错误应结合窗口类型、父窗口、显示和调用时间分析，不能看到 “token invalid” 就统一归因为权限不足。[源码：添加结果与异常映射](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java#1686)
+应用侧 `ViewRootImpl` 会将部分添加失败结果转换为 `WindowManager.BadTokenException` 等异常。该异常还可能覆盖重复添加、窗口类型权限拒绝或无效用户；显示错误则可能表现为 `InvalidDisplayException`。
+
+具体错误应结合窗口类型、父窗口、显示和调用时间分析，不能看到 “token invalid” 就统一归因为权限不足。[源码：添加结果与异常映射](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/view/ViewRootImpl.java#1686)
 
 ## 8. 生命周期、finish 与重建的边界
 
-`Activity.finish()` 经 `ActivityClient.finishActivity(mToken, …)` 和 `IActivityClientController` 到达 `ActivityClientController.finishActivity()`，由服务端按 Token 找记录，再推进结束流程。请求返回不意味着 Java Activity 已同步执行完 `onDestroy()`，进程被直接终止前也不保证收到该回调。[源码：finish](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/Activity.java#7428)、[服务端 finish](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityClientController.java#441)
+`Activity.finish()` 经 `ActivityClient.finishActivity(mToken, …)` 和 `IActivityClientController` 到达 `ActivityClientController.finishActivity()`，由服务端按 Token 找记录，再推进结束流程。
+
+请求返回不意味着 Java Activity 已同步执行完 `onDestroy()`，进程被直接终止前也不保证收到该回调。[源码：finish](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/Activity.java#7428)、[服务端 finish](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityClientController.java#441)
 
 Resume/Pause item 可在 `postExecute()` 经 `ActivityClient` 带 Token 回报；Stop 状态还涉及 `StopInfo` 等后续调度。因此，系统和客户端各有状态推进过程，不能写成“每个回调都立即同步通知 AMS”。
 
@@ -187,7 +213,9 @@ Resume/Pause item 可在 `postExecute()` 经 `ActivityClient` 带 Token 回报�
 | Activity 结束并移除 | 客户端对象与窗口随后清理 | 持有旧引用不代表它仍能解析为有效目标 |
 | system_server 重启或设备重启 | 运行对象重新建立 | Binder 身份不能作为持久身份从磁盘恢复 |
 
-配置重建路径可在 `ActivityThread.handleRelaunchActivityInner()` 中看到：销毁旧实例、清理实例引用，再使用原 `r` 启动。进程死亡后的 `ActivityRecord.handleAppDied()` 则根据 finishing、保存状态和崩溃等条件决定移除或保留记录。[源码：relaunch](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#6570)、[进程死亡处理](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java#4235)
+配置重建路径可在 `ActivityThread.handleRelaunchActivityInner()` 中看到：销毁旧实例、清理实例引用，再使用原 `r` 启动。
+
+进程死亡后的 `ActivityRecord.handleAppDied()` 则根据 finishing、保存状态和崩溃等条件决定移除或保留记录。[源码：relaunch](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#6570)、[进程死亡处理](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/ActivityRecord.java#4235)
 
 Token 的本地端在 `system_server`，所以应用死亡不等于该 Binder 的拥有者死亡。窗口和输入通道是否重建也要分别跟踪，不能仅由 Activity Token 是否相同推导。
 
@@ -222,7 +250,9 @@ adb shell dumpsys window windows
 adb logcat -d -v threadtime
 ```
 
-可先用 `adb shell dumpsys activity -h` 和 `adb shell dumpsys window -h` 查看当前设备支持的选项。命令入口可对照 [AMS dump](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/am/ActivityManagerService.java#10695) 与 [WMS dump](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#7106)。日志中的 `ActivityRecord{...}`、`Window{...}` 与 Binder 摘要各自描述不同对象，应结合进程、组件、Task、显示和时间关联；不要仅凭一段相似的十六进制文本认定是同一个 Token。
+可先用 `adb shell dumpsys activity -h` 和 `adb shell dumpsys window -h` 查看当前设备支持的选项。命令入口可对照 [AMS dump](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/am/ActivityManagerService.java#10695) 与 [WMS dump](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/wm/WindowManagerService.java#7106)。
+
+日志中的 `ActivityRecord{...}`、`Window{...}` 与 Binder 摘要各自描述不同对象，应结合进程、组件、Task、显示和时间关联；不要仅凭一段相似的十六进制文本认定是同一个 Token。
 
 ## 11. 按问题阅读源码
 

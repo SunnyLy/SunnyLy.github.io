@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="900" viewBox="0 0 560 900" role="img" aria-labelledby="title desc">
+  <title id="title">从本地密钥与CSR到CA签发证书</title>
+  <desc id="desc">站点本地生成公私钥并用私钥签署CSR，把公开的CSR交给CA。CA分别验证请求签名与申请信息，再用CA私钥签署证书内容，返回证书和中间链。站点私钥和CA私钥始终留在各自边界，CSR签名不等于已经验证域名。</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#47617d"/></marker></defs>
+  <style>text{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;fill:#19324e}.title{font-size:24px;font-weight:700}.body{font-size:21px}.small{font-size:19px;fill:#456078}.line{fill:none;stroke:#47617d;stroke-width:2;marker-end:url(#arrow)}</style>
+  <rect width="560" height="900" rx="16" fill="#f7f9fc"/>
+  <text x="24" y="38" class="title">签发：先核验申请，再由 CA 签字</text>
+  <rect x="24" y="67" width="240" height="716" rx="14" fill="#edf4ff" stroke="#b5cdea"/>
+  <rect x="296" y="67" width="240" height="592" rx="14" fill="#eef8f3" stroke="#b1d8c5"/>
+  <text x="144" y="105" text-anchor="middle" class="title">站点自己</text>
+  <text x="416" y="105" text-anchor="middle" class="title">CA 签发机构</text>
+  <rect x="38" y="130" width="212" height="107" rx="10" fill="white" stroke="#a9c4e5"/>
+  <text x="144" y="163" text-anchor="middle" class="body"><tspan x="144">① 本地生成密钥对</tspan><tspan x="144" dy="29">私钥保密、公钥公开</tspan><tspan x="144" dy="29">私钥不上传给 CA</tspan></text>
+  <rect x="310" y="130" width="212" height="107" rx="10" fill="white" stroke="#a8ceb8"/>
+  <text x="416" y="163" text-anchor="middle" class="body"><tspan x="416">CA 自己的密钥对</tspan><tspan x="416" dy="29">私钥用于签发证书</tspan><tspan x="416" dy="29">与站点密钥不同</tspan></text>
+  <path d="M144 237V287" class="line"/>
+  <rect x="38" y="287" width="212" height="135" rx="10" fill="white" stroke="#a9c4e5"/>
+  <text x="144" y="321" text-anchor="middle" class="body"><tspan x="144">② 生成 CSR</tspan><tspan x="144" dy="29">身份请求 + 公钥</tspan><tspan x="144" dy="29">用站点私钥签署</tspan><tspan x="144" dy="29">不含站点私钥</tspan></text>
+  <path d="M250 355H310" class="line"/>
+  <text x="280" y="336" text-anchor="middle" class="small">提交</text>
+  <rect x="310" y="287" width="212" height="135" rx="10" fill="white" stroke="#a8ceb8"/>
+  <text x="416" y="321" text-anchor="middle" class="body"><tspan x="416">③ 分开核验</tspan><tspan x="416" dy="29">CSR 签名有效？</tspan><tspan x="416" dy="29">控制域名/标识符？</tspan><tspan x="416" dy="29">符合签发策略？</tspan></text>
+  <path d="M416 422V478" class="line"/>
+  <text x="429" y="455" class="small">通过后</text>
+  <rect x="310" y="478" width="212" height="137" rx="10" fill="white" stroke="#a8ceb8"/>
+  <text x="416" y="512" text-anchor="middle" class="body"><tspan x="416">④ CA 私钥签名</tspan><tspan x="416" dy="29">覆盖证书 TBS 内容</tspan><tspan x="416" dy="29">身份、公钥、约束等</tspan><tspan x="416" dy="29">不是“加密公钥”</tspan></text>
+  <path d="M416 615V687H144V710" class="line"/>
+  <text x="280" y="676" text-anchor="middle" class="small">返回公开证书与链</text>
+  <rect x="38" y="710" width="212" height="58" rx="10" fill="white" stroke="#a9c4e5"/>
+  <text x="144" y="746" text-anchor="middle" class="body">⑤ 站点收到证书</text>
+  <rect x="24" y="807" width="512" height="71" rx="10" fill="#fff4e7" stroke="#e5c49d"/>
+  <text x="280" y="836" text-anchor="middle" class="body"><tspan x="280">CSR 签名通过 ≠ 域名核验通过</tspan><tspan x="280" dy="28">请求里的扩展，也不是 CA 必须照签的命令</tspan></text>
+</svg>

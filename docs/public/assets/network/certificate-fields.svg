@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="744" viewBox="0 0 560 744" role="img" aria-labelledby="title desc">
+  <title id="title">用身份、用途和期限三张卡读懂证书字段</title>
+  <desc id="desc">教学字段卡将SAN与公钥归为身份，将KeyUsage、ExtendedKeyUsage和BasicConstraints归为用途约束，将有效期和关键扩展归为其他检查。CA签名覆盖待签证书内容，证书对象不含私钥。示例字段不是实际运行输出。</desc>
+  <style>text{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;fill:#19324e}.title{font-size:24px;font-weight:700}.body{font-size:21px}.small{font-size:19px;fill:#456078}</style>
+  <rect width="560" height="744" rx="16" fill="#f7f9fc"/>
+  <text x="24" y="38" class="title">读证书：先问三个问题</text>
+  <text x="24" y="73" class="small">教学字段示意，不是当前机器的输出</text>
+  <rect x="24" y="98" width="512" height="178" rx="14" fill="#edf4ff" stroke="#b5cdea"/>
+  <text x="44" y="135" class="title">① 这个公钥对应什么身份？</text>
+  <text x="44" y="174" class="body"><tspan x="44">SAN：DNS:localhost / IP:127.0.0.1</tspan><tspan x="44" dy="30">SubjectPublicKeyInfo：站点公钥与算法</tspan><tspan x="44" dy="30">Issuer + Serial：签发者与证书序列号</tspan><tspan x="44" dy="30">Subject 的 CN 不能替代现代 SAN 匹配</tspan></text>
+  <rect x="24" y="300" width="512" height="200" rx="14" fill="#eef8f3" stroke="#a8d1be"/>
+  <text x="44" y="337" class="title">② 允许怎样使用这个公钥？</text>
+  <text x="44" y="376" class="body"><tspan x="44">KeyUsage：如 digitalSignature</tspan><tspan x="44" dy="30">EKU：如 serverAuth；存在时限制用途</tspan><tspan x="44" dy="30">两者都存在 → 必须同时满足</tspan><tspan x="44" dy="30">BasicConstraints：能否作为 CA、路径约束</tspan><tspan x="44" dy="30">pathLen 限中间 CA 深度，不是叶子数量</tspan></text>
+  <rect x="24" y="524" width="512" height="137" rx="14" fill="#fff4e7" stroke="#e5c49d"/>
+  <text x="44" y="561" class="title">③ 现在是否可接受？</text>
+  <text x="44" y="600" class="body"><tspan x="44">notBefore / notAfter：有效时间窗口</tspan><tspan x="44" dy="30">未知或无法处理的 critical 扩展 → 拒绝</tspan></text>
+  <text x="24" y="700" class="body"><tspan x="24">CA 签名保护上述证书内容；证书对象不含私钥。</tspan><tspan x="24" dy="29">还需可信路径、目标名与具体客户端策略。</tspan></text>
+</svg>

@@ -57,7 +57,9 @@ send only the minimum required data
 
 在没有显式 component 的匹配路径中，`setPackage()` 限制候选应用包；固定组件应由应用自行设置允许的 `ComponentName`。它们都不证明来自目标的后续数据可信，也不能授予调用者本来不具备的业务权限。[Intent.setPackage 定义](https://developer.android.com/reference/android/content/Intent#setPackage(java.lang.String))
 
-不能给不可信 Intent 补一个 `setPackage()` 就宣称目标已被锁定：它只修改 package 字段，不清除原有 component；显式 component 仍进入组件查询分支。`Intent.resolveActivity()` 对已有 component 也会直接返回该值，并不验证组件存在、可启动或符合业务允许列表。应提取必要业务值并新建应用控制的 Intent；存在 selector 时，还要处理它与非空 package 不可并用的契约。[固定源码 setPackage](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/Intent.java#11408)、[resolveActivity](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/Intent.java#10113)、[组件解析分支](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/ComputerEngine.java#542)
+不能给不可信 Intent 补一个 `setPackage()` 就宣称目标已被锁定：它只修改 package 字段，不清除原有 component；显式 component 仍进入组件查询分支。
+
+`Intent.resolveActivity()` 对已有 component 也会直接返回该值，并不验证组件存在、可启动或符合业务允许列表。应提取必要业务值并新建应用控制的 Intent；存在 selector 时，还要处理它与非空 package 不可并用的契约。[固定源码 setPackage](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/Intent.java#11408)、[resolveActivity](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/Intent.java#10113)、[组件解析分支](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/pm/ComputerEngine.java#542)
 
 防护需要匹配实际目标：内部固定跳转可直接构造应用自己的显式 Intent；跨应用协作还需验证接收方和响应关系。不应接受外部任意包名，再以“已经 setPackage”为由跳过判断。
 

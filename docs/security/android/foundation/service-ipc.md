@@ -49,7 +49,9 @@ sequenceDiagram
 
 这是跨进程机制示意，省略了调度细节。依据来自 [绑定接口契约](https://developer.android.com/develop/background-work/services/bound-services)及 [Binder 当前事务身份定义](https://developer.android.com/reference/android/os/Binder#getCallingUid())；这里关于分层鉴权的要求是由两者结合得到的设计结论。
 
-本地 AIDL 接口可能直接返回实现对象，方法在当前调用线程执行，不产生新的 Binder 事务；本地调用的 `oneway` 也仍是同步执行。此时 `getCallingUid()` 的意义取决于线程是否已经处于其他入站事务中，不能把它当成独立本地调用者认证。内部调用需要明确的可信入口和业务授权上下文，不能不加区分地套用远程事务检查。[AIDL 的本地与远程调用语义](https://developer.android.com/develop/background-work/services/aidl)
+本地 AIDL 接口可能直接返回实现对象，方法在当前调用线程执行，不产生新的 Binder 事务；本地调用的 `oneway` 也仍是同步执行。此时 `getCallingUid()` 的意义取决于线程是否已经处于其他入站事务中，不能把它当成独立本地调用者认证。
+
+内部调用需要明确的可信入口和业务授权上下文，不能不加区分地套用远程事务检查。[AIDL 的本地与远程调用语义](https://developer.android.com/develop/background-work/services/aidl)
 
 ### AIDL 只生成通信协议，不生成业务授权 {#aidl-methods}
 
@@ -82,7 +84,9 @@ on incoming remote business transaction:
 
 远程请求先进入 `Handler.MessengerImpl.send()`，由框架把事务 UID 写入 `sendingUid`，之后才入队。因此在 Handler 回调中读取记录值，而非重新读取当前 Binder 身份。[AOSP 赋值处](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/os/Handler.java#L974)
 
-若只允许指定合作 App，应将该 UID 与预置允许包的实际 UID 关联，再按可信证书策略验证指定包。`checkSignatures(Process.myUid(), senderUid)` 只比较签名关系，不能限定是哪一个 App，也不适用于双方签名不同的合作关系。API 28+ 的 `hasSigningCertificate()` 包含平台认可的签名历史语义；共享 UID 和证书撤销需单独制定策略。完整防御代码见 [Messenger 指定应用认证](/android/basics/messenger.html#接收方验证是否为指定的合法应用)。[PackageManager 证书契约](https://developer.android.com/reference/android/content/pm/PackageManager#hasSigningCertificate(java.lang.String,byte[],int))
+若只允许指定合作 App，应将该 UID 与预置允许包的实际 UID 关联，再按可信证书策略验证指定包。`checkSignatures(Process.myUid(), senderUid)` 只比较签名关系，不能限定是哪一个 App，也不适用于双方签名不同的合作关系。
+
+API 28+ 的 `hasSigningCertificate()` 包含平台认可的签名历史语义；共享 UID 和证书撤销需单独制定策略。完整防御代码见 [Messenger 指定应用认证](/android/basics/messenger.html#接收方验证是否为指定的合法应用)。[PackageManager 证书契约](https://developer.android.com/reference/android/content/pm/PackageManager#hasSigningCertificate(java.lang.String,byte[],int))
 
 Messenger 把请求交给 Handler 处理，有助于串行化消息，但消息编号、Bundle、replyTo 都不能自动充当业务身份。`Message.sendingUid` 由通过 Messenger 发送的路径提供；其他构造方式可能没有有效值，需按其契约检查，不能盲信自定义 Bundle 里的包名或 uid。[Message.sendingUid](https://developer.android.com/reference/android/os/Message#sendingUid)
 

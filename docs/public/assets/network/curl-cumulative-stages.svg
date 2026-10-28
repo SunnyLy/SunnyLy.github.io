@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="500" viewBox="0 0 520 500" role="img" aria-labelledby="title desc">
+  <title id="title">curl累计时间与阶段区间</title>
+  <desc id="desc">冷连接、无代理、无重定向、无复用的TCP加TLS合成示例。解析完成10毫秒、连接完成30毫秒、握手完成60毫秒、首字节100毫秒、响应读完150毫秒。五个累计条从相同t0开始，分段耗时分别为10、20、30、40、50毫秒，累计值不能相加。本地HTTP实验没有TLS阶段。</desc>
+  <rect width="520" height="500" rx="16" fill="#f6f8fc"/>
+  <g font-family="system-ui, sans-serif" fill="#172b4d">
+    <text x="24" y="35" font-size="22" font-weight="700">五个读数，都从 t0 开始</text>
+    <text x="24" y="65" font-size="17">合成HTTPS冷连接示例；不是本机HTTP实测</text>
+  </g>
+  <g stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 4">
+    <path d="M145 95V365 M213 95V365 M281 95V365 M372 95V365 M485 95V365"/>
+  </g>
+  <g font-family="system-ui, sans-serif" fill="#172b4d" font-size="17">
+    <text x="137" y="91">t0</text><text x="204" y="91">30</text><text x="272" y="91">60</text><text x="357" y="91">100</text><text x="465" y="91">150ms</text>
+    <text x="24" y="127">解析完成</text><text x="24" y="182">连接完成</text><text x="24" y="237">握手完成</text><text x="24" y="292">收到首字节</text><text x="24" y="347">响应读完</text>
+  </g>
+  <g fill="#1c7898"><rect x="145" y="108" width="23" height="25"/><rect x="145" y="163" width="23" height="25"/><rect x="145" y="218" width="23" height="25"/><rect x="145" y="273" width="23" height="25"/><rect x="145" y="328" width="23" height="25"/></g>
+  <g fill="#26775f"><rect x="168" y="163" width="45" height="25"/><rect x="168" y="218" width="45" height="25"/><rect x="168" y="273" width="45" height="25"/><rect x="168" y="328" width="45" height="25"/></g>
+  <g fill="#6555aa"><rect x="213" y="218" width="68" height="25"/><rect x="213" y="273" width="68" height="25"/><rect x="213" y="328" width="68" height="25"/></g>
+  <g fill="#ab5b17"><rect x="281" y="273" width="91" height="25"/><rect x="281" y="328" width="91" height="25"/></g>
+  <rect x="372" y="328" width="113" height="25" fill="#47688e"/>
+  <g font-family="system-ui, sans-serif" fill="#172b4d" font-size="17">
+    <text x="177" y="127">10ms</text><text x="222" y="182">30ms</text><text x="290" y="237">60ms</text><text x="381" y="292">100ms</text>
+    <text x="24" y="390">各色区间：DNS / TCP / TLS / 发送与等待 / 下载</text>
+    <text x="24" y="423">TLS阶段：60 − 30 = 30ms</text>
+    <text x="24" y="454">不能把10、30、60、100、150直接相加</text>
+    <text x="24" y="481" font-size="16">前提：无代理、无重定向、无复用；本机HTTP无TLS</text>
+  </g>
+</svg>

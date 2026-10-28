@@ -38,7 +38,7 @@ function sectionSidebar(section: (typeof knowledgeSections)[number]): DefaultThe
 export default defineConfig({
   lang: 'zh-CN',
   title: 'Sunny · 技术手记',
-  description: '关于 Android、安全与逆向的技术知识库。从原理到实践，让经验可以复用。',
+  description: '关于 Android、网络通信、安全与逆向的技术知识库。从原理到实践，让经验可以复用。',
   base: '/',
   cleanUrls: false,
   lastUpdated: false,
@@ -64,7 +64,8 @@ export default defineConfig({
       ] },
       ...knowledgeSections.map((section) => ({
         text: section.title,
-        collapsed: false,
+        // VitePress automatically opens the section containing the active page.
+        collapsed: true,
         items: [
           { text: `${section.title}概览`, link: section.link },
           ...sectionSidebar(section)

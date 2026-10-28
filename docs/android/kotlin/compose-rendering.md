@@ -33,7 +33,9 @@ Column {
 | Compose UI | 运行期 UI | 维护 LayoutNode、Modifier、测量、放置和绘制等机制 | 为每个 Composable 创建一个 Android View |
 | AndroidComposeView | Android 平台桥接 | 接入 View 系统，并以 Owner 身份承载 Compose UI 工作 | 把 SlotTable 当绘图清单逐项绘制 |
 
-`@Composable` 不只是运行时反射标记，编译器会改写相关代码，使其能与 Runtime 协作。内部可以涉及 Composer 参数、变化信息与分组操作，但不同函数和编译设置下形态不同，不能把教程中的伪代码当作可手写调用的普通接口。自 Kotlin 2.0.0 起，Compose 编译器已并入 Kotlin 仓库；阅读 AndroidX Runtime 时还需区分编译器源码所在仓库。[编译器官方说明](https://kotlinlang.org/docs/compose-compiler-migration-guide.html)
+`@Composable` 不只是运行时反射标记，编译器会改写相关代码，使其能与 Runtime 协作。内部可以涉及 Composer 参数、变化信息与分组操作，但不同函数和编译设置下形态不同，不能把教程中的伪代码当作可手写调用的普通接口。
+
+自 Kotlin 2.0.0 起，Compose 编译器已并入 Kotlin 仓库；阅读 AndroidX Runtime 时还需区分编译器源码所在仓库。[编译器官方说明](https://kotlinlang.org/docs/compose-compiler-migration-guide.html)
 
 ```mermaid
 flowchart TB
@@ -55,15 +57,21 @@ flowchart TB
 
 Android 的 `ComponentActivity.setContent()` 会尝试复用已有 ComposeView，或创建 ComposeView、设置组合内容与相关 Owner，再将它接入 Activity 的内容 View 层级。[Activity 接入入口](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/activity/activity-compose/src/main/java/androidx/activity/compose/ComponentActivity.kt#50)
 
-`ComposeView.setContent()` 保存内容，并在满足附着或组合上下文等条件时创建组合；`AbstractComposeView.ensureCompositionCreated()` 负责确保组合建立。本快照还涉及 `ComposeViewContext`，因此不应把某个旧版的窗口 Recomposer 初始化代码当成所有版本的固定实现。[ComposeView.setContent](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/ComposeView.android.kt#646)、[确保组合创建](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/ComposeView.android.kt#342)
+`ComposeView.setContent()` 保存内容，并在满足附着或组合上下文等条件时创建组合；`AbstractComposeView.ensureCompositionCreated()` 负责确保组合建立。
 
-平台包装代码创建或复用 AndroidComposeView，并以其根 LayoutNode 构造 `UiApplier`，再创建关联父组合上下文的 Composition。AndroidComposeView 继承 ViewGroup，同时实现 Compose UI 的 Owner 等接口：它才是这里接入 Android 测量、绘制、输入等能力的重要平台对象，不能把这些职责全部归给 Composer。[Android 包装与组合创建](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/Wrapper.android.kt#54)、[AndroidComposeView 定义](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/AndroidComposeView.android.kt#284)
+本快照还涉及 `ComposeViewContext`，因此不应把某个旧版的窗口 Recomposer 初始化代码当成所有版本的固定实现。[ComposeView.setContent](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/ComposeView.android.kt#646)、[确保组合创建](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/ComposeView.android.kt#342)
+
+平台包装代码创建或复用 AndroidComposeView，并以其根 LayoutNode 构造 `UiApplier`，再创建关联父组合上下文的 Composition。
+
+AndroidComposeView 继承 ViewGroup，同时实现 Compose UI 的 Owner 等接口：它才是这里接入 Android 测量、绘制、输入等能力的重要平台对象，不能把这些职责全部归给 Composer。[Android 包装与组合创建](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/Wrapper.android.kt#54)、[AndroidComposeView 定义](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/AndroidComposeView.android.kt#284)
 
 这里仍然存在 Android View 宿主，但普通 Compose UI 不要求每个文字、布局或按钮都对应一个 Android View。使用 `AndroidView` 等互操作组件时则另有桥接节点和 View 管理路径。
 
 ## 4. LayoutNode 是运行时怎样创建和更新的
 
-`Layout()` 是关键布局原语之一。此快照的实现通过 `ReusableComposeNode` 提供节点工厂，以及 MeasurePolicy、Modifier、CompositionLocal 等更新操作；`ComposeUiNode.Constructor` 最终关联 `LayoutNode.Constructor`。这说明节点工厂是在**组合运行时**被使用，而不是编译期已经把某个具体手机界面树创建出来。[Layout 的节点声明](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/layout/Layout.kt#77)、[节点工厂关联](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/ComposeUiNode.kt#28)
+`Layout()` 是关键布局原语之一。此快照的实现通过 `ReusableComposeNode` 提供节点工厂，以及 MeasurePolicy、Modifier、CompositionLocal 等更新操作；`ComposeUiNode.Constructor` 最终关联 `LayoutNode.Constructor`。
+
+这说明节点工厂是在**组合运行时**被使用，而不是编译期已经把某个具体手机界面树创建出来。[Layout 的节点声明](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/layout/Layout.kt#77)、[节点工厂关联](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/ComposeUiNode.kt#28)
 
 Runtime 计算组合变更，应用阶段通过 Applier 操作目标树。Android UI 的 `UiApplier` 对 LayoutNode 实现插入、移除、移动和清理；本版本在 `insertBottomUp()` 中实际插入，在 `insertTopDown()` 中不重复插入。节点已存在且可以复用时，也不需要每次重新创建全部对象。[UiApplier](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/node/UiApplier.android.kt#21)
 
@@ -73,7 +81,7 @@ Runtime 计算组合变更，应用阶段通过 Applier 操作目标树。Androi
 
 组合记录需要保存分组、记忆值和节点关联等信息，帮助 Runtime 在后续执行中识别位置、复用内容并处理变更；LayoutNode 树则承载 UI 布局和绘制相关结构。二者有关联，但不是同一棵树，也不能按“每个函数、每个 slot、每个节点一一对应”理解。
 
-此快照的 Composition 内部还存在不同 slot 存储实现的选择，因此本文只使用“组合记录”解释职责，不把某一种数组布局或内部字段当成通用定义。[Composition 的组合存储与变更结构](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Composition.kt#488)
+Composition 可以采用不同的 slot 存储实现；数组布局和内部字段不是通用定义。[组合存储与变更结构](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Composition.kt#488)
 
 ```mermaid
 flowchart TB
@@ -99,7 +107,9 @@ Compose 的 Layout 阶段包含测量和放置。父布局向子项传递约束�
 
 `MeasurePolicy` 决定布局策略；子项测量后得到可放置结果，再通过放置逻辑确定坐标。普通测量契约不允许在同一测量过程中随意反复测量同一子项以试探不同尺寸，但这不等于一帧永远只能发生一次测量：内在测量、Lookahead、不同失效和后续布局工作应按各自契约分析。[自定义布局契约](https://developer.android.com/develop/ui/compose/layouts/custom)
 
-AndroidComposeView 的 `onMeasure()` 将 Android MeasureSpec 转为 Compose Constraints，并协调根节点测量；`onLayout()` 继续处理待执行的布局与位置回调。`MeasureAndLayoutDelegate` 维护所需工作，并非每次都无条件重测整棵树。[onMeasure](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/AndroidComposeView.android.kt#2173)、[onLayout](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/AndroidComposeView.android.kt#2234)、[测量布局工作处理](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/MeasureAndLayoutDelegate.kt#402)
+AndroidComposeView 的 `onMeasure()` 将 Android MeasureSpec 转为 Compose Constraints，并协调根节点测量；`onLayout()` 继续处理待执行的布局与位置回调。
+
+`MeasureAndLayoutDelegate` 维护所需工作，并非每次都无条件重测整棵树。[onMeasure](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/AndroidComposeView.android.kt#2173)、[onLayout](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/AndroidComposeView.android.kt#2234)、[测量布局工作处理](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/MeasureAndLayoutDelegate.kt#402)
 
 布局节点嵌套也不是没有成本。是否昂贵应看测量策略、工作范围、文本布局和修饰符等实际开销，不能仅凭“Compose”就认为任意深度嵌套都免费。
 
@@ -130,7 +140,9 @@ flowchart TB
   Layer -->|无| Modifiers --> Content --> Later
 ```
 
-`LayoutNode.draw()` 转交 `outerCoordinator.draw()`。Coordinator 有图层时使用对应图层路径，否则处理坐标变换与绘制 Modifier，再继续绘制内容。Modifier 的顺序、裁剪、变换、图层缓存和子节点绘制次序都可能影响最终结果，不能只看一份函数调用列表。[LayoutNode.draw](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/LayoutNode.kt#1054)、[Coordinator 绘制分支](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/NodeCoordinator.kt#507)
+`LayoutNode.draw()` 转交 `outerCoordinator.draw()`。Coordinator 有图层时使用对应图层路径，否则处理坐标变换与绘制 Modifier，再继续绘制内容。
+
+Modifier 的顺序、裁剪、变换、图层缓存和子节点绘制次序都可能影响最终结果，不能只看一份函数调用列表。[LayoutNode.draw](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/LayoutNode.kt#1054)、[Coordinator 绘制分支](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/NodeCoordinator.kt#507)
 
 图中省略了互操作 View 和部分平台图层兼容分支。即使某次 `dispatchDraw()` 调用了 `measureAndLayout()`，也不能据此断言该次重测了全部节点，或重新记录了所有图层内容。
 
@@ -156,6 +168,8 @@ State 的变化通过 Snapshot 和观察关系传播，影响实际读取它的�
 4. **重组少却仍卡顿**：分别检查测量、布局、文本、图层与后续渲染工作；重组次数不是完整性能指标。
 5. **源码与教程不同**：先确认项目依赖与编译器配置，再匹配源码提交；内部存储和平台桥接的变化不意味着公开 API 用法必然改变。
 
-推荐阅读顺序是：Activity 的 `setContent()` → ComposeView / Android 包装 → Composition 与 UiApplier → Layout 的节点工厂 → LayoutNode / MeasureAndLayoutDelegate → AndroidComposeView 的绘制入口 → Coordinator。组合存储、Snapshot 和编译器优化可沿具体问题继续深入，避免把它们串成每帧必须从头跑完的单一路径。
+推荐阅读顺序是：Activity 的 `setContent()` → ComposeView / Android 包装 → Composition 与 UiApplier → Layout 的节点工厂 → LayoutNode / MeasureAndLayoutDelegate → AndroidComposeView 的绘制入口 → Coordinator。
+
+组合存储、Snapshot 和编译器优化可沿具体问题继续深入，避免把它们串成每帧必须从头跑完的单一路径。
 
 [原始笔记](https://alidocs.dingtalk.com/i/nodes/7dx2rn0JbYDdQwjzHNR2wpjBVMGjLRb3)。

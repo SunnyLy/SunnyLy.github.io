@@ -99,10 +99,12 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .topic-number { color: var(--vp-c-text-3); font-family: var(--vp-font-family-mono); font-size: 10px; letter-spacing: 1px; }
 .topic-symbol { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: #edf0fc; color: #455ac5; font-family: var(--vp-font-family-mono); font-size: 16px; }
 .topic-security .topic-symbol { background: #edf4ef; color: #52705c; }
+.topic-network .topic-symbol { background: #e8f4f5; color: #286d77; }
 .topic-reverse .topic-symbol { background: #f5eee8; color: #8d6546; }
 .topic-tools .topic-symbol { background: #eeedf6; color: #74608d; }
 .dark .topic-symbol { background: #28324f; color: #a7b5ff; }
 .dark .topic-security .topic-symbol { background: #283a31; color: #b4cfbd; }
+.dark .topic-network .topic-symbol { background: #233b42; color: #9ed3db; }
 .dark .topic-reverse .topic-symbol { background: #3c3028; color: #e2bea2; }
 .dark .topic-tools .topic-symbol { background: #342c43; color: #c7b5df; }
 .topic-heading { display: flex; align-items: center; justify-content: space-between; }

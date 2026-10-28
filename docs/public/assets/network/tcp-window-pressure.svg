@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="570" viewBox="0 0 680 570" role="img" aria-labelledby="title desc">
+<title id="title">两个限速原因：对面慢，或路上挤</title>
+<desc id="desc">发送端已有一部分未确认数据占用在途预算。拥塞窗口cwnd由发送端维护，接收窗口rwnd由接收端通告，二者共同限制发送。应用不及时读取可让接收缓冲积压；拥塞控制针对网络路径，不是两个物理网关。</desc>
+<defs>
+<style>text{font-family:"Segoe UI","Microsoft YaHei",sans-serif;fill:#17243d}.title{font-size:27px;font-weight:700}.body{font-size:22px}.small{font-size:20px;fill:#4b5c77}.strong{font-size:23px;font-weight:650}.mono{font-size:20px;font-family:Consolas,"Microsoft YaHei",monospace}</style>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+<path d="M0 0L8 4L0 8" fill="#5b7297"/>
+</marker>
+</defs>
+<rect width="680" height="570" rx="22" fill="#f5f8fd"/>
+<text x="28" y="45" class="title" text-anchor="start">两个限速原因：对面慢，或路上挤</text>
+<rect x="28" y="83" width="624" height="119" rx="12" fill="#e6efff"/>
+<text x="48" y="119" class="strong" text-anchor="start">发送端：先看还欠多少 ACK</text>
+<rect x="48" y="139" width="270" height="39" rx="3" fill="#adcaff"/>
+<rect x="322" y="139" width="306" height="39" rx="3" fill="#fff"/>
+<text x="183" y="167" class="small" text-anchor="middle">已发未确认</text>
+<text x="475" y="167" class="small" text-anchor="middle">剩余发送空间</text>
+<path d="M340 203 L340 267" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<text x="360" y="239" class="small" text-anchor="start">向路径发出数据</text>
+<rect x="28" y="270" width="624" height="70" rx="12" fill="#ffe7c4"/>
+<text x="340" y="313" class="strong" text-anchor="middle">网络路径：可能丢包、排队或拥塞</text>
+<path d="M340 340 L340 397" fill="none" stroke="#5b7297" stroke-width="3"  marker-end="url(#arrow)"/>
+<rect x="28" y="401" width="624" height="87" rx="12" fill="#e0f2ec"/>
+<text x="48" y="435" class="strong" text-anchor="start">接收端缓冲：字节等待应用读取</text>
+<rect x="48" y="451" width="380" height="17" rx="2" fill="#70b99f"/>
+<rect x="432" y="451" width="194" height="17" rx="2" fill="#fff"/>
+<path d="M28 442H14V132H27" fill="none" stroke="#5b7297" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="62" y="375" class="small" text-anchor="start">rwnd：接收侧通告剩余接收能力</text>
+<text x="48" y="196" class="small" text-anchor="start">cwnd：发送侧按拥塞控制维护在途预算</text>
+<text x="340" y="556" class="small" text-anchor="middle">简化：可发空间受 min(rwnd, cwnd) 与已在途数据共同约束</text>
+</svg>

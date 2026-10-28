@@ -57,11 +57,15 @@ override var value: T
         }
 ```
 
-getter 选择当前 Snapshot 可见的状态记录，并参与读取观察；setter 先判断新旧值是否等价，再通过 Snapshot 机制更新记录。StateObject 标识状态对象，StateRecord 承载其版本数据，Snapshot 决定本次读写可见的记录集合。它不是每次变化都完整复制整棵 UI 树。[SnapshotMutableStateImpl](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/SnapshotState.kt#136)
+getter 选择当前 Snapshot 可见的状态记录，并参与读取观察；setter 先判断新旧值是否等价，再通过 Snapshot 机制更新记录。StateObject 标识状态对象，StateRecord 承载其版本数据，Snapshot 决定本次读写可见的记录集合。
+
+它不是每次变化都完整复制整棵 UI 树。[SnapshotMutableStateImpl](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/SnapshotState.kt#136)
 
 ## 4. 读取链：谁在什么地方读取，谁建立依赖
 
-在有读取观察器的 Snapshot 中，`readable()` 会调用 `readObserver`。Recomposer 为组合执行安装读写观察器，读取会进入 `Composition.recordReadOf()`；普通组合读取路径再将状态与当前有效的 `RecomposeScope` 关联。未处于相应观察环境的读取，不会凭空订阅某个界面作用域。[Snapshot.readable](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/snapshots/Snapshot.kt#2385)、[组合观察器](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Recomposer.kt#1471)、[recordReadOf](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Composition.kt#1161)
+在有读取观察器的 Snapshot 中，`readable()` 会调用 `readObserver`。Recomposer 为组合执行安装读写观察器，读取会进入 `Composition.recordReadOf()`；普通组合读取路径再将状态与当前有效的 `RecomposeScope` 关联。
+
+未处于相应观察环境的读取，不会凭空订阅某个界面作用域。[Snapshot.readable](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/snapshots/Snapshot.kt#2385)、[组合观察器](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Recomposer.kt#1471)、[recordReadOf](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Composition.kt#1161)
 
 ```mermaid
 flowchart TB
@@ -133,7 +137,9 @@ Snapshot.withMutableSnapshot {
 }
 ```
 
-`Snapshot` 来自 `androidx.compose.runtime.snapshots.Snapshot`。该 block 不应挂起；成功返回包含 apply 检查，无法合并的冲突会失败，而不是自动解决所有并发竞争。`state.value++` 这样的复合读改写也不能仅凭使用 MutableState 就认定为跨线程原子计数器。[withMutableSnapshot 契约](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/snapshots/Snapshot.kt#449)
+`Snapshot` 来自 `androidx.compose.runtime.snapshots.Snapshot`。该 block 不应挂起；成功返回包含 apply 检查，无法合并的冲突会失败，而不是自动解决所有并发竞争。
+
+`state.value++` 这样的复合读改写也不能仅凭使用 MutableState 就认定为跨线程原子计数器。[withMutableSnapshot 契约](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/snapshots/Snapshot.kt#449)
 
 ## 7. Invalidation、Recomposer、Composer 各做什么
 
@@ -144,7 +150,9 @@ Snapshot.withMutableSnapshot {
 | Composer | 协调组合执行、分组与记忆值等操作 | remember、组合节点操作 | 不负责直接把像素送到屏幕 |
 | Recomposer | 观察变化并调度重组与应用工作 | 已关联的 Composition、协程和帧时钟 | 失效不等于立即同步执行 |
 
-外部快照变化先进入 Recomposer 的待处理集合，再通过 `recordModificationsOf()` 交给相关 Composition。运行中的 `runRecomposeAndApplyChanges()` 配合帧时钟处理工作；多次写入可以合并，未被观察的变化也不必产生可见界面更新。因此重组不是逐条事件回放，不能依赖“每次赋值恰好执行一次函数”。[变更集合分发](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Recomposer.kt#503)、[重组循环与帧时钟](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Recomposer.kt#564)
+外部快照变化先进入 Recomposer 的待处理集合，再通过 `recordModificationsOf()` 交给相关 Composition。运行中的 `runRecomposeAndApplyChanges()` 配合帧时钟处理工作；多次写入可以合并，未被观察的变化也不必产生可见界面更新。
+
+因此重组不是逐条事件回放，不能依赖“每次赋值恰好执行一次函数”。[变更集合分发](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Recomposer.kt#503)、[重组循环与帧时钟](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/Recomposer.kt#564)
 
 Composable 的执行还可能被跳过或取消，其函数体不适合承载必须精确执行一次的请求、埋点或持久化操作。应在事件处理或生命周期明确的 Effect 中组织这些副作用，重组统计也应避免用额外状态写入反过来干扰被测过程。[副作用官方说明](https://developer.android.com/develop/ui/compose/side-effects)
 
@@ -170,9 +178,13 @@ flowchart TB
   LR -. 影响绘制时 .-> DR
 ```
 
-例如 `Modifier.offset { IntOffset(0, offsetY.value) }` 将读取留在放置用 lambda 内，与在组合时先求值 `offsetY.value` 再创建 Modifier 不同。仅把已读出的整数放入 lambda，并没有延后那次读取；选取对应阶段的 API 和实际 getter 位置才是关键。[延后读取的官方示例](https://developer.android.com/develop/ui/compose/performance/bestpractices)
+例如 `Modifier.offset { IntOffset(0, offsetY.value) }` 将读取留在放置用 lambda 内，与在组合时先求值 `offsetY.value` 再创建 Modifier 不同。
 
-`SnapshotStateObserver` 是可复用的快照读取观察工具，Compose UI 的 `OwnerSnapshotObserver` 使用它关联布局等阶段的读与失效。**组合阶段的读取主线则是 Recomposer 安装的观察器与 Composition 的依赖记录**，不能把这两个观察体系串成每次读取都必经的同一条流水线。[SnapshotStateObserver](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/snapshots/SnapshotStateObserver.kt#41)、[OwnerSnapshotObserver](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/OwnerSnapshotObserver.kt#31)
+仅把已读出的整数放入 lambda，并没有延后那次读取；选取对应阶段的 API 和实际 getter 位置才是关键。[延后读取的官方示例](https://developer.android.com/develop/ui/compose/performance/bestpractices)
+
+`SnapshotStateObserver` 是可复用的快照读取观察工具，Compose UI 的 `OwnerSnapshotObserver` 使用它关联布局等阶段的读与失效。
+
+**组合阶段的读取主线则是 Recomposer 安装的观察器与 Composition 的依赖记录**，不能把这两个观察体系串成每次读取都必经的同一条流水线。[SnapshotStateObserver](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/snapshots/SnapshotStateObserver.kt#41)、[OwnerSnapshotObserver](https://android.googlesource.com/platform/frameworks/support/+/a7537bce15de1ae43654cfcfdbb115211977a632/compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/node/OwnerSnapshotObserver.kt#31)
 
 ## 9. 常见的“不刷新”和“刷新太多”
 
@@ -212,6 +224,8 @@ val showButton by remember(listState) {
 4. **界面更新为何没有对应重组**：检查布局、绘制阶段读取；重绘次数、重组次数和最终呈现帧数是不同指标。
 5. **并发结果为什么冲突**：区分快照可见性、apply 合并与业务复合操作的同步要求，核对实际依赖版本后再匹配源码。
 
-推荐先读 `SnapshotState.kt` 与 `SnapshotMutationPolicy.kt`，再分两条线：读取沿 `Snapshot.readable()` → `Recomposer.readObserverOf()` → `Composition.recordReadOf()`；外部修改沿 Snapshot 提交通知 → Recomposer 变更集合 → Composition 失效处理 → 重组与应用。最后再研究 Composer 的分组、记忆值与阶段观察，避免把所有类名堆成一条必经调用链。
+推荐先读 `SnapshotState.kt` 与 `SnapshotMutationPolicy.kt`，再分两条线：读取沿 `Snapshot.readable()` → `Recomposer.readObserverOf()` → `Composition.recordReadOf()`；外部修改沿 Snapshot 提交通知 → Recomposer 变更集合 → Composition 失效处理 → 重组与应用。
+
+最后再研究 Composer 的分组、记忆值与阶段观察，避免把所有类名堆成一条必经调用链。
 
 [原始笔记](https://alidocs.dingtalk.com/i/nodes/PwkYGxZV3Z0bP5M6spoYrb9DWAgozOKL)。节点创建与呈现链路见 [Compose 渲染流程](./compose-rendering.html)。

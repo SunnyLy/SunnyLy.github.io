@@ -171,7 +171,9 @@ flowchart TD
 
 **默认值与安装要求不能混写**
 
-组件类型和历史平台的默认导出规则不同。Android 12 上，面向 API 31 及以上、带 intent-filter 的 Activity、Service 和 Receiver 需要显式声明 exported；缺少声明会影响安装。这不等于“所有组件从 API 31 起默认 false”，Provider 还应按其独立规则判断。[Android 12 的组件导出要求](https://developer.android.com/about/versions/12/behavior-changes-12#exported)
+组件类型和历史平台的默认导出规则不同。Android 12 上，面向 API 31 及以上、带 intent-filter 的 Activity、Service 和 Receiver 需要显式声明 exported；缺少声明会影响安装。
+
+这不等于“所有组件从 API 31 起默认 false”，Provider 还应按其独立规则判断。[Android 12 的组件导出要求](https://developer.android.com/about/versions/12/behavior-changes-12#exported)
 
 工程上显式声明每个组件的预期边界，并检查最终合并结果。无需外部访问的入口设为不导出；需要外部访问的敏感入口，根据合作方与能力选择权限及业务校验。不能把“所有导出组件都加同一个签名权限”套到公开网页入口，否则会破坏预期功能。
 
@@ -335,7 +337,9 @@ flowchart TD
 
 **教学示例：只做候选位置分级**
 
-下面片段根据采样年龄、精度与模拟标记输出下一步建议，不直接决定账号处罚或交易授权。要求最低运行 API 18，编译 SDK 支持 API 31；否则低版本分支中的 `isFromMockProvider()` 或编译期的 `isMock()` 不满足接口条件。参数由业务定义，不代表 Android 推荐统一阈值；失败状态保留原因，不能把“未知”写成“正常”。[Location 版本契约](https://developer.android.com/reference/android/location/Location#isFromMockProvider())
+下面片段根据采样年龄、精度与模拟标记输出下一步建议，不直接决定账号处罚或交易授权。要求最低运行 API 18，编译 SDK 支持 API 31；否则低版本分支中的 `isFromMockProvider()` 或编译期的 `isMock()` 不满足接口条件。
+
+参数由业务定义，不代表 Android 推荐统一阈值；失败状态保留原因，不能把“未知”写成“正常”。[Location 版本契约](https://developer.android.com/reference/android/location/Location#isFromMockProvider())
 
 ```java
 enum FixDecision { RETRY_QUALITY, REVIEW_SIGNAL, CANDIDATE_ONLY }

@@ -8,7 +8,9 @@ description: 基于固定 AOSP 源码，串联 ClientTransaction 的批量派发
 
 ## 1. 容器、操作、身份与执行器各管什么
 
-`ClientTransaction` 是 `Parcelable` 数据容器，核心是有序的 `mTransactionItems`。每个 `ClientTransactionItem` 表达一项客户端操作，可以是 Activity 启动、目标生命周期状态、进程配置变化或窗口变化等。它们通过目标进程的 `IApplicationThread` 投递，而不是把服务端 Java 对象直接交给另一个进程调用。
+`ClientTransaction` 是 `Parcelable` 数据容器，核心是有序的 `mTransactionItems`。每个 `ClientTransactionItem` 表达一项客户端操作，可以是 Activity 启动、目标生命周期状态、进程配置变化或窗口变化等。
+
+它们通过目标进程的 `IApplicationThread` 投递，而不是把服务端 Java 对象直接交给另一个进程调用。
 
 | 对象 | 所在位置 | 职责与边界 |
 | --- | --- | --- |
@@ -19,7 +21,9 @@ description: 基于固定 AOSP 源码，串联 ClientTransaction 的批量派发
 | `TransactionExecutor` | 应用进程 | 在主线程解释 item、协调生命周期路径 |
 | `ActivityClientRecord` | 应用进程 | 维护本地 Activity 引用、配置和生命周期状态 |
 
-这里有两层身份：`IApplicationThread` 选择**哪个应用进程**；Activity item 中的 Token 再选择**该进程里的哪个逻辑 Activity**。同一事务可以包含不同 Activity 的 item，也可以包含不以 Activity 为目标的 item。不能把“一个事务”等同于“一个 Activity”。[源码：ClientTransaction](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/ClientTransaction.java#50)
+这里有两层身份：`IApplicationThread` 选择**哪个应用进程**；Activity item 中的 Token 再选择**该进程里的哪个逻辑 Activity**。
+
+同一事务可以包含不同 Activity 的 item，也可以包含不以 Activity 为目标的 item。不能把“一个事务”等同于“一个 Activity”。[源码：ClientTransaction](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/ClientTransaction.java#50)
 
 ## 2. 当前 item 模型怎样组织
 
@@ -54,7 +58,9 @@ classDiagram
   ClientTransactionItem <|-- ConfigurationChangeItem
 ```
 
-`ActivityTransactionItem` 保存目标 Token，并提供解析客户端记录的通用执行入口；`ActivityLifecycleItem` 在此基础上表达目标生命周期状态。**LaunchActivityItem 直接继承 ClientTransactionItem**，因为启动时可能还没有客户端记录，它要负责创建记录，再交给 `ActivityThread` 实例化 Activity。[源码：ActivityTransactionItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/ActivityTransactionItem.java)、[LaunchActivityItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#61)
+`ActivityTransactionItem` 保存目标 Token，并提供解析客户端记录的通用执行入口；`ActivityLifecycleItem` 在此基础上表达目标生命周期状态。
+
+**LaunchActivityItem 直接继承 ClientTransactionItem**，因为启动时可能还没有客户端记录，它要负责创建记录，再交给 `ActivityThread` 实例化 Activity。[源码：ActivityTransactionItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/ActivityTransactionItem.java)、[LaunchActivityItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#61)
 
 非 Activity 操作可看 [ConfigurationChangeItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/ConfigurationChangeItem.java)，窗口操作可看 [WindowStateResizeItem](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/WindowStateResizeItem.java)。执行器会区分生命周期 item 与其他 item，不是对所有 item 都查询同一份 Activity 记录。
 
@@ -91,7 +97,9 @@ classDiagram
 
 ## 5. Binder 接收与主线程执行之间还有一个阶段
 
-`ClientTransaction.schedule()` 调用 `mClient.scheduleTransaction(this)`。`mClient` 是服务端用来发送的 `IApplicationThread` 连接，不写入发给客户端的 Parcel；客户端主要还原 item 列表。不要在应用侧把事务的 `mClient` 当作可用的反向服务连接。[源码：序列化与 schedule](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/ClientTransaction.java#257)
+`ClientTransaction.schedule()` 调用 `mClient.scheduleTransaction(this)`。`mClient` 是服务端用来发送的 `IApplicationThread` 连接，不写入发给客户端的 Parcel；客户端主要还原 item 列表。
+
+不要在应用侧把事务的 `mClient` 当作可用的反向服务连接。[源码：序列化与 schedule](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/ClientTransaction.java#257)
 
 远程 `IApplicationThread` 是 oneway 接口，服务端发出调度不等于目标 Activity 已完成回调。应用的 `ApplicationThread.scheduleTransaction()` 转入 `ClientTransactionHandler.scheduleTransaction()`，先执行整份事务的 `preExecute()`，再发送 `H.EXECUTE_TRANSACTION` 消息。[源码：IApplicationThread](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/IApplicationThread.aidl)、[ClientTransactionHandler](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ClientTransactionHandler.java)
 
@@ -126,11 +134,15 @@ sequenceDiagram
 
 ### 为什么 onCreate 之前已有状态变化 {#launch-preexecute-state}
 
-`LaunchActivityItem.preExecute()` 会增加 launching Activity 计数、更新进程状态并提交 pending configuration，必要时更新 Activity 客户端控制接口。这些操作发生在生命周期执行消息入队之前；`postExecute()` 再减少 launching 计数。因此，“配置已收到”或“启动计数增加”不能证明主线程已经创建页面，分析延迟要区分接收、入队和实际执行。[LaunchActivityItem 前后处理](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#202)
+`LaunchActivityItem.preExecute()` 会增加 launching Activity 计数、更新进程状态并提交 pending configuration，必要时更新 Activity 客户端控制接口。
+
+这些操作发生在生命周期执行消息入队之前；`postExecute()` 再减少 launching 计数。因此，“配置已收到”或“启动计数增加”不能证明主线程已经创建页面，分析延迟要区分接收、入队和实际执行。[LaunchActivityItem 前后处理](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#202)
 
 ## 6. TransactionExecutor 不是固定的“两段式”解释器
 
-此版本 `executeTransactionItems()` 按 `getTransactionItems()` 的顺序遍历：生命周期 item 进入 `executeLifecycleItem()`，其他 item 进入 `executeNonLifecycleItem()`。因此，不能套用“先统一执行所有 callback，最后只执行一个生命周期请求”的旧模型。[源码：TransactionExecutor](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java)
+此版本 `executeTransactionItems()` 按 `getTransactionItems()` 的顺序遍历：生命周期 item 进入 `executeLifecycleItem()`，其他 item 进入 `executeNonLifecycleItem()`。
+
+因此，不能套用“先统一执行所有 callback，最后只执行一个生命周期请求”的旧模型。[源码：TransactionExecutor](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutor.java)
 
 对于非生命周期 item，执行器会考虑其 Token、前置状态需求与 `getPostExecutionState()`。有需要时先迁移到合适的前置状态，再调用 `execute()` / `postExecute()`，最后协调要求的后置状态。**非生命周期 item 不等于完全不影响生命周期。**
 
@@ -140,7 +152,9 @@ Launch 是一个关键例子：执行前可能查不到 `ActivityClientRecord`�
 
 ## 7. 怎样补齐生命周期路径
 
-`cycleToPath()` 读取 `ActivityClientRecord.getLifecycleState()`，通过 `TransactionExecutorHelper.getLifecyclePath(...)` 计算路径，再由 `performLifecycleSequence()` 调用相应 `handleStartActivity()`、`handleResumeActivity()` 等方法。它读取客户端状态，不是直接照搬服务端 ActivityRecord 的状态字段。[源码：TransactionExecutorHelper](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutorHelper.java)
+`cycleToPath()` 读取 `ActivityClientRecord.getLifecycleState()`，通过 `TransactionExecutorHelper.getLifecyclePath(...)` 计算路径，再由 `performLifecycleSequence()` 调用相应 `handleStartActivity()`、`handleResumeActivity()` 等方法。
+
+它读取客户端状态，不是直接照搬服务端 ActivityRecord 的状态字段。[源码：TransactionExecutorHelper](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutorHelper.java)
 
 下面只展示两个正常、记录有效的 Resume 请求示例，不表示所有运行时条件下都必然走到终点：
 
@@ -161,13 +175,17 @@ flowchart TD
 
 这里的 `ON_RESTART` 是路径计算使用的内部中间状态，不能按整数编号递增来模拟生命周期。恢复、暂停、停止和销毁并不是沿同一条数字直线单向推进；执行器根据起点和终点选择路径，并可能排除末状态。
 
-对于非生命周期 item 的后置状态，`shouldExcludeLastLifecycleState()` 会向后寻找同一 Activity Token 的显式生命周期 item，结合目标状态是否相同及回调区间的选择规则，判断是否把最后一步交给后者。它不是“只要后面有 Resume 就全部跳过”，也不只是检查列表最后一项。阅读时应同时标注 **当前 Token、当前状态、item 后置状态、后续目标状态**，再对照 [排除规则实现](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutorHelper.java#267)。
+对于非生命周期 item 的后置状态，`shouldExcludeLastLifecycleState()` 会向后寻找同一 Activity Token 的显式生命周期 item，结合目标状态是否相同及回调区间的选择规则，判断是否把最后一步交给后者。
+
+它不是“只要后面有 Resume 就全部跳过”，也不只是检查列表最后一项。阅读时应同时标注 **当前 Token、当前状态、item 后置状态、后续目标状态**，再对照 [排除规则实现](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/TransactionExecutorHelper.java#267)。
 
 生命周期补齐属于框架内部协议。应用不能通过直接修改 `ActivityClientRecord` 的状态字段来代替真实回调、资源切换和服务端状态回报。
 
 ## 8. Launch 创建客户端记录，ActivityThread 创建实例
 
-`LaunchActivityItem.execute()` 使用传来的 Token 和启动参数创建 `ActivityClientRecord`，交给 `ActivityThread.handleLaunchActivity()` / `performLaunchActivity()`。后者准备 LoadedApk、ClassLoader、资源和 Context，经 `Instrumentation.newActivity()` 创建 Java 实例，再关联 Application、调用 `attach()` 并执行创建回调。[源码：Launch 执行](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#214)、[ActivityThread](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4173)
+`LaunchActivityItem.execute()` 使用传来的 Token 和启动参数创建 `ActivityClientRecord`，交给 `ActivityThread.handleLaunchActivity()` / `performLaunchActivity()`。
+
+后者准备 LoadedApk、ClassLoader、资源和 Context，经 `Instrumentation.newActivity()` 创建 Java 实例，再关联 Application、调用 `attach()` 并执行创建回调。[源码：Launch 执行](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/LaunchActivityItem.java#214)、[ActivityThread](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#4173)
 
 可将身份关系压缩为：
 
@@ -197,7 +215,9 @@ Launch 处理完成后的客户端状态可到 `ON_CREATE`，后续 Resume 请�
 
 例如 `ActivityThread.reportStop()` 将 `StopInfo` 投递给 Handler，后者的 `run()` 才向系统报告 `activityStopped`；`handleDestroyActivity()` 的 `activityDestroyed` 则受 finishing 条件约束。[源码：StopInfo.run](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/servertransaction/PendingTransactionActions.java#130)、[销毁回报](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#6361)
 
-三个时间点要分别记录：服务端发出操作、应用执行到某个客户端状态、服务端收到相关完成回报。发往应用的事务是 oneway；反向回报中 Pause 是同步接口，Resume、Stop 和 Destroy 为 oneway，不能把两个方向混为一谈。[源码：IActivityClientController](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/IActivityClientController.aidl#39)。进程被终止时也不保证先完整执行 Destroy item 或 `onDestroy()`。
+三个时间点要分别记录：服务端发出操作、应用执行到某个客户端状态、服务端收到相关完成回报。发往应用的事务是 oneway；反向回报中 Pause 是同步接口，Resume、Stop 和 Destroy 为 oneway，不能把两个方向混为一谈。[源码：IActivityClientController](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/IActivityClientController.aidl#39)。
+
+进程被终止时也不保证先完整执行 Destroy item 或 `onDestroy()`。
 
 ## 10. 顺序执行不意味着原子性、回滚或总能成功
 
@@ -211,7 +231,9 @@ Launch 处理完成后的客户端状态可到 `ON_CREATE`，后续 Resume 请�
 
 ## 11. 阅读旧文章时怎样识别模型差异
 
-旧资料中常见 `mActivityCallbacks`、事务级 `mActivityToken`、`mLifecycleStateRequest`，以及 `obtain(...)` / `addCallback(...)` / `setLifecycleStateRequest(...)`。本基线保留部分兼容成员，但新的解释路径以有序 item 列表为核心，不能看到成员名还在就认为旧调用方式仍然适用。
+旧资料中常见 `mActivityCallbacks`、事务级 `mActivityToken`、`mLifecycleStateRequest`，以及 `obtain(...)` / `addCallback(...)` / `setLifecycleStateRequest(...)`。
+
+本基线保留部分兼容成员，但新的解释路径以有序 item 列表为核心，不能看到成员名还在就认为旧调用方式仍然适用。
 
 尤其不要用事务级兼容 Token 去解释列表里所有 item 的目标；应逐项读取 `getActivityToken()`，并承认存在不面向 Activity 的操作。内部协议会演进，分析不同系统版本时要固定标签核对字段、方法可见性和实际调用点，不能宣称它是稳定的公共 SDK。
 

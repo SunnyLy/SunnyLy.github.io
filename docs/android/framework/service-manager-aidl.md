@@ -51,27 +51,37 @@ flowchart TB
 - **`IServiceManager`**：服务目录的接口协议，有对应的生成代码和适配实现，不是具体业务服务的接口。
 - **`servicemanager`**：独立的原生目录进程，保存服务名称、Binder 引用及相关元数据，执行目录访问控制。
 
-Java `getIServiceManager()` 从 `BinderInternal.getContextObject()` 取得目录入口，再交给 `ServiceManagerNative.asInterface()`。底层 `ProcessState::getContextObject()` 使用当前 Binder context 中的 **handle 0**。这个约定使客户端能找到目录，但不能据此把其他 handle 当作全局对象 ID；服务名也应在对应目录和 Binder 域的范围内理解。[Java 入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#149)、[原生 context 入口](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/ProcessState.cpp#177)、[目录进程初始化](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/cmds/servicemanager/main.cpp#153)
+Java `getIServiceManager()` 从 `BinderInternal.getContextObject()` 取得目录入口，再交给 `ServiceManagerNative.asInterface()`。
 
-本版本还存在一层容易遗漏的适配：Java `ServiceManagerProxy` 获取 native backend 对应的接口，backend 再连接真正的 context manager。不能直接套用“Java Proxy 保存 remote，然后每个方法都对它手写事务码”的旧实现。[ServiceManagerNative](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManagerNative.java#38)、[BackendUnifiedServiceManager](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/BackendUnifiedServiceManager.cpp#491)
+底层 `ProcessState::getContextObject()` 使用当前 Binder context 中的 **handle 0**。这个约定使客户端能找到目录，但不能据此把其他 handle 当作全局对象 ID；服务名也应在对应目录和 Binder 域的范围内理解。[Java 入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#149)、[原生 context 入口](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/ProcessState.cpp#177)、[目录进程初始化](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/cmds/servicemanager/main.cpp#153)
+
+本版本还存在一层容易遗漏的适配：Java `ServiceManagerProxy` 获取 native backend 对应的接口，backend 再连接真正的 context manager。
+
+不能直接套用“Java Proxy 保存 remote，然后每个方法都对它手写事务码”的旧实现。[ServiceManagerNative](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManagerNative.java#38)、[BackendUnifiedServiceManager](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/BackendUnifiedServiceManager.cpp#491)
 
 ## 3. 系统服务怎样发布：以电源服务为例
 
 `PowerManagerService` 的外层负责系统服务生命周期，内部 `BinderService extends IPowerManager.Stub` 提供远端业务接口。`onStart()` 发布的是已经创建好的 `mBinderService` 实例，同时通过另一条路径发布 `PowerManagerInternal` 本地接口。
 
-主线是 `PowerManagerService.onStart()` → `SystemService.publishBinderService()` → Java `ServiceManager.addService()` → native backend → 目录服务的注册操作。注册内容是**名称与 Binder 引用**，不是 Java 类名，也不是把 PowerManagerService 的实现迁移到目录进程。[Power 发布入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/power/PowerManagerService.java#1342)、[SystemService 发布封装](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/SystemService.java#606)
+主线是 `PowerManagerService.onStart()` → `SystemService.publishBinderService()` → Java `ServiceManager.addService()` → native backend → 目录服务的注册操作。
+
+注册内容是**名称与 Binder 引用**，不是 Java 类名，也不是把 PowerManagerService 的实现迁移到目录进程。[Power 发布入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/power/PowerManagerService.java#1342)、[SystemService 发布封装](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/SystemService.java#606)
 
 这也解释了为何不宜背诵“所有系统服务都继承某个 Stub”：有的服务直接实现业务 Stub，有的外层是 `SystemService`、内部持有 BinderService。分析时应追踪实际传给 `addService()` 的对象。
 
 ### 注册权限与查找权限分开检查
 
-原生注册路径检查应用 UID 限制、服务名、空 Binder、SELinux `add` 权限及适用的声明要求；查找路径涉及 `find` 权限和 isolated 调用方限制。`service_contexts` 将名称映射到 SELinux 服务类型，`allowIsolated` 也不是“允许任何应用访问”的开关。[目录注册与查找](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/cmds/servicemanager/ServiceManager.cpp#449)、[Access 中的 add / find 检查](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/cmds/servicemanager/Access.cpp#130)
+原生注册路径检查应用 UID 限制、服务名、空 Binder、SELinux `add` 权限及适用的声明要求；查找路径涉及 `find` 权限和 isolated 调用方限制。
+
+`service_contexts` 将名称映射到 SELinux 服务类型，`allowIsolated` 也不是“允许任何应用访问”的开关。[目录注册与查找](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/cmds/servicemanager/ServiceManager.cpp#449)、[Access 中的 add / find 检查](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/cmds/servicemanager/Access.cpp#130)
 
 普通应用不能靠反射调用隐藏的 `addService()` 获得注册资格；平台策略和进程身份检查仍然存在。
 
 ## 4. getService、checkService 与等待不能混为一谈
 
-在此版本 Java 实现中，`getService()` 和 `checkService()` 都先查 Java `sCache`。`rawGetService()` 虽然调用名为 `getService2()` 的方法，但兼容 Proxy 实际转交 native backend 的 **`checkService2()`**。因此不能将 Java `getService()` 直接解释为“未注册就启动并等待目标服务”。[Java 查找入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#160)、[Proxy 中的实际转发](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManagerNative.java#63)
+在此版本 Java 实现中，`getService()` 和 `checkService()` 都先查 Java `sCache`。`rawGetService()` 虽然调用名为 `getService2()` 的方法，但兼容 Proxy 实际转交 native backend 的 **`checkService2()`**。
+
+因此不能将 Java `getService()` 直接解释为“未注册就启动并等待目标服务”。[Java 查找入口](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#160)、[Proxy 中的实际转发](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManagerNative.java#63)
 
 - **Java `getService()` / `checkService()`**：查缓存和当前目录结果；没有目标时可能得到 `null`。这里“不等待注册”不表示同步 Binder 查询绝不阻塞线程。
 - **Java `waitForService()`**：经 JNI 使用原生等待逻辑，涉及查询、注册通知、等待和惰性启动重试，没有统一固定的总等待期限。不能在界面线程随意等待不确定存在的服务。
@@ -81,7 +91,9 @@ Java `getIServiceManager()` 从 `BinderInternal.getContextObject()` 取得目录
 
 ### 两层缓存有不同的边界
 
-Java `sCache` 主要由启动流程预装，普通 `getService()` / `checkService()` 缓存未命中后不会自动把结果加入这个表。native backend 则另有受配置和运行条件影响的缓存与死亡失效处理。因此“Java 表未命中”不等于“本次必然跨进程”，持有缓存引用也不等于服务永远存活。[Java 缓存初始化](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#405)、[native backend 缓存](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/BackendUnifiedServiceManager.cpp#131)
+Java `sCache` 主要由启动流程预装，普通 `getService()` / `checkService()` 缓存未命中后不会自动把结果加入这个表。native backend 则另有受配置和运行条件影响的缓存与死亡失效处理。
+
+因此“Java 表未命中”不等于“本次必然跨进程”，持有缓存引用也不等于服务永远存活。[Java 缓存初始化](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/os/ServiceManager.java#405)、[native backend 缓存](https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r1/libs/binder/BackendUnifiedServiceManager.cpp#131)
 
 ```mermaid
 sequenceDiagram
@@ -156,9 +168,13 @@ public class CalcService extends Service {
     android:process=":calc" />
 ```
 
-客户端用显式 `Intent` 调用 `bindService(intent, connection, Context.BIND_AUTO_CREATE)`；连接建立后，以 `ICalcService.Stub.asInterface(service)` 转换回调中的 `IBinder`。示例中的 `exported="false"` 用于本应用内演示；跨应用使用必须另行设计导出、声明权限、调用方授权与可见性，不能只修改这一个属性。[官方 AIDL 接入说明](https://developer.android.com/develop/background-work/services/aidl)
+客户端用显式 `Intent` 调用 `bindService(intent, connection, Context.BIND_AUTO_CREATE)`；连接建立后，以 `ICalcService.Stub.asInterface(service)` 转换回调中的 `IBinder`。
 
-这里至少要分清两份 Binder：**ServiceRecord 本身的 Binder** 是 AMS 管理服务记录的 Token；**`onBind()` 返回的 Binder** 才是示例中的计算接口。`publishService(token, intent, binder)` 同时传递二者，不能把框架 Token 当成业务 Stub。[ServiceRecord 定义](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/am/ServiceRecord.java#81)、[handleBindService](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#5300)
+示例中的 `exported="false"` 用于本应用内演示；跨应用使用必须另行设计导出、声明权限、调用方授权与可见性，不能只修改这一个属性。[官方 AIDL 接入说明](https://developer.android.com/develop/background-work/services/aidl)
+
+这里至少要分清两份 Binder：**ServiceRecord 本身的 Binder** 是 AMS 管理服务记录的 Token；**`onBind()` 返回的 Binder** 才是示例中的计算接口。
+
+`publishService(token, intent, binder)` 同时传递二者，不能把框架 Token 当成业务 Stub。[ServiceRecord 定义](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/am/ServiceRecord.java#81)、[handleBindService](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#5300)
 
 ## 7. bindService 跨进程时序与回调线程
 
@@ -189,7 +205,9 @@ sequenceDiagram
   Note over C,H: bindService 返回值不等于连接已建立
 ```
 
-`IServiceConnection.connected()` 是 oneway 通知，但最终用户回调由 `LoadedApk.ServiceDispatcher` 交给 Handler 或指定 Executor。常见重载默认使用主线程；不能把“经 Binder 到达”写成“回调必在 Binder 线程池”。Service 的 `onCreate()` / `onBind()` 默认也在主线程，远端业务 AIDL 方法才通常由 Binder 线程池处理。[ContextImpl](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ContextImpl.java#2201)、[ApplicationThread 消息转交](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#1204)、[ServiceDispatcher](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/LoadedApk.java#2165)
+`IServiceConnection.connected()` 是 oneway 通知，但最终用户回调由 `LoadedApk.ServiceDispatcher` 交给 Handler 或指定 Executor。
+
+常见重载默认使用主线程；不能把“经 Binder 到达”写成“回调必在 Binder 线程池”。Service 的 `onCreate()` / `onBind()` 默认也在主线程，远端业务 AIDL 方法才通常由 Binder 线程池处理。[ContextImpl](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ContextImpl.java#2201)、[ApplicationThread 消息转交](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/ActivityThread.java#1204)、[ServiceDispatcher](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/LoadedApk.java#2165)
 
 ## 8. 返回值、解绑与死亡怎样处理
 
@@ -202,13 +220,17 @@ sequenceDiagram
 
 SDK 契约要求正常返回 `false` 或抛出 `SecurityException` 时调用 `unbindService()` 释放连接，不能只在 `true` 时安排清理。[Context 的返回与清理契约](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/Context.java#3979)、[连接回调契约](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/content/ServiceConnection.java#34)
 
-不要把上述安全异常与登记前的参数错误合并：`ContextImpl.bindServiceCommon()` 在 `conn == null` 或同时传入 Handler/Executor 时，尚未取得 ServiceDispatcher 就抛出 `IllegalArgumentException`，不应对这种未登记对象盲目解绑；而隐式 Intent 等校验发生在取得 ServiceDispatcher 之后，同样可能抛出 `IllegalArgumentException`。应结合具体失败位置跟踪绑定尝试、登记及清理状态，不能仅凭异常类型或“已连接”布尔值决定是否释放。[固定版本登记与参数检查顺序](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ContextImpl.java#L2201)
+不要把上述安全异常与登记前的参数错误合并：`ContextImpl.bindServiceCommon()` 在 `conn == null` 或同时传入 Handler/Executor 时，尚未取得 ServiceDispatcher 就抛出 `IllegalArgumentException`，不应对这种未登记对象盲目解绑；而隐式 Intent 等校验发生在取得 ServiceDispatcher 之后，同样可能抛出 `IllegalArgumentException`。
+
+应结合具体失败位置跟踪绑定尝试、登记及清理状态，不能仅凭异常类型或“已连接”布尔值决定是否释放。[固定版本登记与参数检查顺序](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-16.0.0_r1/core/java/android/app/ContextImpl.java#L2201)
 
 服务死亡后，旧 Proxy 不会自动指向重启后的新对象。应使用有效连接或重新绑定取得新接口；处理 `RemoteException` / 死亡通知时，也不能无条件重试非幂等操作。最后一个绑定解除后，服务是否销毁还取决于它是否同时处于 started 状态等生命周期条件。[绑定服务生命周期](https://developer.android.com/develop/background-work/services/bound-services)
 
 ## 9. 权限、线程与身份必须逐层分析
 
-绑定组件时，系统检查 Intent、可见性、导出和声明权限等条件。使用显式 Intent 有助于确定目标，但不会绕过这些检查。通过目录找系统服务时，则适用目录本身的 add / find 与相关平台策略。取得 Binder 后，还存在独立的业务方法授权，例如电源服务 `reboot()` 检查 REBOOT / RECOVERY 权限。[绑定解析与访问检查](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/am/ActiveServices.java#5080)、[Power 业务权限](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/power/PowerManagerService.java#6848)
+绑定组件时，系统检查 Intent、可见性、导出和声明权限等条件。使用显式 Intent 有助于确定目标，但不会绕过这些检查。通过目录找系统服务时，则适用目录本身的 add / find 与相关平台策略。
+
+取得 Binder 后，还存在独立的业务方法授权，例如电源服务 `reboot()` 检查 REBOOT / RECOVERY 权限。[绑定解析与访问检查](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/am/ActiveServices.java#5080)、[Power 业务权限](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/power/PowerManagerService.java#6848)
 
 特别容易出错的是在 `onBind()` 中用 `Binder.getCallingUid()` 判断原始绑定客户端：该回调经主线程消息执行，已经不处于原客户端的业务 Binder 事务。业务授权应在实际接收调用的边界核验调用身份；准备转交异步任务时，先捕获并验证身份，不能到工作线程再假设原调用上下文仍存在。
 
@@ -216,15 +238,21 @@ Service 不是后台线程。远端 AIDL 方法可能被多个 Binder 线程并�
 
 ## 10. getSystemService 与 LocalServices 又是什么
 
-`Context.getSystemService()` 通过 `SystemServiceRegistry` 提供面向应用的客户端对象。以电源服务为例，注册逻辑取得 Power / Thermal 接口后创建 `PowerManager`；而 LayoutInflater 的注册逻辑直接构造本地 `PhoneLayoutInflater`。所以不能写成“每次 getSystemService 都查询目录并返回一个 Binder”。封装、缓存以及建立连接的时机要逐项追踪。[PowerManager 注册](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/SystemServiceRegistry.java#638)、[LayoutInflater 注册](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/SystemServiceRegistry.java#592)
+`Context.getSystemService()` 通过 `SystemServiceRegistry` 提供面向应用的客户端对象。以电源服务为例，注册逻辑取得 Power / Thermal 接口后创建 `PowerManager`；而 LayoutInflater 的注册逻辑直接构造本地 `PhoneLayoutInflater`。
 
-`LocalServices` 则是进程内按接口类型管理对象的注册表，常用于系统内部协作；`publishLocalService()` 不会把该对象发布到原生服务目录。调用取得的本地接口没有这一步跨进程代理过程，但对象内部仍可能再调用其他 Binder 服务，不应把“本地注册表”理解成“全部业务永不跨进程”。[LocalServices 注册表](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/com/android/server/LocalServices.java#33)、[publishLocalService](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/SystemService.java#625)
+所以不能写成“每次 getSystemService 都查询目录并返回一个 Binder”。封装、缓存以及建立连接的时机要逐项追踪。[PowerManager 注册](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/SystemServiceRegistry.java#638)、[LayoutInflater 注册](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/SystemServiceRegistry.java#592)
+
+`LocalServices` 则是进程内按接口类型管理对象的注册表，常用于系统内部协作；`publishLocalService()` 不会把该对象发布到原生服务目录。
+
+调用取得的本地接口没有这一步跨进程代理过程，但对象内部仍可能再调用其他 Binder 服务，不应把“本地注册表”理解成“全部业务永不跨进程”。[LocalServices 注册表](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/com/android/server/LocalServices.java#33)、[publishLocalService](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/services/core/java/com/android/server/SystemService.java#625)
 
 最后，`bindService()` 只是应用取得自定义 Binder 的常见方式。Binder 引用也能通过已有 Binder 调用、回调参数或适当的 `Bundle` 等契约继续传递；AIDL 本身不规定必须通过哪个入口首次发现接口。无论采用哪条路径，都要单独设计访问控制、引用有效期和死亡处理。
 
 ### Manager 缓存与 Binder 服务缓存不是一层 {#manager-cache}
 
-`SystemServiceRegistry.CachedServiceFetcher` 为服务分配缓存下标，在 `ContextImpl.mServiceCache` 中保存创建好的 Manager，并用初始化状态协调并发创建。`ServiceManager` 缓存保存的则是服务 Binder 引用。复用 Manager 只省去包装对象的创建，不代表它的每次方法调用都变成本地操作，也不保证缓存里的远端服务始终存活。[CachedServiceFetcher](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/SystemServiceRegistry.java#2285)
+`SystemServiceRegistry.CachedServiceFetcher` 为服务分配缓存下标，在 `ContextImpl.mServiceCache` 中保存创建好的 Manager，并用初始化状态协调并发创建。
+
+`ServiceManager` 缓存保存的则是服务 Binder 引用。复用 Manager 只省去包装对象的创建，不代表它的每次方法调用都变成本地操作，也不保证缓存里的远端服务始终存活。[CachedServiceFetcher](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/app/SystemServiceRegistry.java#2285)
 
 ## 11. 按故障阶段定位，而不是只看接口名字
 
