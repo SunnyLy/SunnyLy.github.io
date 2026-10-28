@@ -111,6 +111,229 @@ flowchart LR
 
 预加载与写时复制减少重复初始化和内存复制，但子进程仍有独立地址空间，修改不会自动同步给其他进程。预加载可按配置延迟，应用创建也可能使用预先 fork 的 USAP 池。[Zygote 官方说明](https://source.android.com/docs/core/runtime/zygote) · [预加载与请求循环源码](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/com/android/internal/os/ZygoteInit.java#810)
 
+### init.rc：系统如何读懂启动配置
+
+**谁读？** Android 的 Native `init` 进程读取和执行配置；Linux 内核提供进程、文件系统等能力，**不直接解释 `.rc`**。
+
+本节设备示例来自 ADB 实测：型号 **MIA-LX9**，Android **16**、API **36**，`/proc/1/comm` 为 `init`。设备配置包含厂商扩展；下面的源码使用 AOSP `android-16.0.0_r1`，不能等同于厂商实际源码。
+
+#### ① 文件在哪里，有什么
+
+```mermaid
+flowchart TB
+  K["Linux 内核<br/>启动 init"] --> I["Android init 进程"]
+  I --> R["读取主配置<br/>/system/etc/init/hw/init.rc"]
+  R --> IMP["import<br/>引入其他 rc"]
+  R --> ACT["on<br/>触发条件 + 命令"]
+  R --> SVC["service<br/>服务名 + 程序 + 选项"]
+  IMP --> ZR["init.zygote64_32.rc<br/>主、次 Zygote 服务定义"]
+  ACT -->|事件命中后执行 start| SVC
+  SVC -->|启动程序| Z["Zygote 进程"]
+```
+
+这台设备的主配置约 70 KB。它不是全部启动配置：`import` 和各分区 `etc/init` 下的其他 `.rc` 共同定义启动行为。以下均是设备文件摘录，省略其余配置。
+
+| 关键字 | 含义 | 设备中的例子 |
+| --- | --- | --- |
+| `import` | 加载另一份配置，可使用属性展开路径 | `init.${ro.zygote}.rc` |
+| `on` | 匹配事件、属性条件后执行动作 | `on early-init`、`on zygote-start` |
+| `service` | 声明可启动程序及其运行选项 | `service zygote /system/bin/app_process64 ...` |
+| `#` | 注释，不作为命令执行 | 各配置段中的说明 |
+
+#### ② import：按设备属性选择 Zygote 配置
+
+```text
+# 设备 /system/etc/init/hw/init.rc，第 7～13 行，摘录
+import /init.environ.rc
+import /system/etc/init/hw/init.usb.rc
+import /vendor/etc/init/hw/init.${ro.hardware}.rc
+import /system/etc/init/hw/init.${ro.zygote}.rc
+import /system/etc/init/hw/init.arkinit.rc
+```
+
+设备实测 `ro.zygote=zygote64_32`，所以上面的 Zygote 路径展开为 `/system/etc/init/hw/init.zygote64_32.rc`。该文件实测同时定义：
+
+```text
+# 设备 init.zygote64_32.rc，摘录
+service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-system-server --socket-name=zygote
+    class main
+    user root
+    socket zygote stream 660 root system
+
+service zygote_secondary /system/bin/app_process32 -Xzygote /system/bin --zygote --socket-name=zygote_secondary --enable-lazy-preload
+    class main
+    user root
+    socket zygote_secondary stream 660 root system
+```
+
+主 Zygote 使用 64 位程序并带 `--start-system-server`；次 Zygote 使用 32 位程序和独立 Socket。实际启动以设备配置与属性为准，不能由文件存在推断服务已经启动。
+
+#### ③ on：事件到了才执行对应动作
+
+这台设备 `on late-init` 中包含一系列 `trigger`；下面突出文件系统和 Zygote 相关事件，**省略了中间的其他事件**：
+
+```mermaid
+flowchart TB
+  E["early-init<br/>早期内核与安全配置"] --> I["init<br/>基础目录与系统环境"]
+  I --> L["late-init<br/>安排后续事件"]
+  L --> F["early-fs → fs → post-fs → late-fs"]
+  F --> D["post-fs-data<br/>处理 /data"]
+  D --> Z["zygote-start<br/>准备条件后启动主、次 Zygote"]
+  Z --> B["early-boot → boot<br/>继续其他启动动作"]
+  P["属性变化<br/>sys.boot_completed=1"] --> A["对应属性动作"]
+```
+
+`trigger` 将事件**加入队列**，不是在当前行直接同步执行另一段所有命令。图展示该设备配置中的关键事件顺序，不代表全部命令或所有服务完成顺序；`post-fs-data` 也不能概括为所有设备都在此处完成挂载。
+
+```text
+# 设备 init.rc，摘录；分别属于不同的 on 段
+on early-init
+    write /proc/sys/kernel/sysrq 0
+    restorecon /adb_keys
+
+on init
+    symlink /proc/self/fd/0 /dev/stdin
+    mkdir /dev/stune/foreground
+
+on post-fs-data
+    chown system system /data
+    chmod 0771 /data
+    restorecon /data
+
+on boot
+    ifup lo
+    hostname localhost
+    setprop sys.usb.configfs 1
+```
+
+- `write` 向文件或内核接口写入值；`mkdir` 创建目录；`symlink` 创建符号链接。
+- `chown` / `chmod` 设置属主和权限；`restorecon` 按 SELinux 策略恢复安全标签。
+- `ifup lo` 启用本机回环接口；`setprop` 设置系统属性。
+
+**属性触发示例：**设备的 `on property:sys.boot_completed=1` 包含 `bootchart stop` 及 `/data/per_boot` 的处理。实测该属性当前为 `1`，这只能说明查询时属性的值，不能证明每条命令此前都已成功执行。
+
+#### ④ 从解析到执行：AOSP 关键代码
+
+```mermaid
+flowchart TB
+  L["LoadBootScripts<br/>选择主 rc 和其他目录"] --> P["Parser 读取文本、识别语句"]
+  P --> R["登记 import、action、service"]
+  R --> Q["启动事件或属性变化<br/>进入 ActionManager 队列"]
+  Q --> M["匹配 on 条件"]
+  M --> X["ExecuteOneCommand<br/>依次执行命令"]
+  X --> T["trigger：加入新事件"]
+  X --> S["start：查找并启动 service"]
+```
+
+`ro.boot.init_rc` 为空时，AOSP 加载默认主配置；非空时选择该属性指定的配置。这台设备当前查询结果为空。AOSP 还会解析各分区的 `etc/init` 目录。[LoadBootScripts 与 CreateParser](https://android.googlesource.com/platform/system/core/+/refs/tags/android-16.0.0_r1/init/init.cpp#253)
+
+```cpp
+// AOSP android-16.0.0_r1，init.cpp，摘录
+parser.AddSectionParser("service", std::make_unique<ServiceParser>(&service_list, GetSubcontext()));
+parser.AddSectionParser("on", std::make_unique<ActionParser>(&action_manager, GetSubcontext()));
+parser.AddSectionParser("import", std::make_unique<ImportParser>(&parser));
+
+// LoadBootScripts() 的默认主配置路径
+parser.ParseConfig("/system/etc/init/hw/init.rc");
+```
+
+`Parser::ParseConfigFile()` 读取文本并调用 `ParseData()`；init 随后将启动事件入队，主循环调用 `ExecuteOneCommand()`。属性触发也由事件机制处理，实际执行还受条件及队列状态影响。[parser.cpp](https://android.googlesource.com/platform/system/core/+/refs/tags/android-16.0.0_r1/init/parser.cpp) · [action_manager.cpp](https://android.googlesource.com/platform/system/core/+/refs/tags/android-16.0.0_r1/init/action_manager.cpp)
+
+```cpp
+// AOSP android-16.0.0_r1，init.cpp，摘录
+LoadBootScripts(am, sm);
+am.QueueEventTrigger("early-init");
+// ... 省略其他初始化与事件
+am.QueueEventTrigger("init");
+// 非 charger 模式
+am.QueueEventTrigger("late-init");
+// ... 主循环中，等待条件允许时
+am.ExecuteOneCommand();
+```
+
+#### 实例：early-init 的 mkdir 最终由谁执行
+
+```text
+# 设备 /system/etc/init/hw/init.rc，on early-init 中，第 54 行
+mkdir /linkerconfig/bootstrap 0755
+```
+
+这是 **init 的内置命令**：由 init 进程处理，不需要启动 shell 或外部 `mkdir` 程序。路径是要创建的目录；`0755` 表示属主可读、写、进入，其他用户可读、进入。
+
+```mermaid
+flowchart TB
+  Q["init：early-init 事件入队"] --> A["ActionManager 匹配 on early-init"]
+  A --> C["按顺序执行 mkdir 命令"]
+  C --> B["内置命令表：mkdir → do_mkdir"]
+  B --> O["ParseMkdir<br/>解析路径和 0755"]
+  O --> M["make_dir_with_options<br/>检查目录与权限"]
+  M -->|目录不存在| D["make_dir → mkdir 系统调用"]
+  D --> K["Linux 内核创建目录"]
+  M -->|目录已存在| E["按需调整权限等属性"]
+```
+
+命令表将 `mkdir` 映射到 `do_mkdir()`。函数解析参数，再交给 `make_dir_with_options()`：[AOSP Android 16 builtins.cpp](https://android.googlesource.com/platform/system/core/+/refs/tags/android-16.0.0_r1/init/builtins.cpp)
+
+```cpp
+// do_mkdir()，AOSP android-16.0.0_r1
+static Result<void> do_mkdir(const BuiltinArguments& args) {
+    auto options = ParseMkdir(args.args);
+    if (!options.ok()) return options.error();
+    return make_dir_with_options(*options);
+}
+```
+
+目标不存在时，`make_dir_with_options()` 调用 `make_dir()`；`make_dir()` 设置适用的 SELinux 创建上下文，并调用 `mkdir()` 进入内核。下面省略了错误和 SELinux 处理：[builtins.cpp](https://android.googlesource.com/platform/system/core/+/refs/tags/android-16.0.0_r1/init/builtins.cpp) · [util.cpp](https://android.googlesource.com/platform/system/core/+/refs/tags/android-16.0.0_r1/init/util.cpp)
+
+```cpp
+// make_dir_with_options()，摘录
+if (!make_dir(options.target, options.mode)) {
+    return ErrnoErrorIgnoreEnoent() << "mkdir() failed on " << options.target;
+}
+
+// make_dir()，摘录
+int rc = mkdir(path.c_str(), mode);
+```
+
+设备查询时，`/linkerconfig/bootstrap` 在当前 ADB shell 的文件系统视图中不存在；这不能证明开机时该命令未执行成功，也不能排除后续挂载或命名空间变化。以上函数调用是 AOSP 对应版本的实现，厂商实际 init 源码尚未核验。
+
+#### ⑤ start：从服务名到进程
+
+设备的 `on zygote-start` 先等待 `odsign.verification.done=1`，执行 `update_verifier`，再依次执行 `start statsd`、`start zygote` 和 `start zygote_secondary`。这些是配置的执行次序，不代表服务内部初始化都已完成。
+
+```text
+# 设备 init.rc，第 1324 行起，摘录
+on zygote-start
+    wait_for_prop odsign.verification.done 1
+    exec_start update_verifier
+    start statsd
+    start zygote
+    start zygote_secondary
+```
+
+```mermaid
+flowchart LR
+  A["start zygote"] --> B["do_start<br/>查找服务名"]
+  B --> C["Service::Start"]
+  C --> D["创建子进程<br/>fork 或 clone"]
+  D --> E["子进程 RunService"]
+  E --> F["execv<br/>装载 app_process64"]
+  F --> G["Native 入口 → ART → ZygoteInit"]
+```
+
+AOSP 的 `do_start()` 从服务列表查找名称并调用 `Service::Start()`；后者根据配置选择 `fork` 或 `clone`，子进程进入 `RunService()`，再调用 `execv`。服务启动涉及权限、环境、Socket 等设置，图省略这些细节。[builtins.cpp](https://android.googlesource.com/platform/system/core/+/refs/tags/android-16.0.0_r1/init/builtins.cpp) · [service.cpp](https://android.googlesource.com/platform/system/core/+/refs/tags/android-16.0.0_r1/init/service.cpp)
+
+```cpp
+// AOSP android-16.0.0_r1，do_start()，摘录
+Service* svc = ServiceList::GetInstance().FindService(args[1]);
+if (!svc) return Error() << "service " << args[1] << " not found";
+if (auto result = svc->Start(); !result.ok()) {
+    return ErrorIgnoreEnoent() << "Could not start service: " << result.error();
+}
+```
+
+服务选项中的 `class main` 是服务所属组，不表示配置解析时就立即执行；`socket` 声明由 init 准备的服务 Socket；`onrestart` 定义服务重启时的动作。服务启动和进程内部准备就绪是两件事。
+
 ## 2. Zygote 如何创建 system_server
 
 ```mermaid
