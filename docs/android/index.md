@@ -35,7 +35,7 @@ description: 从组件与进程边界出发，逐步建立 Android 系统机制�
 
 ## 三方开源库
 
-[OkHttp：版本演进、设计模式与 Retrofit 实战](./libraries/okhttp.html)从版本优化与设计模式进入 Android 集成，完整串起泛型请求、业务 Code、JSON 与 Bean 映射，再图解调度、连接复用、缓存及重试。更多库笔记见[三方开源库目录](./libraries/index.html)。
+[OkHttp：版本演进、设计模式与 Retrofit 实战](./libraries/okhttp.html)讲解网络请求；[Glide：图片加载、缓存与源码设计](./libraries/glide.html)拆解图片加载与资源复用。更多内容见[三方开源库目录](./libraries/index.html)。
 
 ## Kotlin
 

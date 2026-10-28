@@ -173,6 +173,12 @@ export const knowledgeSections: KnowledgeSection[] = [
         description: '理解版本演进与设计模式，实战 Retrofit 泛型封装、业务 Code、JSON Bean 映射和请求原理。',
       },
       {
+        text: 'Glide 源码与缓存',
+        group: '三方开源库',
+        link: '/android/libraries/glide.html',
+        description: '从图片加载入门，理解请求、生命周期、四层缓存和设计模式。',
+      },
+      {
         text: 'Compose State 原理',
         group: 'Kotlin',
         link: '/android/kotlin/compose-state.html',
