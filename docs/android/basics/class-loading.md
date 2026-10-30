@@ -48,6 +48,27 @@ flowchart LR
 
 **先查已加载，再问 parent；parent 找不到，才查自己。** 每个加载器对象的 `parent` 引用至多指向一个父加载器，“双亲”不是同时有两个父级。
 
+`parent` 是 `ClassLoader` 基类统一声明的私有实例字段。`PathClassLoader`、`DexClassLoader` 等子类对象也包含这份基类状态，不需要在每个子类中重复声明。
+
+下面摘录 AOSP `android-16.0.0_r1` 的 `ClassLoader.java`：[字段声明，L233–236](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java#233)、[私有构造方法，L422 起](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java#422)、[接收 parent 的构造方法，L507–509](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java#507)。省略无关成员、注释及后续初始化，补充中文注释：
+
+```java
+// ClassLoader 的实例字段：保存向上委托的目标对象。
+private final ClassLoader parent;
+
+private ClassLoader(Void unused, String name, ClassLoader parent) {
+    this.name = name;
+    this.parent = parent; // 将传入的父加载器保存到当前对象。
+    // ... 省略其余初始化
+}
+
+protected ClassLoader(ClassLoader parent) {
+    this(checkCreateClassLoader(), null, parent); // 调用上面的私有构造方法。
+}
+```
+
+**构造时保存 parent，加载时沿 parent 委托。** 默认 `loadClass()` 通过 `parent.loadClass(name, false)` 请求这个字段引用的父加载器；父加载器再按自己的实现继续处理，从而形成逐级向上委托。链顶端的 `BootClassLoader` 通过 `super(null)` 将 parent 设为 `null`，表示没有父加载器；完整分支见[下一节的源码](#load-class)。
+
 ![双亲委派：左侧向上委托，右侧向下查找](/assets/android/basics/class-loading/parent-delegation.svg)
 
 **从左下角出发，沿蓝线向上，再沿右侧橙线向下。任一绿色出口命中，就返回 Class，不再继续向下查找。**
@@ -547,7 +568,7 @@ Android 14 及以上、且 `targetSdkVersion >= 34` 的应用动态加载 DEX、
 
 源码摘录与行号对应 AOSP `android-16.0.0_r1`：
 
-- [ClassLoader / BootClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java)：L572 单参数入口，L617 默认委派，L2697 引导类查找，L2753 引导加载入口。
+- [ClassLoader / BootClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java)：L236 parent 字段，L422 构造赋值，L507 接收 parent 的构造入口，L572 单参数入口，L617 默认委派，L2692 引导加载器构造，L2697 引导类查找，L2753 引导加载入口。
 - [BaseDexClassLoader](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java#232)：共享库和自身路径顺序。
 - [DexPathList](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DexPathList.java#530)、[DexFile](https://android.googlesource.com/platform/libcore/+/refs/tags/android-16.0.0_r1/dalvik/src/main/java/dalvik/system/DexFile.java#320)：元素遍历与 Java 到 native 的入口。
 - [ART DexFile_defineClassNative](https://android.googlesource.com/platform/art/+/refs/tags/android-16.0.0_r1/runtime/native/dalvik_system_DexFile.cc#471)：查 DEX 类定义、注册 DEX、接入 ClassLinker。
