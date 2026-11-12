@@ -148,6 +148,12 @@ export const knowledgeSections: KnowledgeSection[] = [
         description: '从分区与启动校验到解锁、Root、刷机和 OTA 更新。',
       },
       {
+        text: 'Android 证书与信任体系',
+        group: 'Framework',
+        link: '/android/framework/certificates-trust-keystore.html',
+        description: '系统 CA、验链、数字签名、Keystore、TEE、Key Attestation 与 Verified Boot。',
+      },
+      {
         text: 'Binder 机制',
         group: 'Framework',
         link: '/android/framework/binder-mechanism.html',
